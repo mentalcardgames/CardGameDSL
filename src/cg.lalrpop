@@ -1,0 +1,384 @@
+use std::str::FromStr;
+use crate::ast::{Status, Operator, Collection, Player, Team, GameData, Location};
+
+grammar(context: &mut GameData);
+
+
+ID: String = r"[a-zA-Z_][a-zA-Z0-9_]*" => String::from(<>);
+INT: i32 = r"[0-9]+" => i32::from_str(<>).unwrap();
+
+
+Comma<T>: Vec<T> = {
+    <mut v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+CommaBrackets<T>: Vec<T> = {
+    "(" <mut v:(<T> ",")*> <e:T?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+/*
+pub Game: String = {
+    ID => String::from(<>.to_string()),
+};
+*/
+
+/*
+pub Stage: String = {
+    ID => String::from(<>.to_string()),
+};
+*/
+
+pub PlayerName: String = {
+    ID => String::from(<>.to_string()),
+};
+
+pub Location: String = {
+    ID => String::from(<>.to_string()),
+};
+
+pub Token: String = {
+    ID => String::from(<>.to_string()),
+};
+
+pub Precedence: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub Combo: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub Memory: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub PointMap: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub Key: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub Value: String = {
+    ID => String::from(<>.to_string()),
+}
+
+pub CardPosition: String = {
+    // TODO
+    ID => String::from(<>.to_string()),
+}
+
+pub Status: Status = {
+    "faceup" => Status::FACEUP,
+    "facedown" => Status::FACEDOWN,
+    "private" => Status::PRIVATE,
+}
+
+pub String: String = {
+    ID, // Handle an identifier as a string
+    // Key "of" CardPosition => String::from("test"),
+    // StringCollection Int => String::from("test"),
+};
+
+
+/*INT | ’(’ Int (’+’ | ’-’ | ’*’ | ’//’ | ’mod’) Int ’)’ |
+[IntCollection] Int | size’ ’of’ [Collection] |
+’sum’ ’of’ ([IntCollection] | CardSet ’using’ [PointMap]) |
+(’min’ | ’max’) ’of’ [IntCollection] |
+’stageroundcounter’ | ’playroundcounter’*/
+
+
+pub Int: i32 = {
+    // TODO
+    INT,
+    // "(" Int "+" Int ")" => Operator::ADD,
+    // "(" Int "-" Int ")" => Operator::SUB,
+    //"(" Int "*" Int ")" => Operator::MUL,
+    // "(" Int "//" Int ")" => Operator::DIV,
+    // "(" Int "mod" Int ")" => Operator::MOD,
+    // IntCollection Int => {},
+    // "size" "of" Collection => {},
+}
+
+pub Collection: Collection = {
+    IntCollection => Collection::IntCollection(<>),
+    StringCollection => Collection::StringCollection(<>),
+    PlayerCollection => Collection::PlayerCollection(<>),
+    // TeamCollection,
+    // LocationCollection,
+    // CardSet,
+}
+
+pub StringCollection = CommaString;
+pub CommaString: Vec<String> = {
+    "String(" <mut v:(<String> ",")*> <e:String?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub IntCollection: Vec<i32> = CommaInt;
+pub CommaInt: Vec<i32> = {
+    "Int(" <mut v:(<Int> ",")*> <e:Int?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub Player: Player = {
+    <p:PlayerName> => { context.find_player_name(p) },
+}
+pub CreatePlayer: () = { "Player" <c: Comma<PlayerName>> => context.set_players(c) };
+
+pub PlayerCollection: Vec<Player> = CommaPlayer;
+pub CommaPlayer: Vec<Player> = {
+    "Player(" <mut v:(<Player> ",")*> <e:Player?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub TeamName: String = {
+    ID => String::from(<>.to_string()),
+};
+
+pub CreateTeam: () = {
+    "Team" <c: Comma<TeamNamePlayerCollection>> => {
+        context.set_teams(c)
+    },
+}
+
+pub TeamNamePlayerCollection: (String, Vec<Player>) = {
+    <t:TeamName> "with" <p:PlayerCollection> => (t, p),
+}
+
+pub Team: Team = {
+    TeamName => context.find_team_name(<>),
+}
+
+pub TeamCollection: Vec<Team> = CommaTeam;
+pub CommaTeam: Vec<Team> = {
+    "Team(" <mut v:(<Team> ",")*> <e:Team?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub CreateLoc: () = {
+    "Location" <c: CommaLocation> "on" <p: PlayerCollection> => context.set_player_locations(c, p),
+    "Location" <c: CommaLocation> "on" <t: TeamCollection> => context.set_team_locations(c, t),
+    "Location" <c: CommaLocation> "on" "table" => context.set_table_locations(c),
+}
+pub CommaLocation: Vec<String> = {
+    "Location(" <mut v:(<String> ",")*> <e:String?> ")" => match e {
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+
+pub LocationCollection: Vec<String> = {
+    CommaLocation,
+}
+
+/*
+pub Game: () = {
+    Setup Play (Scoring)?,
+}
+
+pub Setup: () = {
+    "Setup:" SetupStructure,
+}
+
+/* SetupStructure → CreatePlayer CreateTeam? CreateTurnorder CreateLoc+ (CreateCard
+& CreateToken & CreatePrec & CreatePointMap & CreateCombo &
+CreateMem)* */
+
+pub SetupStructure: () = {
+    CreatePlayer (CreateTeam)? CreateTurnorder (CreateLoc)+,
+}
+*/
+
+pub CreateTurnorder: () = {
+    "Turnorder" <p: PlayerCollection> "random" => { context.set_turnorder(p, true) },
+    "Turnorder" <p: PlayerCollection> => { context.set_turnorder(p, false)},
+}
+
+pub CreateCard: () = {
+    "Card" "on" <l: Location> ":" <k1: Key> <v1: CommaBrackets<Value>> ":" <kv: MulKeyValuesPair> => {
+        context.create_cards_for_key_value(l, k1, v1, kv)
+    },
+    "Card" "on" <l: Location> ":" <k: Key> <v: CommaBrackets<Value>> => {
+        context.create_cards(l, k, v)
+    },
+}
+
+pub MulKeyValuesPair: Vec<(String, Vec<String>)> = {
+    <c: Comma<KeyValuesPair>> => c,
+}
+
+pub KeyValuesPair: (String, Vec<String>) = {
+    "for" <k:Key> <v: CommaBrackets<Value>> => (k, v)
+}
+
+pub CreatePrec: () = {
+    "Precedence" <p: Precedence> "on" <k: Key> <v: CommaBrackets<Value>> => {context.create_prec(p, k, v)},
+    "Precedence" <p: Precedence> <c: CommaBrackets<KeyValue>> => {context.create_prec_kv(p, c)},
+}
+
+pub KeyValue: (String, String) = {
+    <k: Key> <v: Value> => (k, v),
+}
+
+/*
+CreatePointMap → ’Points’ PointMap ’on’ [Key] ’(’ [Val] ’:’ Int (’,’ [Val] ’:’ Int)* ’)’ |
+’Points’ PointMap ’(’ [Key] [Val] ’:’ Int (’,’ [Key] [Val] ’:’ Int)* ’)’
+*/
+
+pub CreatePointMap: () = {
+    "Points" <p: PointMap> "on" <k: Key> <c: CommaBrackets<ValueInt>> => {context.create_pointmap(p, k, c)},
+    "Points" <p: PointMap> "on" <c: CommaBrackets<KeyValueInt>> => {context.create_pointmap_kvi(p, c)},
+
+}
+
+pub ValueInt: (String, i32) = {
+    <v: Value> ":" <i: Int> => (v, i)
+}
+
+pub KeyValueInt: (String, String, i32) = {
+    <k: Key> <v: Value> ":" <i: Int> => (k, v, i)
+}
+
+/*
+Filter → [Key] (’same’ | ’distinct’ ) |
+[Key] (’adjacent’ | ’higher’ | ’lower’ ) ’using’ [Precedence] |
+’size’ (’==’ | ’!=’’ | ’<’ | ’>’ | ‘’<=’ | ’>=’) Int |
+[Key] (’==’ | ’!=’) String |
+(’not’)? [Combo]
+’(’ Filter (’and’ | ’or’) Filter ’)’
+*/
+
+// this should return back a function!
+// We take a Location, CardSet,... => Vec<Card>
+// We check the Attributes of each Card for the Filter
+pub Filter: Box<dyn Fn(&String) -> bool> = {
+    // we look at the key and check the corresponding value!
+    <k: Key> "same" => {
+        Box::new(move |x| *x == k)
+    },
+    <k: Key> "distinct" => {
+        Box::new(move |x| *x != k)
+    },
+    /* <k: Key> "adjacent" "using" <p: Precedence> => {},
+    <k: Key> "higher" "using" <p: Precedence> => {},
+    <k: Key> "lower" "using" <p: Precedence> => {},
+    "size" "==" <i: Int> => {},
+    "size" "!=" <i: Int> => {},
+    "size" "<" <i: Int> => {},
+    "size" ">" <i: Int> => {},
+    "size" "<=" <i: Int> => {},
+    "size" ">=" <i: Int> => {},
+    // we need to check if they have the right key
+    Key "==" String => {},
+    Key "!=" String => {},
+    Combo => {},
+    "not" Combo => {},
+    "(" Filter "and" Filter ")" => {},
+    "(" Filter "or" Filter ")" => {}, */
+}
+
+/*
+// Stage → SimStage | SeqStage
+pub Stage = {
+    SimStage,
+    SeqStage,
+}
+
+pub SimStage = {
+    "Stage" Stage "for" PlayerCollection EndCondition ":" <SetupPlayScoringRule*> => {},
+}
+
+pub SetupPlayScoringRule = {
+    "create" SetupRule => {},
+    PlayRule => {},
+    ScoringRule => {},
+}
+
+pub SeqStage = {
+    "Stage" Stage "for" Player EndCondition ":" <SetupPlayScoringRule*> => {},
+}
+
+pub PlayRule = {
+    CondRule,
+    OptionalRule,
+    ChoiceRule,
+    // ActionRule,
+    TriggerRule,
+}
+
+pub CondRule = {
+    "conditional:" <Cases+> "]" => {},
+    IfRule,
+}
+
+pub Cases = {
+    "case" (Bool)? ":" <Rule+> => {},
+}
+
+// It just says Rule but there is no specification of Rule
+// I guess he means playrule
+pub IfRule: (Bool, Vec<PlayRule>) = {
+    "if" <b: Bool?> ":" <p: PlayRule+> "]" => (b, p),
+}
+
+// It just says Rule but there is no specification of Rule
+// I guess he means playrule
+pub OptionalRule: Vec<PlayRule> = {
+    "optional:" <p: PlayRule+> "]" => p,
+}
+
+pub ChoiceRule: (PlayRule, Vec<PlayRule>) = {
+    "choose:" <p: PlayRule+> <ps: OrPlayRule+> "]" => (p, ps),
+}
+
+pub OrPlayRule: Vec<PlayRule> = {
+    "or" <p: PlayRule+> => p,
+}
+
+pub TriggerRule: Vec<PlayRule> = {
+    "trigger:" <p: PlayRule+> "]" => p,
+}
+
+// TODO:
+pub EndCondition = {
+    ID,
+}
+
+*/
