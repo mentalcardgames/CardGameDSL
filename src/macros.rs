@@ -27,8 +27,6 @@ macro_rules! team {
     };
 }
 
-
-// ChatGPT generated check later for mistakes!
 macro_rules! card_on {
     (
         $location:expr,
@@ -111,17 +109,18 @@ macro_rules! card_on {
     }};
 }
 
-// ChatGPT look over later
 macro_rules! precedence {
     (
         $name:expr, // Name of the attribute for context
         ($($value:expr),* $(,)?)
+        // TODO: add [key, value] Precedence!
     ) => {{
         use std::collections::HashMap;
         let mut precedence_map = HashMap::new();
         let mut index = 0;
         $(
-            precedence_map.insert($value.to_string(), index);
+            // TODO: might be overworked later
+            precedence_map.insert($name.to_string() + &$value.to_string(), index);
             index += 1;
         )*
         println!("Precedence for {}: {:?}", $name, precedence_map);
@@ -184,13 +183,178 @@ macro_rules! pointmap {
 macro_rules! turn_order {
     (($($player:expr),*), random) => {{
         use rand::seq::SliceRandom;
-        let mut players: Vec<String> = vec![$($player.to_string()),*];
+        use crate::ast::Player;
+        use std::rc::Rc;
+        let mut players: Vec<Rc<Player>> = vec![$($player),*];
         let mut rng = rand::thread_rng();
         players.shuffle(&mut rng);
         players
     }};
     (($($player:expr),*)) => {{
-        let players: Vec<String> = vec![$($player.to_string()),*];
+        use crate::ast::Player;
+        use std::rc::Rc;
+        let players: Vec<Rc<Player>> = vec![$($player),*];
         players
     }};
+}
+
+macro_rules! filter {
+    // Filter for key with "same" or "distinct" values
+    ($key:expr, $condition:tt) => {{
+        move |cards: Vec<Card>| {
+            match $condition {
+                "same" => {
+                    if cards.is_empty() {
+                        return vec![];
+                    }
+                    // we want all cards with the same key
+                    // Ex.: rank same -> (rank, ...), (rank, ...), (rank, ...), (rank, ...)
+                    use std::collections::{HashMap, HashSet};
+
+                    let mut groups: HashMap<String, Vec<Card>> = HashMap::new();
+                    
+                    // Iterate over references to cards to avoid consuming the original cards
+                    for card in cards.iter() {
+                        // Get the value of the attribute for this card
+                        if let Some(value) = card.attributes.get($key) {
+                            // Insert the card into the appropriate group based on its attribute value
+                            groups.entry(value.clone()) // Use the attribute value as the key
+                                .or_insert_with(Vec::new) // If no group exists, initialize a new Vec
+                                .push(card.clone()); // Add the card to the group
+                        }
+                    }
+
+                    // Now, we return the groups as Vec<Vec<Card>>
+                    let result: Vec<Vec<Card>> = groups.into_iter().map(|(_, group)| group).collect();
+                    result
+                }
+                // TODO:
+                "distinct" => {
+                    use std::collections::{HashMap, HashSet};
+
+                    let mut groups: HashMap<String, Vec<Card>> = HashMap::new();
+                    
+                    // Iterate over references to cards to avoid consuming the original cards
+                    for card in cards.iter() {
+                        // Get the value of the attribute for this card
+                        if let Some(value) = card.attributes.get($key) {
+                            // Insert the card into the appropriate group based on its attribute value
+                            groups.entry(value.clone()) // Use the attribute value as the key
+                                .or_insert_with(Vec::new) // If no group exists, initialize a new Vec
+                                .push(card.clone()); // Add the card to the group
+                        }
+                    }
+
+                    // Now, we return the groups as Vec<Vec<Card>>
+                    let result: Vec<Vec<Card>> = groups.into_iter().map(|(_, group)| group).collect();
+                    result
+                }
+                _ => panic!("Invalid condition: {}", $condition),
+            }
+        }
+    }};
+
+    // Filter for key with "adjacent", "higher", "lower" using precedence
+    ($key:expr, $condition:tt using $precedence_map:expr) => {{
+        move |cards: Vec<Card>| {
+            let precedence_map = $precedence_map;
+            cards
+                .iter()
+                .filter(|card| {
+                    if let Some(current_value) = card.attributes.get($key) {
+                        if let Some(current_index) = precedence_map.get(&(String::from($key) + current_value)) {
+                            match $condition {
+                                "adjacent" => {
+                                    return cards.iter().any(|other| {
+                                        if let Some(other_value) = other.attributes.get($key) {
+                                            if let Some(other_index) =
+                                                precedence_map.get(&(String::from($key) + other_value))
+                                            {
+                                                return (*current_index as i32 - *other_index as i32).abs() == 1;
+                                            }
+                                        }
+                                        false
+                                    });
+                                }
+                                "higher" => {
+                                    return cards.iter().any(|other| {
+                                        if let Some(other_value) = other.attributes.get($key) {
+                                            if let Some(other_index) =
+                                                precedence_map.get(&(String::from($key) + other_value))
+                                            {
+                                                return current_index > other_index;
+                                            }
+                                        }
+                                        false
+                                    });
+                                }
+                                "lower" => {
+                                    return cards.iter().any(|other| {
+                                        if let Some(other_value) = other.attributes.get($key) {
+                                            if let Some(other_index) =
+                                                precedence_map.get(&(String::from($key) + other_value))
+                                            {
+                                                return current_index < other_index;
+                                            }
+                                        }
+                                        false
+                                    });
+                                }
+                                _ => panic!("Invalid condition: {}", $condition),
+                            }
+                        }
+                    }
+                    false
+                })
+                .map(|card| card.clone())
+                .collect::<Vec<_>>()
+        }
+    }};
+
+    // Filter by size
+    (size, $comparison:tt $size:expr) => {{
+        move |cards: Vec<Card>| {
+            match $comparison {
+                "==" => cards.len() == $size,
+                "!=" => cards.len() != $size,
+                "<" => cards.len() < $size,
+                ">" => cards.len() > $size,
+                "<=" => cards.len() <= $size,
+                ">=" => cards.len() >= $size,
+                _ => panic!("Invalid comparison operator: {}", $comparison),
+            }
+        }
+    }};
+
+    // Filter by key with "==" or "!=" string values
+    ($key:expr, $comparison:tt $value:expr) => {{
+        move |cards: Vec<Card>| {
+            cards
+                .into_iter()
+                .filter(|card| match $comparison {
+                    "==" => card.attributes.get($key) == Some(&$value.to_string()),
+                    "!=" => card.attributes.get($key) != Some(&$value.to_string()),
+                    _ => panic!("Invalid comparison operator: {}", $comparison),
+                })
+                .collect::<Vec<Card>>()
+        }
+    }};
+
+    // Combined filters with "and" or "or"
+    // TODO:
+    // (($filter1:tt $condition1:tt), $logical:tt, ($filter2:tt $condition2:tt)) => {{
+    //     let filter1 = filter!($filter1, $condition1);
+    //     let filter2 = filter!($filter2, $condition2);
+    //     move |cards: Vec<Card>| {
+    //         match $logical {
+    //             "and" => filter2(filter1(cards)),
+    //             "or" => {
+    //                 let mut result = filter1(cards.clone());
+    //                 result.extend(filter2(cards));
+    //                 result
+    //             }
+    //             _ => panic!("Invalid logical operator: {}", $logical),
+    //         }
+    //     }
+    // }};
 }

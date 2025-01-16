@@ -1,5 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
+    use crate::ast::{Card, Player};
+
     #[derive(Debug)]
     struct Location {
         name: String,
@@ -60,12 +64,12 @@ mod tests {
         let suite_precedence = precedence!("suite", ("Clubs", "Diamonds", "Hearts", "Spades"));
 
         // Test rank precedence
-        assert!(rank_precedence.contains_key(&("2".to_string())));
-        assert!(rank_precedence.contains_key(&("A".to_string())));
+        assert!(rank_precedence.contains_key(&("rank2".to_string())));
+        assert!(rank_precedence.contains_key(&("rankA".to_string())));
 
         // Test suite precedence
-        assert!(suite_precedence.contains_key(&("Clubs".to_string())));
-        assert!(suite_precedence.contains_key(&("Spades".to_string())));
+        assert!(suite_precedence.contains_key(&("suiteClubs".to_string())));
+        assert!(suite_precedence.contains_key(&("suiteSpades".to_string())));
     }
 
     #[test]
@@ -107,15 +111,87 @@ mod tests {
 
     #[test]
     fn test_turn_order_macro() {
-        let order = turn_order!(("1", "2", "3", "4"));
-        let random_order = turn_order!(("1", "2", "3", "4"), random);
+
+        let p1 = Player::new("Jimmy".to_string());
+        let p2 = Player::new("Timmy".to_string());
+        let p3 = Player::new("Kimmy".to_string());
+        let p4 = Player::new("Mimmy".to_string());
+
+        let rcp1 = Rc::new(p1);
+        let rcp2 = Rc::new(p2);
+        let rcp3 = Rc::new(p3);
+        let rcp4 = Rc::new(p4);
+
+        let order: Vec<String> = turn_order!(
+            (rcp1.clone(),rcp2.clone(), rcp3.clone(), rcp4.clone())
+        )
+            .iter()
+            .map(|x| x.name.clone())
+            .collect();
+
+        let random_order: Vec<String> = turn_order!(
+            (rcp1.clone(), rcp2.clone(), rcp3.clone(), rcp4.clone()),
+            random
+        )
+            .iter()
+            .map(|x| x.name.clone())
+            .collect();
 
         // Test fixed turn order
-        assert_eq!(order, vec!["1", "2", "3", "4"]);
+        assert_eq!(
+            order,
+            vec![rcp1.name.clone(), rcp2.name.clone(), rcp3.name.clone(), rcp4.name.clone()]
+        );
 
         // Test random turn order
         assert_eq!(random_order.len(), 4);
-        assert!(random_order.contains(&("1".to_string())));
-        assert!(random_order.contains(&("4".to_string())));
+        assert!(random_order.contains(&rcp1.name));
+        assert!(random_order.contains(&rcp1.name));
+    }
+
+    #[test]
+    fn test_filter_macro(){
+    // Sample cards
+        let cards = vec![
+            Card::new([("rank".to_string(), "2".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string())].into()),
+            Card::new([("rank".to_string(), "4".to_string())].into()),
+            Card::new([("rank".to_string(), "4".to_string())].into()),
+            Card::new([("suite".to_string(), "black".to_string())].into()),
+        ];
+
+        // Precedence map for "rank"
+        let rank_precedence = precedence!("rank", ("2", "3", "4", "5", "6"));
+
+        // Filter for "same" rank
+        let same_filter = filter!("rank", "same");
+        let filtered_cards = same_filter(cards.clone());
+        println!("{}", filtered_cards.len());
+        for f in filtered_cards.iter() {
+            println!("Same rank cards: {:?}", f);
+        }
+
+        // Filter for "same" rank
+        let distinct_filter = filter!("rank", "distinct");
+        let filtered_cards = distinct_filter(cards.clone());
+        println!("{}", filtered_cards.len());
+        for f in filtered_cards.iter() {
+            println!("Distinct rank cards: {:?}", f);
+        }
+        
+        // Filter for "adjacent" using precedence
+        let adjacent_filter = filter!("rank", "adjacent" using rank_precedence);
+        let filtered_cards = adjacent_filter(cards.clone());
+        println!("Adjacent rank cards: {:?}", filtered_cards);
+
+        
+
+        // TODO:
+        // Combined filter
+        // let combined_filter = filter!(("rank", "same"), and, ("rank", "adjacent" using rank_precedence));
+        // let filtered_cards = combined_filter(cards);
+        // println!("Combined filtered cards: {:?}", filtered_cards);
     }
 }
