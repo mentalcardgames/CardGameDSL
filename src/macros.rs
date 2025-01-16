@@ -1,5 +1,3 @@
-
-
 macro_rules! player {
     ($($n:expr), *) => {
         {
@@ -133,20 +131,52 @@ macro_rules! precedence {
 
 macro_rules! pointmap {
     (
-        $name:expr, // Name of the attribute for context
-        { $($key:expr => [$($value:expr),*] ),* $(,)? }
+
+        // nested mapping
+        $(
+            nested: { 
+                $($name1:expr,
+                    ($($key1:expr => [$($value1:expr),*] ),* $(,)?)
+                ),* $(,)? 
+            }
+        ),* $(,)?
+
+        // flat mapping
+        $(
+            list: { 
+                $(
+                    ($name2:expr, $key2:expr) => [$value2:expr]
+                ),* $(,)? 
+            }
+        ),* $(,)?
+
     ) => {{
         use std::collections::HashMap;
         let mut point_map: HashMap<String, Vec<i32>> = HashMap::new();
 
+        // nested mapping
         $(
-            let entry = point_map.entry($key.to_string()).or_insert_with(Vec::new);
             $(
-                entry.push($value);
+                $(
+                    let key = format!("{}{}", $name1, $key1);
+                    let entry = point_map.entry(key).or_insert_with(Vec::new);
+                    $(
+                        entry.push($value1);
+                    )*
+                )*
             )*
         )*
 
-        println!("Point map for {}: {:?}", $name, point_map);
+        // flat mapping
+        $(
+            $(
+                let key = format!("{}{}", $name2, $key2);
+                let entry = point_map.entry(key).or_insert_with(Vec::new);
+                entry.push($value2);
+            )*
+        )*
+
+        println!("Point map for {:?}", point_map);
         point_map
     }};
 }

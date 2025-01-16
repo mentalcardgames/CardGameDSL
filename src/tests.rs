@@ -49,9 +49,9 @@ mod tests {
 
         // Test cards
         assert!(cards.len() > 0);
-        for card in cards {
-            println!("{}", card); // Debugging output
-        }
+        // for card in cards {
+        //     println!("{}", card); // Debugging output
+        // }
     }
 
     #[test]
@@ -71,8 +71,8 @@ mod tests {
     #[test]
     fn test_pointmap_macro() {
         let rank_points = pointmap!(
-            "rank",
-            {
+            nested: {  
+                "rank", (
                 "2" => [2],
                 "3" => [3],
                 "4" => [4],
@@ -86,15 +86,23 @@ mod tests {
                 "Q" => [10],
                 "K" => [10],
                 "A" => [11, 1]
-            }
+                )
+            },
+            list: {  
+                ("suite", "clubs") => [100],
+            },
         );
 
-        // Test rank points
-        assert!(rank_points.contains_key("2"));
-        assert_eq!(rank_points["2"], vec![2]);
+        // Test rank points, nested mapping
+        assert!(rank_points.contains_key("rank2"));
+        assert_eq!(rank_points["rank2"], vec![2]);
 
-        assert!(rank_points.contains_key("A"));
-        assert_eq!(rank_points["A"], vec![11, 1]);
+        assert!(rank_points.contains_key("rankA"));
+        assert_eq!(rank_points["rankA"], vec![11, 1]);
+
+        // Test rank points, flat mapping
+        assert!(rank_points.contains_key("suiteclubs"));
+        assert_eq!(rank_points["suiteclubs"], vec![100]);        
     }
 
     #[test]
