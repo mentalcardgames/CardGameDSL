@@ -200,7 +200,7 @@ macro_rules! turn_order {
 
 macro_rules! filter {
     // Filter for key with "same" or "distinct" values
-    ($key:expr, $condition:tt) => {{
+    ($key:expr, $condition:literal) => {{
         move |cards: Vec<Card>| {
             match $condition {
                 "same" => {
@@ -209,7 +209,7 @@ macro_rules! filter {
                     }
                     // we want all cards with the same key
                     // Ex.: rank same -> (rank, ...), (rank, ...), (rank, ...), (rank, ...)
-                    use std::collections::{HashMap, HashSet};
+                    use std::collections::{HashMap};
 
                     let mut groups: HashMap<String, Vec<Card>> = HashMap::new();
                     
@@ -230,7 +230,7 @@ macro_rules! filter {
                 }
                 // TODO:
                 "distinct" => {
-                    use std::collections::{HashMap, HashSet};
+                    use std::collections::{HashMap};
 
                     let mut groups: HashMap<String, Vec<Card>> = HashMap::new();
                     
@@ -255,20 +255,20 @@ macro_rules! filter {
     }};
 
     // Filter for key with "adjacent", "higher", "lower" using precedence
-    ($key:expr, $condition:tt using $precedence_map:expr) => {{
+    ($key:expr, $condition:literal using $precedence_map:expr) => {{
+        let precedence_map_ref = &$precedence_map;
         move |cards: Vec<Card>| {
-            let precedence_map = $precedence_map;
             cards
                 .iter()
                 .filter(|card| {
                     if let Some(current_value) = card.attributes.get($key) {
-                        if let Some(current_index) = precedence_map.get(&(String::from($key) + current_value)) {
+                        if let Some(current_index) = precedence_map_ref.get(&(String::from($key) + current_value)) {
                             match $condition {
                                 "adjacent" => {
                                     return cards.iter().any(|other| {
                                         if let Some(other_value) = other.attributes.get($key) {
                                             if let Some(other_index) =
-                                                precedence_map.get(&(String::from($key) + other_value))
+                                                precedence_map_ref.get(&(String::from($key) + other_value))
                                             {
                                                 return (*current_index as i32 - *other_index as i32).abs() == 1;
                                             }
@@ -276,11 +276,12 @@ macro_rules! filter {
                                         false
                                     });
                                 }
+                                // TODO:
                                 "higher" => {
                                     return cards.iter().any(|other| {
                                         if let Some(other_value) = other.attributes.get($key) {
                                             if let Some(other_index) =
-                                                precedence_map.get(&(String::from($key) + other_value))
+                                                precedence_map_ref.get(&(String::from($key) + other_value))
                                             {
                                                 return current_index > other_index;
                                             }
@@ -288,11 +289,12 @@ macro_rules! filter {
                                         false
                                     });
                                 }
+                                // TODO:
                                 "lower" => {
                                     return cards.iter().any(|other| {
                                         if let Some(other_value) = other.attributes.get($key) {
                                             if let Some(other_index) =
-                                                precedence_map.get(&(String::from($key) + other_value))
+                                                precedence_map_ref.get(&(String::from($key) + other_value))
                                             {
                                                 return current_index < other_index;
                                             }
@@ -312,7 +314,7 @@ macro_rules! filter {
     }};
 
     // Filter by size
-    (size, $comparison:tt $size:expr) => {{
+    (size, $comparison:literal, $size:expr) => {{
         move |cards: Vec<Card>| {
             match $comparison {
                 "==" => cards.len() == $size,
@@ -327,7 +329,7 @@ macro_rules! filter {
     }};
 
     // Filter by key with "==" or "!=" string values
-    ($key:expr, $comparison:tt $value:expr) => {{
+    ($key:expr, $comparison:literal, $value:expr) => {{
         move |cards: Vec<Card>| {
             cards
                 .into_iter()
@@ -342,19 +344,19 @@ macro_rules! filter {
 
     // Combined filters with "and" or "or"
     // TODO:
-    // (($filter1:tt $condition1:tt), $logical:tt, ($filter2:tt $condition2:tt)) => {{
-    //     let filter1 = filter!($filter1, $condition1);
-    //     let filter2 = filter!($filter2, $condition2);
-    //     move |cards: Vec<Card>| {
-    //         match $logical {
-    //             "and" => filter2(filter1(cards)),
-    //             "or" => {
-    //                 let mut result = filter1(cards.clone());
-    //                 result.extend(filter2(cards));
-    //                 result
-    //             }
-    //             _ => panic!("Invalid logical operator: {}", $logical),
-    //         }
-    //     }
-    // }};
+    (($filter1:tt $condition1:tt), $logical:literal, ($filter2:tt $condition2:tt)) => {{
+        let filter1 = filter!($filter1, $condition1);
+        let filter2 = filter!($filter2, $condition2);
+        move |cards: Vec<Card>| {
+            match $logical {
+                "and" => filter2(filter1(cards)),
+                "or" => {
+                    let mut result = filter1(cards.clone());
+                    result.extend(filter2(cards));
+                    result
+                }
+                _ => panic!("Invalid logical operator: {}", $logical),
+            }
+        }
+    }};
 }

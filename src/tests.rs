@@ -151,7 +151,7 @@ mod tests {
 
     #[test]
     fn test_filter_macro(){
-    // Sample cards
+        // Sample cards
         let cards = vec![
             Card::new([("rank".to_string(), "2".to_string())].into()),
             Card::new([("rank".to_string(), "3".to_string())].into()),
@@ -186,11 +186,42 @@ mod tests {
         let filtered_cards = adjacent_filter(cards.clone());
         println!("Adjacent rank cards: {:?}", filtered_cards);
 
+        // The description of higher and lower is confusing.
+        // Here it is implemented of every card except the max or min using precedence.
+        // . . .
+        // Filter for "higher" using precedence
+        let higher_filter = filter!("rank", "higher" using rank_precedence);
+        let filtered_cards = higher_filter(cards.clone());
+        println!("Higher rank cards: {:?}", filtered_cards);
+
+        // Filter for "higher" using precedence
+        let lower_filter = filter!("rank", "lower" using rank_precedence);
+        let filtered_cards = lower_filter(cards.clone());
+        println!("Lower rank cards: {:?}", filtered_cards);
+
+        // Filter with Key == Value
+        let bool_filter = filter!("rank", "==", "3");
+        let filtered_cards = bool_filter(cards.clone());
+        println!("Equal rank cards: {:?}", filtered_cards);
+
+        // Filter by size
+        let size_filter = filter!(size, "==", 3);
+        let filtered_cards = size_filter(cards.clone());
+        println!("size cards == 3: {:?}", filtered_cards);
+
+        // Filter by size
+        let size_filter = filter!(size, ">", 3);
+        let filtered_cards = size_filter(cards.clone());
+        println!("size cards > 3: {:?}", filtered_cards);
         
+        // Filter with Key != Value
+        let bool_filter = filter!("rank", "!=", "3");
+        let filtered_cards = bool_filter(cards.clone());
+        println!("Not-Equal rank cards: {:?}", filtered_cards);
 
         // TODO:
         // Combined filter
-        // let combined_filter = filter!(("rank", "same"), and, ("rank", "adjacent" using rank_precedence));
+        // let combined_filter = filter!(("rank", "same"), "and", ("rank", "adjacent" using rank_precedence));
         // let filtered_cards = combined_filter(cards);
         // println!("Combined filtered cards: {:?}", filtered_cards);
     }
