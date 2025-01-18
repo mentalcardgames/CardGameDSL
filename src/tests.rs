@@ -153,13 +153,13 @@ mod tests {
     fn test_filter_macro(){
         // Sample cards
         let cards = vec![
-            Card::new([("rank".to_string(), "2".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string())].into()),
-            Card::new([("rank".to_string(), "4".to_string())].into()),
-            Card::new([("rank".to_string(), "4".to_string())].into()),
-            Card::new([("suite".to_string(), "black".to_string())].into()),
+            Card::new([("rank".to_string(), "2".to_string()), ("suite".to_string(), "spades".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "spades".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "hearts".to_string())].into()),
+            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "diamonds".to_string())].into()),
+            Card::new([("rank".to_string(), "4".to_string()), ("suite".to_string(), "spades".to_string())].into()),
+            Card::new([("rank".to_string(), "4".to_string()), ("suite".to_string(), "clubs".to_string())].into()),
+            Card::new([("rank".to_string(), "6".to_string()), ("suite".to_string(), "clubs".to_string())].into()),
         ];
 
         // Precedence map for "rank"
@@ -221,6 +221,27 @@ mod tests {
             ("rank", "adjacent" using rank_precedence), 
             ("and"), 
             ("rank", "!=", "4")
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        println!("Combined-Filter rank cards: {:?}", filtered_cards);
+
+        let combined_filter = filter!(
+            (size, ">=", 3),
+            ("and"),
+            ("rank", "adjacent" using rank_precedence)
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        println!("Combined-Filter rank cards: {:?}", filtered_cards);
+        
+        // Testing more nested filter functions
+        let combined_filter = filter!(
+            (
+                (size, ">=", 3),
+                ("and"),
+                ("suite", "same")
+            ),
+            ("and"), 
+            ("rank", "adjacent" using rank_precedence)
         );        
         let filtered_cards = combined_filter(cards.clone());
         println!("Combined-Filter rank cards: {:?}", filtered_cards);
