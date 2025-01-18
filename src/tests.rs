@@ -186,15 +186,12 @@ mod tests {
         let filtered_cards = adjacent_filter(cards.clone());
         println!("Adjacent rank cards: {:?}", filtered_cards);
 
-        // The description of higher and lower is confusing.
-        // Here it is implemented of every card except the max or min using precedence.
-        // . . .
-        // Filter for "higher" using precedence
+        // Filter for "higher" using precedence ("higher" is interpreted as "highest")
         let higher_filter = filter!("rank", "higher" using rank_precedence);
         let filtered_cards = higher_filter(cards.clone());
         println!("Higher rank cards: {:?}", filtered_cards);
 
-        // Filter for "higher" using precedence
+        // Filter for "lower" using precedence ("lower" is interpreted as "lowest")
         let lower_filter = filter!("rank", "lower" using rank_precedence);
         let filtered_cards = lower_filter(cards.clone());
         println!("Lower rank cards: {:?}", filtered_cards);
@@ -219,10 +216,13 @@ mod tests {
         let filtered_cards = bool_filter(cards.clone());
         println!("Not-Equal rank cards: {:?}", filtered_cards);
 
-        // TODO:
         // Combined filter
-        // let combined_filter = filter!(("rank", "same"), "and", ("rank", "adjacent" using rank_precedence));
-        // let filtered_cards = combined_filter(cards);
-        // println!("Combined filtered cards: {:?}", filtered_cards);
+        let combined_filter = filter!(
+            ("rank", "adjacent" using rank_precedence), 
+            ("and"), 
+            ("rank", "!=", "4")
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        println!("Combined-Filter rank cards: {:?}", filtered_cards);
     }
 }

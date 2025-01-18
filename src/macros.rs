@@ -199,6 +199,27 @@ macro_rules! turn_order {
 }
 
 macro_rules! filter {
+    // Combined filters with "and" or "or"
+    (($($filter1:tt)+), ($logical:literal), ($($filter2:tt)+)) => {{
+        let filter1 = filter!($($filter1)+);
+        let filter2 = filter!($($filter2)+);
+        move |cards: Vec<Card>| {
+            match $logical {
+                "and" => {
+                    let intermediate = filter1(cards.clone());
+                    filter2(intermediate)
+                },
+                "or" => {
+                    let mut result = filter1(cards.clone());
+                    let mut other_result = filter2(cards);
+                    result.append(&mut other_result);
+                    result
+                },
+                _ => panic!("Invalid logical operator: {}", $logical),
+            }
+        }
+    }};
+    
     // Filter for key with "same" or "distinct" values
     ($key:expr, $condition:literal) => {{
         move |cards: Vec<Card>| {
@@ -339,24 +360,6 @@ macro_rules! filter {
                     _ => panic!("Invalid comparison operator: {}", $comparison),
                 })
                 .collect::<Vec<Card>>()
-        }
-    }};
-
-    // Combined filters with "and" or "or"
-    // TODO:
-    (($filter1:tt $condition1:tt), $logical:literal, ($filter2:tt $condition2:tt)) => {{
-        let filter1 = filter!($filter1, $condition1);
-        let filter2 = filter!($filter2, $condition2);
-        move |cards: Vec<Card>| {
-            match $logical {
-                "and" => filter2(filter1(cards)),
-                "or" => {
-                    let mut result = filter1(cards.clone());
-                    result.extend(filter2(cards));
-                    result
-                }
-                _ => panic!("Invalid logical operator: {}", $logical),
-            }
         }
     }};
 }
