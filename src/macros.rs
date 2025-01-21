@@ -378,7 +378,6 @@ macro_rules! filter {
                                 }
                             }
                         }
-                        println!("{:?}", current_group);
 
                         // End of current group, push it and reset current group.
                         groups.push(current_group);
@@ -448,8 +447,6 @@ macro_rules! filter {
             }
             
             let same_values: HashMap<String, Vec<Card>> = group_by_same(cards, $key);
-            
-            println!("{:?}", groups);
             
             let result = generate_combinations_by_switching(
                 groups
