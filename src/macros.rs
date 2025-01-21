@@ -206,7 +206,7 @@ pub enum FilterResult {
     Grouped(Vec<Vec<Card>>),
 }
 
-
+// OR DOESNT WORK YET!
 macro_rules! filter {
     /*
     How it (should) works:

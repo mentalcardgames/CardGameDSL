@@ -257,5 +257,16 @@ mod tests {
         );        
         let filtered_cards = combined_filter(cards.clone());
         println!("Combined-Filter (suite same, size != 3): {:?}", filtered_cards);
+
+        // Testing more nested filter functions
+        // OR DOESNT WORK YET
+        let combined_filter = filter!(
+            ("suite", "same"),
+            ("or"),
+            ("rank", "same")
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        println!("Combined-Filter (suite same, rank same): {:?}", filtered_cards);
+
     }
 }
