@@ -154,7 +154,20 @@ impl std::fmt::Display for Card {
         write!(f, "{}", card)
     }
 }
-
+impl PartialEq for Card {
+    fn eq(&self, other: &Self) -> bool {
+        if self.attributes.len() != other.attributes.len() {
+            return false;
+        }
+        for kv in &self.attributes {
+            if *kv.1 != other.attributes[kv.0] {
+                return false;
+            }
+        }
+        return true;
+    }
+}
+impl Eq for Card {}
 
 #[derive(Debug, Clone)]
 pub struct Precedence {

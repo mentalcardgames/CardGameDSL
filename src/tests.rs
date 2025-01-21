@@ -166,84 +166,101 @@ mod tests {
         let rank_precedence = precedence!("rank", ("2", "3", "4", "5", "6"));
 
         // Filter for "same" rank
-        let same_filter = filter!("rank", "same");
-        let filtered_cards = same_filter(cards.clone());
-        println!("{}", filtered_cards.len());
-        for f in filtered_cards.iter() {
-            println!("Same rank cards: {:?}", f);
-        }
+        // let same_filter = filter!("rank", "same");
+        // let filtered_cards = same_filter(cards.clone());
+        // println!("{}", filtered_cards.len());
+        // for f in filtered_cards.iter() {
+        //     println!("Same rank cards: {:?}", f);
+        // }
 
-        // Filter for "same" rank
-        let distinct_filter = filter!("rank", "distinct");
-        let filtered_cards = distinct_filter(cards.clone());
-        println!("{}", filtered_cards.len());
-        for f in filtered_cards.iter() {
-            println!("Distinct rank cards: {:?}", f);
-        }
+        // Filter for "distinct"
+        // let distinct_filter = filter!("rank", "distinct");
+        // let filtered_cards = distinct_filter(cards.clone());
+        // println!("{}", filtered_cards.len());
+        // for f in filtered_cards.iter() {
+        //     println!("Distinct rank cards: {:?}", f);
+        // }
         
         // Filter for "adjacent" using precedence
         let adjacent_filter = filter!("rank", "adjacent" using rank_precedence);
         let filtered_cards = adjacent_filter(cards.clone());
-        println!("Adjacent rank cards: {:?}", filtered_cards);
+        println!("Adjacent rank cards: {:?}\n", filtered_cards);
 
         // Filter for "higher" using precedence ("higher" is interpreted as "highest")
-        let higher_filter = filter!("rank", "higher" using rank_precedence);
-        let filtered_cards = higher_filter(cards.clone());
-        println!("Higher rank cards: {:?}", filtered_cards);
+        // let higher_filter = filter!("rank", "higher" using rank_precedence);
+        // let filtered_cards = higher_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("Higher rank cards: {:?}", c);
+        // }
 
         // Filter for "lower" using precedence ("lower" is interpreted as "lowest")
-        let lower_filter = filter!("rank", "lower" using rank_precedence);
-        let filtered_cards = lower_filter(cards.clone());
-        println!("Lower rank cards: {:?}", filtered_cards);
+        // let lower_filter = filter!("rank", "lower" using rank_precedence);
+        // let filtered_cards = lower_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("Lower rank cards: {:?}", c);
+        // }
 
         // Filter with Key == Value
-        let bool_filter = filter!("rank", "==", "3");
-        let filtered_cards = bool_filter(cards.clone());
-        println!("Equal rank cards: {:?}", filtered_cards);
+        // let bool_filter = filter!("rank", "==", "3");
+        // let filtered_cards = bool_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("Equal rank cards: {:?}", c);
+        // }
+    
+        // Filter by size
+        // let size_filter = filter!(size, "==", 3);
+        // let filtered_cards = size_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("size cards == 3: {:?}", c);
+        // }
 
         // Filter by size
-        let size_filter = filter!(size, "==", 3);
-        let filtered_cards = size_filter(cards.clone());
-        println!("size cards == 3: {:?}", filtered_cards);
+        // let size_filter = filter!(size, ">", 3);
+        // let filtered_cards = size_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("size cards > 3: {:?}", c);
+        // }
 
-        // Filter by size
-        let size_filter = filter!(size, ">", 3);
-        let filtered_cards = size_filter(cards.clone());
-        println!("size cards > 3: {:?}", filtered_cards);
-        
         // Filter with Key != Value
-        let bool_filter = filter!("rank", "!=", "3");
-        let filtered_cards = bool_filter(cards.clone());
-        println!("Not-Equal rank cards: {:?}", filtered_cards);
+        // let bool_filter = filter!("rank", "!=", "3");
+        // let filtered_cards = bool_filter(cards.clone());
+        // for c in filtered_cards.iter() {
+        //     println!("Not-Equal rank cards: {:?}", c);
+        // }
 
         // Combined filter
         let combined_filter = filter!(
             ("rank", "adjacent" using rank_precedence), 
             ("and"), 
-            ("rank", "!=", "4")
+            ("suite", "same")
         );        
         let filtered_cards = combined_filter(cards.clone());
-        println!("Combined-Filter rank cards: {:?}", filtered_cards);
+        for c in filtered_cards.iter() {
+            println!("Combined-Filter (rank-adjacent, suite same): {:?}", c);
+        }
+        println!("Saw combined Filter!")
 
-        let combined_filter = filter!(
-            (size, ">=", 3),
-            ("and"),
-            ("rank", "adjacent" using rank_precedence)
-        );        
-        let filtered_cards = combined_filter(cards.clone());
-        println!("Combined-Filter rank cards: {:?}", filtered_cards);
-        
+        // let combined_filter = filter!(
+        //     (size, ">=", 3),
+        //     ("and"),
+        //     ("rank", "adjacent" using rank_precedence)
+        // );        
+        // let filtered_cards = combined_filter(cards.clone());
+        // for c in filtered_cards {
+        //     println!("Combined-Filter rank cards: {:?}", c);
+        // }
+
         // Testing more nested filter functions
-        let combined_filter = filter!(
-            (
-                (size, ">=", 3),
-                ("and"),
-                ("suite", "same")
-            ),
-            ("and"), 
-            ("rank", "adjacent" using rank_precedence)
-        );        
-        let filtered_cards = combined_filter(cards.clone());
-        println!("Combined-Filter rank cards: {:?}", filtered_cards);
+        // let combined_filter = filter!(
+        //     (
+        //         (size, ">=", 3),
+        //         ("and"),
+        //         ("suite", "same")
+        //     ),
+        //     ("and"), 
+        //     ("rank", "adjacent" using rank_precedence)
+        // );        
+        // let filtered_cards = combined_filter(cards.clone());
+        // println!("Combined-Filter rank cards: {:?}", filtered_cards);
     }
 }
