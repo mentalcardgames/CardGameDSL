@@ -176,6 +176,12 @@ pub struct Precedence {
 }
 
 #[derive(Debug, Clone)]
+struct CardCombination {
+    pub name: String,
+    pub attributes: HashMap<String, String>,
+}
+
+#[derive(Debug, Clone)]
 pub struct PointMap {
     pub name: String,
     pub entries: HashMap<String, i32>,

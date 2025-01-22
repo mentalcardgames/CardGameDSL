@@ -198,14 +198,6 @@ macro_rules! turn_order {
     }};
 }
 
-
-
-use crate::ast::Card;
-pub enum FilterResult {
-    Single(Vec<Card>),
-    Grouped(Vec<Vec<Card>>),
-}
-
 // OR DOESNT WORK YET!
 macro_rules! filter {
     /*
@@ -514,4 +506,10 @@ macro_rules! filter {
             }
         }
     }};
+}
+
+macro_rules! combo {
+    ($name:literal, "where", $filter:tt) => {
+        
+    };
 }
