@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-
     use crate::ast::{Card, Player};
 
     #[derive(Debug)]
@@ -16,9 +15,9 @@ mod tests {
 
         // Replace the below assertions with actual checks based on how `player!` works.
         // Example:
-        assert!(players[0].name == "Jimmy".to_string());
-        assert!(players[1].name == "Jimmy".to_string());
-        assert!(players[2].name == "Timmy".to_string());
+        assert!(players[0].borrow_mut().name == "Jimmy".to_string());
+        assert!(players[1].borrow_mut().name == "Jimmy".to_string());
+        assert!(players[2].borrow_mut().name == "Timmy".to_string());
     }
 
     #[test]
@@ -28,7 +27,7 @@ mod tests {
         // Replace the below assertions with actual checks based on how `team!` works.
         // Example:
         assert!(team.teamname == "Team1".to_string());
-        assert!(team.players[0].name == "Jimmy".to_string());
+        assert!(team.players[0].borrow_mut().name == "Jimmy".to_string());
     }
 
     #[test]
@@ -53,9 +52,9 @@ mod tests {
 
         // Test cards
         assert!(cards.len() > 0);
-        // for card in cards {
-        //     println!("{}", card); // Debugging output
-        // }
+        for card in cards {
+            println!("{}", card); // Debugging output
+        }
     }
 
     #[test]
@@ -268,5 +267,23 @@ mod tests {
         let filtered_cards = combined_filter(cards.clone());
         println!("Combined-Filter (suite same, rank same): {:?}", filtered_cards);
 
+    }
+
+    #[test]
+    fn test_location() {
+        // test for location on players
+        let players = player!("Jimmy", "Timmy");
+        let p_clone = players.clone();
+        location_on!("test_location1", players: p_clone);
+        for player in players.iter() {
+            player.borrow_mut().show_locations();
+        }
+
+        // test for location on team
+        let mut team = team!("T1", ("Jimmy", "Timmy"));
+        location_on!("test_location2", team: &mut team);
+        team.show_locations();
+
+        // table not implemented yet
     }
 }

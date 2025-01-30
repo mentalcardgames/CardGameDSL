@@ -3,9 +3,10 @@ macro_rules! player {
         {
             use crate::ast::Player;
             use std::rc::Rc;
+            use std::cell::RefCell;
 
             let player_names: Vec<String> = vec![$($n.to_string()), *];
-            let players: Vec<Rc<Player>> = player_names.iter().map(|x| Rc::new(Player::new(x.to_string()))).collect();
+            let players: Vec<Rc<RefCell<Player>>> = player_names.iter().map(|x| Rc::new(RefCell::new(Player::new(x.to_string())))).collect();
             players
         }
     }
@@ -16,13 +17,41 @@ macro_rules! team {
         {
             use crate::ast::Team;
             use crate::ast::Player;
+            use std::cell::RefCell;
             use std::rc::Rc;
 
             let player_names: Vec<String> = vec![$($p.to_string()), *];
             let name = $n.to_string();
-            let players: Vec<Rc<Player>> = player_names.iter().map(|x| Rc::new(Player::new(x.to_string()))).collect();
+            let players: Vec<Rc<RefCell<Player>>> = player_names.iter().map(|x| Rc::new(RefCell::new(Player::new(x.to_string())))).collect();
             let team = Team::new(name, players);
             team
+        }
+    };
+}
+
+macro_rules! location_on {
+    ($location:literal, players: $players:expr) => {
+        {
+            use std::cell::RefCell;
+            use std::rc::Rc;
+            let players: Vec<Rc<RefCell<Player>>> = $players;
+            for player in players.iter() {
+                player.borrow_mut().add_location($location.to_string());
+            }
+        }
+    };
+
+    ($location:literal, team: $team:expr) => {
+        {
+            use crate::ast::Team;
+            let team: &mut Team = $team;
+            (*team).add_location($location.to_string());
+        }
+    };
+    ($location:literal, table: $table:expr) => {
+        {
+            let table = $table;
+            table.add_location($location.to_string());
         }
     };
 }
@@ -105,6 +134,9 @@ macro_rules! card_on {
             all_cards.push(Card::new(attr));
         }
 
+        // iterate over every player, team and table!
+        // then assign the cards to the correct location!
+
         all_cards
     }};
 }
@@ -120,6 +152,7 @@ macro_rules! precedence {
         let mut index = 0;
         $(
             // TODO: might be overworked later
+            
             precedence_map.insert($name.to_string() + &$value.to_string(), index);
             index += 1;
         )*
@@ -506,10 +539,19 @@ macro_rules! filter {
             }
         }
     }};
+
+
 }
 
 macro_rules! combo {
     ($name:literal, "where", $filter:tt) => {
         
     };
+}
+
+
+macro_rules! Setup {
+    ($cplayer:tt, ($cteam:tt)?, cturnorder:tt) => {
+
+    }
 }

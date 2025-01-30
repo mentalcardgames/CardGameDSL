@@ -1,6 +1,7 @@
 use core::fmt;
 use std::collections::HashMap;
 use std::rc::Rc;
+use std::cell::RefCell;
 use std::vec;
 
 
@@ -12,10 +13,19 @@ pub struct GameData {
     pub turnorder: Vec<String>,
     pub precedences: Vec<Precedence>,
     pub pointmaps: Vec<PointMap>,
+    // considering a hashmap for all locations
+    // -> Ex. Card on "Stock": ... We need to find the Location "Stock" somewhere.
+    // However the Locations are spread over 3 different classes (table, players, teams).
+    // Add a new component Locations which is a hashmap from all Locations
+    // refine it maybe later with even more possibilities like:
+    // Ex. "Hand". "Hand" is a Location-Name that is on all players.
+    // However we want to check one special "Hand"-Location.
+    // ------------------------------------------------------
+    // => This has a big drawback because handling of joining and leaving players makes it harder!
 }
 impl Default for GameData {
     fn default() -> Self {
-        GameData { table: Table { locations: vec![] },
+        GameData { table: Table { locations: HashMap::new() },
                     teams: vec![],
                     players: vec![],
                     turnorder: vec![],
@@ -24,8 +34,8 @@ impl Default for GameData {
     }
 }
 impl GameData {
-    fn add_player(&mut self, name: String, score: i32, locations: Vec<Rc<Location>>) {
-        self.players.push(Player { name: name, score: score, locations: locations });
+    fn add_player(&mut self, name: String) {
+        self.players.push(Player::new(name));
     }
 
     fn remove_player(&mut self, player_name: String) {
@@ -39,9 +49,9 @@ impl GameData {
         }
     }
 
-    fn add_team(&mut self, name: String, players: Vec<Rc<Player>>, locations: Vec<Rc<Location>>) {
+    fn add_team(&mut self, name: String, players: Vec<Rc<RefCell<Player>>>) {
         // TODO: locations
-        self.teams.push(Team {teamname: name, players: players, locations: locations});
+        self.teams.push(Team::new(name, players));
     }
 
     fn add_precedence(&mut self, precedence: Precedence) {
@@ -67,30 +77,57 @@ pub enum Status {
 pub struct Player {
     pub name: String,
     pub score: i32,
-    pub locations: Vec<Rc<Location>>,
+    pub locations: HashMap<String, Location>,
 }
 impl Player {
     pub fn new(name: String) -> Player {
         Player {
             name: name,
             score: 0,
-            locations: vec![]
+            locations: HashMap::new()
         }
     }
+
+    pub fn add_location(&mut self, locname: String) {
+        self.locations.insert(locname.clone(), Location::new(locname));
+    }
+
+    pub fn show_locations(&mut self) {
+        if self.locations.is_empty() {
+            println!("No Locations!")
+        }
+        for (k, _) in self.locations.iter() {
+            println!("Player {}: locname={}", self.name, k.to_string())
+        }
+    }
+
 }
 
 #[derive(Debug, Clone)]
 pub struct Team {
     pub teamname: String,
-    pub players: Vec<Rc<Player>>,
-    pub locations: Vec<Rc<Location>>,
+    pub players: Vec<Rc<RefCell<Player>>>,
+    pub locations: HashMap<String, Location>,
 }
 impl Team {
-    pub fn new(name: String, players: Vec<Rc<Player>>) -> Team {
+    pub fn new(name: String, players: Vec<Rc<RefCell<Player>>>) -> Team {
         Team {
             teamname: name,
             players: players,
-            locations: vec![]
+            locations: HashMap::new()
+        }
+    }
+
+    pub fn add_location(&mut self, locname: String) {
+        self.locations.insert(locname.clone(), Location::new(locname));
+    }
+
+    pub fn show_locations(&mut self) {
+        if self.locations.is_empty() {
+            println!("No Locations!")
+        }
+        for (k, v) in self.locations.iter() {
+            println!("Player {}: locname={}", self.teamname, k.to_string())
         }
     }
 }
@@ -98,7 +135,12 @@ impl Team {
 
 #[derive(Debug, Clone)]
 pub struct Table {
-    pub locations: Vec<Rc<Location>>,
+    pub locations: HashMap<String, Location>,
+}
+impl Table {
+    pub fn add_location(&mut self, locname: String) {
+        self.locations.insert(locname.clone(), Location::new(locname));
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -107,6 +149,11 @@ pub struct Location {
     //    PILE(Pile),
     pub name: String,
     pub contents: Vec<Component>
+}
+impl Location {
+    pub fn new(locname: String) -> Location {
+        Location { name: locname, contents: vec![]}
+    }
 }
 
 #[derive(Debug, Clone)]
