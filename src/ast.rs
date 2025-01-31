@@ -6,22 +6,33 @@ use std::vec;
 
 
 #[derive(Debug, Clone)]
+pub struct CardGameModel {
+    pub name: String,
+    pub gamedata: GameData,
+    pub ruleset: RuleSet,
+}
+impl CardGameModel {
+    pub fn new(name: String) -> CardGameModel {
+        CardGameModel {
+            name: name,
+            gamedata: GameData::default(),
+            ruleset: RuleSet::new(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub struct GameData {
     pub table: Table,
     pub teams: Vec<Team>,
     pub players: Vec<Player>,
     pub turnorder: Vec<String>,
+    // precedences should be a HashMap<String (Key-Name), HashMap<...> (precedence hashmap)>
+    // then we can just call precedence!("key-name", "same" using precedence).
+    // Because we can just look up the key-name.
+    // We could maybe leave out the "using precedence" (but thats a "fine-tuning" question).
     pub precedences: Vec<Precedence>,
     pub pointmaps: Vec<PointMap>,
-    // considering a hashmap for all locations
-    // -> Ex. Card on "Stock": ... We need to find the Location "Stock" somewhere.
-    // However the Locations are spread over 3 different classes (table, players, teams).
-    // Add a new component Locations which is a hashmap from all Locations
-    // refine it maybe later with even more possibilities like:
-    // Ex. "Hand". "Hand" is a Location-Name that is on all players.
-    // However we want to check one special "Hand"-Location.
-    // ------------------------------------------------------
-    // => This has a big drawback because handling of joining and leaving players makes it harder!
 }
 impl Default for GameData {
     fn default() -> Self {
@@ -265,6 +276,15 @@ pub struct RuleSet {
     pub setup: Setup,
     pub play: Play,
     pub scoring: Scoring,
+}
+impl RuleSet {
+    pub fn new() -> RuleSet {
+        RuleSet {
+            setup: Setup {setuprules: vec![]},
+            play: Play { endconditions: vec![], stages: vec![]},
+            scoring: Scoring {scoringrules: vec![]}
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

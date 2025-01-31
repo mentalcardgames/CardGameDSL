@@ -56,6 +56,8 @@ macro_rules! location_on {
     };
 }
 
+// TODO:
+// Card on location! So the cards still need to be moved in the correct location after they were created.
 macro_rules! card_on {
     (
         $location:expr,
@@ -545,13 +547,36 @@ macro_rules! filter {
 
 macro_rules! combo {
     ($name:literal, "where", $filter:tt) => {
-        
+        {}
     };
 }
 
 
-macro_rules! Setup {
-    ($cplayer:tt, ($cteam:tt)?, cturnorder:tt) => {
+macro_rules! game {
+    (setup: $setup:tt, play: $play:tt, scoring: $scoring:tt) => {
+        {
+            let mut cgm = CardGameModel::new("game");
+            let setup = $setup;
+            let play = $play;
+            let scoring = $scoring;
 
+            // maybe implement it with macros for inner operation on the model?
+            // Something like:
+            // setup_inner(cdgm, ...);
+            // => "edits" the object 
+            //
+            // I think all setup rules need an inner function because we alter the structure of gamedata-object
+            // and we don't want that the person writing in the DSL that they have to add the object every time! 
+
+        }
+    }
+}
+
+macro_rules! setup {
+    // TODO:
+    // Add CreateToken, CreateCombo, CreateMem 
+    (players: $cplayer:tt, ((team: $cteam:tt),*)?, (turnorder: $cturnorder:tt)+,
+        (cards: $ccard:tt, prec: $cprec:tt, pointmap: $cpoint:tt)) => {
+            {}
     }
 }
