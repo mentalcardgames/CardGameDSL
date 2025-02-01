@@ -154,7 +154,7 @@ macro_rules! precedence {
         let mut index = 0;
         $(
             // TODO: might be overworked later
-            
+
             precedence_map.insert($name.to_string() + &$value.to_string(), index);
             index += 1;
         )*
@@ -567,7 +567,12 @@ macro_rules! game {
             //
             // I think all setup rules need an inner function because we alter the structure of gamedata-object
             // and we don't want that the person writing in the DSL that they have to add the object every time! 
-
+            //
+            // ==> The problem with something like setup_inner is that it makes it really hard and annoying to
+            // extend the language. What i mean is it is to inflexible and will cause a lot of annoyance.
+            // I think we should just do setup(&cgm, ...) for the functions that need it. That way we can just treat
+            // it as just an editing of the card-game-model and still give the possibility to extend the model and
+            // to write custom macros easier!
         }
     }
 }
