@@ -111,9 +111,6 @@
                 => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the a TEAM in cgm.
             </p>
             <p>
-                team!(cgm: &mut CardGameModel, teamname: String, (player1: Rc&#60;RefCell&#60;Player&#62;&#62;, player2: Rc&#60;RefCell&#60;Player&#62;&#62;, ...))
-                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the a TEAM in cgm.
-            </p>
                 location_on!(locationname: String, players: Vec&#60;Rc&#60;RefCell&#60;Player&#62;&#62;&#62;)
                 => Takes a location-name and a Vector of "Player-References" and SETs and INITIALIZEs the Locations on the Vector of Players.
 
@@ -122,6 +119,7 @@
 
                 location_on!(locationname: String, table: &Table)
                 => Takes a location-name and a "Table-References" and SETs and INITIALIZEs the Locations on the TABLE.
+            </p>
             <p>
                 card_on!(cgm: &mut CardGameModel, location: String, ...)
                 => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs CARDs on the specified LOCATION in cgm.
