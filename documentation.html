@@ -130,6 +130,7 @@
             </code></pre>
         
             <p>
+<<<<<<< HEAD
                 <strong>location_on!</strong> — Initializes locations:
             </p>
             <pre><code class="language-rust">
@@ -138,6 +139,17 @@
         location_on!(locationname: String, table: &Table);
             </code></pre>
         
+=======
+                location_on!(locationname: String, players: Vec&#60;Rc&#60;RefCell&#60;Player&#62;&#62;&#62;)
+                => Takes a location-name and a Vector of "Player-References" and SETs and INITIALIZEs the Locations on the Vector of Players.
+
+                location_on!(locationname: String, team: &Team)
+                => Takes a location-name and a "Team-Reference" and SETs and INITIALIZEs the Locations on the TEAM.
+
+                location_on!(locationname: String, table: &Table)
+                => Takes a location-name and a "Table-References" and SETs and INITIALIZEs the Locations on the TABLE.
+            </p>
+>>>>>>> f70e7fd (documentation)
             <p>
                 <strong>card_on!</strong> — Sets cards on a location:
             </p>
