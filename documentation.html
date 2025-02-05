@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Project Documentation</title>
+    <title>Domain Specific Language For Card Games (in Rust)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -87,6 +87,7 @@
             <h2>Table of Contents</h2>
             <ul>
                 <li><a href="#overview">Project Overview</a></li>
+                <li><a href="#library">How to use the library</a></li>
                 <li><a href="#installation">Installation Guide</a></li>
                 <li><a href="#usage">Usage</a></li>
                 <li><a href="#code">Code Structure</a></li>
@@ -99,6 +100,70 @@
             <p>This project is a brief description of the overall purpose and goal of your code. Explain the problem it solves, its main features, and what sets it apart from other similar projects.</p>
         </div>
 
+        <div class="section" id="library">
+            <h2>How to use the library</h2>
+            <p>
+                players!(cgm: &mut CardGameModel, playername1: String, playername2: String, ...)
+                => Takes a reference of a CardGameModel (cgm) and a player-names and SETs and INITIALIZEs the PLAYERs in cgm.
+            </p>
+            <p>
+                team!(cgm: &mut CardGameModel, teamname: String, (player1: Rc&#60;RefCell&#60;Player&#62;&#62;, player2: Rc&#60;RefCell&#60;Player&#62;&#62;, ...))
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the a TEAM in cgm.
+            </p>
+            <p>
+                team!(cgm: &mut CardGameModel, teamname: String, (player1: Rc&#60;RefCell&#60;Player&#62;&#62;, player2: Rc&#60;RefCell&#60;Player&#62;&#62;, ...))
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the a TEAM in cgm.
+            </p>
+                location_on!(locationname: String, players: Vec&#60;Rc&#60;RefCell&#60;Player&#62;&#62;&#62;)
+                => Takes a location-name and a Vector of "Player-References" and SETs and INITIALIZEs the Locations on the Vector of Players.
+
+                location_on!(locationname: String, team: &Team)
+                => Takes a location-name and a "Team-Reference" and SETs and INITIALIZEs the Locations on the TEAM.
+
+                location_on!(locationname: String, table: &Table)
+                => Takes a location-name and a "Table-References" and SETs and INITIALIZEs the Locations on the TABLE.
+            <p>
+                card_on!(cgm: &mut CardGameModel, location: String, ...)
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs CARDs on the specified LOCATION in cgm.
+            </p>
+            <p>
+                precedence!(cgm: &mut CardGameModel, (Key: String, (v1: String, v2: String, ...)))
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the PRECEDENCE for the given KEY in cgm.
+            </p>
+            <p>
+                pointmap!(cgm: &mut CardGameModel, nested: 
+                    (keyname,
+                        (
+                        valname1 => [i32],
+                        valname2 => [i32],
+                        ...
+                        )
+                    )
+                )
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the POINTMAP for the given KEY in cgm.
+
+                pointmap!(cgm: &mut CardGameModel, list: 
+                    (
+                        (keyname1, valname1) => [i32],
+                        (keyname2, valname2) => [i32],
+                        (keyname3, valname3) => [i32],
+                        ...
+                    )
+                )
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the POINTMAP for the given (KEY, VALUE)-Pairs in cgm.
+            </p>
+            <p>
+                turnorder!(cgm: &mut CardGameModel, players: Vec&#60;Rc&#60;RefCell&#60;Player&#62;&#62;&#62;)
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs the TURNORDER for the given "Player-References"
+                (in the order of the "Player-References") in cgm.
+                
+                turnorder!(cgm: &mut CardGameModel, players: Vec&#60;Rc&#60;RefCell&#60;Player&#62;&#62;&#62;, random)
+                => Takes a reference of a CardGameModel (cgm) and SETs and INITIALIZEs a "random" TURNORDER for the given "Player-References" in cgm.
+            </p>
+            <p>
+                filter!(...) -> See documentation in code.
+            </p>
+        </div>
         <div class="section" id="installation">
             <h2>Installation Guide</h2>
             <p>Provide clear instructions on how to install the project and its dependencies. Example:</p>
