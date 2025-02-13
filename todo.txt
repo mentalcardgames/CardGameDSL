@@ -1,0 +1,44 @@
+++ library ++
+
+let GameObject:  CardGameModel = CardGameModel::default();
+card_on!("sognsrnbld", [Card1, Card2])
+card_on!(&cgm, "hand", ...)
+
+-----------------------------------------------
+
+++ tests  ++
+++ errors ++
+
+-----------------------------------------------
+
+++ DSL-Language-Design ++
+++ Benchmarks          ++
+
+let cgm = game! {
+    ...
+
+
+}
+
+----------------------------------------------
+
+CardGameModel abspeicher - json?
+
+
+----------------------------------------------
+
+functions changing the object
+
+Ex.:
+2-player-teams with uneven number of players
+
+Leave:
+...
+
+Join:
+...
+
+Disconnection:
+...
+
+
