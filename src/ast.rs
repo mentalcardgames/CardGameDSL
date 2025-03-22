@@ -2,7 +2,6 @@ use core::fmt;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::cell::RefCell;
-use std::vec;
 
 
 #[derive(Debug, Clone)]
@@ -12,9 +11,9 @@ pub struct CardGameModel {
     pub ruleset: RuleSet,
 }
 impl CardGameModel {
-    pub fn new(name: String) -> CardGameModel {
+    pub fn new(name: &str) -> CardGameModel {
         CardGameModel {
-            name: name,
+            name: name.to_string(),
             gamedata: GameData::default(),
             ruleset: RuleSet::new(),
         }
@@ -31,8 +30,8 @@ pub struct GameData {
     // then we can just call precedence!("key-name", "same" using precedence).
     // Because we can just look up the key-name.
     // We could maybe leave out the "using precedence" (but thats a "fine-tuning" question).
-    pub precedences: Vec<Precedence>,
-    pub pointmaps: Vec<PointMap>,
+    pub precedences: HashMap<String, Precedence>,
+    pub pointmaps: HashMap<String, PointMap>,
 }
 impl Default for GameData {
     fn default() -> Self {
@@ -40,15 +39,117 @@ impl Default for GameData {
                     teams: vec![],
                     players: vec![],
                     turnorder: vec![],
-                    precedences: vec![],
-                    pointmaps: vec![] }
+                    precedences: HashMap::new(),
+                    pointmaps: HashMap::new() }
     }
 }
 impl GameData {
-    fn add_player(&mut self, name: String) {
+    pub fn add_player(&mut self, name: String) {
         self.players.push(Player::new(name));
     }
 
+    pub fn add_players(&mut self, names: Vec<String>) {
+        for i in 0..names.len() {
+            self.players.push(Player::new(names[i].clone()));
+        }
+    }
+
+    pub fn lookup_player(&mut self, name: &str) -> Option<&Player> {
+        // Find all players that match the name
+        let ps: Option<&Player> = self.players
+            .iter()
+            .find(|player| player.name == name);
+
+        match ps {
+            None             => None,
+            Some(p) => Some(p)            
+        }
+    }
+
+    pub fn lookup_player_rc(&mut self, name: &str) -> Option<Rc<RefCell<Player>>> {
+        // Find all players that match the name
+        let mut res: Vec<Rc<RefCell<Player>>> = self
+            .players
+            .iter()
+            .filter(|player| player.name == name)
+            .cloned()
+            .map(|player| Rc::new(RefCell::new(player)))
+            .collect();
+
+        match res.len() {
+            0 => {
+                println!("Error: no player with that name!");
+                None
+            }
+            1 => Some(res.remove(0)), // Return the only matching player
+            _ => {
+                println!("Error: too many players with that name!");
+                None
+            }
+        }
+    }
+
+    fn find_player_mut(&mut self, name: &str) -> Option<&mut Player> {
+        self.players.iter_mut().find(|player| player.name == name)
+    }    
+
+    pub fn add_loc_player(&mut self, locname: String, playername: String) {
+        match self.find_player_mut(&playername) { // Use find_player_mut to get a mutable reference
+            Some(p) => {
+                p.locations.insert(locname.clone(), Location::new(locname)); // Modify player
+            }
+            None => {
+                println!("Error: player not found!");
+            }
+        }
+    }
+
+    fn find_team_mut(&mut self, name: &str) -> Option<&mut Team> {
+        self.teams.iter_mut().find(|team| team.teamname == name)
+    }    
+
+    pub fn add_loc_team(&mut self, locname: String, teamname: String) {
+        match self.find_team_mut(&teamname) { // Use find_player_mut to get a mutable reference
+            Some(t) => {
+                t.locations.insert(locname.clone(), Location::new(locname)); // Modify player
+            }
+            None => {
+                println!("Error: team not found!");
+            }
+        }
+    }
+
+    pub fn add_loc_table(&mut self, locname: String) {
+        self.table.locations.insert(locname.clone(), Location::new(locname));
+    }
+
+    pub fn find_locations(&mut self, locname: &str) -> Vec<&mut Location> {
+        let mut locs: Vec<&mut Location> = vec![];
+    
+        // Check self.table
+        if let Some(l) = self.table.locations.get_mut(locname) {
+            locs.push(l);
+        } else {
+            println!("No location in table!");
+        }
+    
+        // Iterate over self.players and collect matching locations
+        for player in self.players.iter_mut() {
+            if let Some(loc) = player.locations.get_mut(locname) {
+                locs.push(loc);
+            }
+        }
+    
+        // Iterate over self.teams and collect matching locations
+        for team in self.teams.iter_mut() {
+            if let Some(loc) = team.locations.get_mut(locname) {
+                locs.push(loc);
+            }
+        }
+    
+        locs
+    }
+    
     fn remove_player(&mut self, player_name: String) {
         for i in 0.. self.players.len() {
             if self.players[i].name == player_name {
@@ -60,17 +161,17 @@ impl GameData {
         }
     }
 
-    fn add_team(&mut self, name: String, players: Vec<Rc<RefCell<Player>>>) {
+    pub fn add_team(&mut self, name: String, players: Vec<Rc<RefCell<Player>>>) {
         // TODO: locations
         self.teams.push(Team::new(name, players));
     }
 
-    fn add_precedence(&mut self, precedence: Precedence) {
-        self.precedences.push(precedence);
+    pub fn add_precedence(&mut self, precedence: Precedence) {
+        self.precedences.insert(precedence.name.clone(),precedence);
     }
 
     fn add_pointmap(&mut self, pointmap: PointMap) {
-        self.pointmaps.push(pointmap);
+        self.pointmaps.insert(pointmap.name.clone(), pointmap);
     }
 
 
@@ -111,7 +212,6 @@ impl Player {
             println!("Player {}: locname={}", self.name, k.to_string())
         }
     }
-
 }
 
 #[derive(Debug, Clone)]
@@ -164,6 +264,12 @@ pub struct Location {
 impl Location {
     pub fn new(locname: String) -> Location {
         Location { name: locname, contents: vec![]}
+    }
+}
+impl std::fmt::Display for Location {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = self.name.clone();
+        write!(f, "{}", s)
     }
 }
 
@@ -230,7 +336,7 @@ impl Eq for Card {}
 #[derive(Debug, Clone)]
 pub struct Precedence {
     pub name: String,
-    pub attributes: HashMap<String, String>,
+    pub attributes: HashMap<String, i32>,
 }
 
 #[derive(Debug, Clone)]

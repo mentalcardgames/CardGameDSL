@@ -1,57 +1,49 @@
 macro_rules! player {
-    ($($n:expr), *) => {
+    ($cgm:expr, $($n:expr), *) => {
         {
-            use crate::ast::Player;
-            use std::rc::Rc;
-            use std::cell::RefCell;
-
             let player_names: Vec<String> = vec![$($n.to_string()), *];
-            let players: Vec<Rc<RefCell<Player>>> = player_names.iter().map(|x| Rc::new(RefCell::new(Player::new(x.to_string())))).collect();
-            players
+            $cgm.gamedata.add_players(player_names)
         }
     }
 }
 
 macro_rules! team {
-    ($n:expr, ($($p:expr), *)) => {
+    ($cgm:expr, $n:expr, ($($p:expr), *)) => {
         {
-            use crate::ast::Team;
             use crate::ast::Player;
             use std::cell::RefCell;
             use std::rc::Rc;
 
             let player_names: Vec<String> = vec![$($p.to_string()), *];
-            let name = $n.to_string();
-            let players: Vec<Rc<RefCell<Player>>> = player_names.iter().map(|x| Rc::new(RefCell::new(Player::new(x.to_string())))).collect();
-            let team = Team::new(name, players);
-            team
+            let players: Vec<Rc<RefCell<Player>>> = player_names
+                .iter()
+                .filter_map(|name| {
+                    $cgm.gamedata.lookup_player_rc(name)
+                })
+                .collect();
+            $cgm.gamedata.add_team($n.to_string(), players);
         }
     };
 }
 
 macro_rules! location_on {
-    ($location:literal, players: $players:expr) => {
+    ($cgm:expr, $location:literal, players: $($p:expr), *) => {
         {
-            use std::cell::RefCell;
-            use std::rc::Rc;
-            let players: Vec<Rc<RefCell<Player>>> = $players;
-            for player in players.iter() {
-                player.borrow_mut().add_location($location.to_string());
+            let player_names: Vec<String> = vec![$($p.to_string()), *];
+            for p in player_names {
+                $cgm.gamedata.add_loc_player($location.to_string(), p)
             }
         }
     };
 
-    ($location:literal, team: $team:expr) => {
+    ($cgm:expr, $location:literal, team: $team:expr) => {
         {
-            use crate::ast::Team;
-            let team: &mut Team = $team;
-            (*team).add_location($location.to_string());
+            $cgm.gamedata.add_loc_team($location.to_string(), $team.to_string())
         }
     };
-    ($location:literal, table: $table:expr) => {
+    ($cgm:expr, $location:literal, table) => {
         {
-            let table = $table;
-            table.add_location($location.to_string());
+            $cgm.gamedata.add_loc_table($location.to_string());
         }
     };
 }
@@ -60,6 +52,7 @@ macro_rules! location_on {
 // Card on location! So the cards still need to be moved in the correct location after they were created.
 macro_rules! card_on {
     (
+        $cgm:expr,
         $location:expr,
         $(
             {
@@ -71,11 +64,12 @@ macro_rules! card_on {
     ) => {
         {
         use crate::ast::Card;
+        use crate::ast::Component;
         use std::collections::HashMap;
         use std::collections::BTreeSet;
         let mut keys_set: BTreeSet<String> = BTreeSet::new();
 
-        println!("Location: {}", $location.name);
+        // println!("Location: {}", $location.name);
 
         let mut all_cards = Vec::new();
         let mut all_keys = Vec::new();
@@ -138,17 +132,22 @@ macro_rules! card_on {
 
         // iterate over every player, team and table!
         // then assign the cards to the correct location!
-
-        all_cards
+        let mut locs = $cgm.gamedata.find_locations($location);
+        let comp_card: Vec<Component> = all_cards.into_iter().map(|c| Component::CARD(c)).collect();
+        for i in 0..locs.len() {
+            locs[i].contents.extend(comp_card.clone());
+        }
     }};
 }
 
 macro_rules! precedence {
     (
+        $cgm:expr,
         $name:expr, // Name of the attribute for context
         ($($value:expr),* $(,)?)
         // TODO: add [key, value] Precedence!
     ) => {{
+        use crate::ast::Precedence;
         use std::collections::HashMap;
         let mut precedence_map = HashMap::new();
         let mut index = 0;
@@ -158,20 +157,21 @@ macro_rules! precedence {
             precedence_map.insert($name.to_string() + &$value.to_string(), index);
             index += 1;
         )*
-        println!("Precedence for {}: {:?}", $name, precedence_map);
-        precedence_map
+        // println!("Precedence for {}: {:?}", $name, precedence_map);
+        $cgm.gamedata.add_precedence(Precedence { name: $name.to_string(), attributes: precedence_map});
     }};
 }
 
 macro_rules! pointmap {
     (
+        $cgm:expr,
 
         // nested mapping
         $(
             nested: { 
                 $($name1:expr,
                     ($($key1:expr => [$($value1:expr),*] ),* $(,)?)
-                ),* $(,)? 
+                ),* $(,)?
             }
         ),* $(,)?
 
@@ -186,6 +186,7 @@ macro_rules! pointmap {
 
     ) => {{
         use std::collections::HashMap;
+        // use crate::ast::PointMap;
         let mut point_map: HashMap<String, Vec<i32>> = HashMap::new();
 
         // nested mapping
@@ -210,8 +211,13 @@ macro_rules! pointmap {
             )*
         )*
 
-        println!("Point map for {:?}", point_map);
+        // println!("Point map for {:?}", point_map);
         point_map
+        // Modify gamedata
+        // $cgm.gamedata.add_pointmap(PointMap {
+        //     name: format!("{}", stringify!($($name1),*)), // Handle multiple `$name1`
+        //     entries: point_map.clone(), // Return a copy if needed
+        // });
     }};
 }
 
