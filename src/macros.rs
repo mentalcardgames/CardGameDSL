@@ -165,6 +165,7 @@ macro_rules! precedence {
 macro_rules! pointmap {
     (
         $cgm:expr,
+        $pmapname:expr,
 
         // nested mapping
         $(
@@ -186,15 +187,14 @@ macro_rules! pointmap {
 
     ) => {{
         use std::collections::HashMap;
-        // use crate::ast::PointMap;
+        use crate::ast::PointMap;
         let mut point_map: HashMap<String, Vec<i32>> = HashMap::new();
 
         // nested mapping
         $(
             $(
                 $(
-                    let key = format!("{}{}", $name1, $key1);
-                    let entry = point_map.entry(key).or_insert_with(Vec::new);
+                    let entry = point_map.entry($key1.to_string()).or_insert_with(Vec::new);
                     $(
                         entry.push($value1);
                     )*
@@ -205,14 +205,13 @@ macro_rules! pointmap {
         // flat mapping
         $(
             $(
-                let key = format!("{}{}", $name2, $key2);
-                let entry = point_map.entry(key).or_insert_with(Vec::new);
+                let entry = point_map.entry($key2.to_string()).or_insert_with(Vec::new);
                 entry.push($value2);
             )*
         )*
 
         // println!("Point map for {:?}", point_map);
-        point_map
+        $cgm.gamedata.add_pointmap(PointMap { name: $pmapname.to_string(), entries: point_map});
         // Modify gamedata
         // $cgm.gamedata.add_pointmap(PointMap {
         //     name: format!("{}", stringify!($($name1),*)), // Handle multiple `$name1`
@@ -222,21 +221,35 @@ macro_rules! pointmap {
 }
 
 macro_rules! turn_order {
-    (($($player:expr),*), random) => {{
+
+    ($cgm:expr, random) => {{
         use rand::seq::SliceRandom;
         use crate::ast::Player;
         use std::rc::Rc;
-        let mut players: Vec<Rc<Player>> = vec![$($player),*];
+        use std::cell::RefCell;
+
+        let mut turn_order: Vec<Rc<RefCell<Player>>> = $cgm.gamedata.players
+            .iter()
+            .map(|p| Rc::new(RefCell::new(p.clone())))
+            .collect();
         let mut rng = rand::thread_rng();
-        players.shuffle(&mut rng);
-        players
+        turn_order.shuffle(&mut rng);
+        $cgm.gamedata.set_turnorder(turn_order);
     }};
-    (($($player:expr),*)) => {{
+
+    ($cgm:expr, ($($pname:expr),*)) => {{
         use crate::ast::Player;
         use std::rc::Rc;
-        let players: Vec<Rc<Player>> = vec![$($player),*];
-        players
+        use std::cell::RefCell;
+
+        let player_names = vec![$($pname),*];
+        let turn_order: Vec<Rc<RefCell<Player>>> = player_names
+        .iter()
+        .filter_map(|p| $cgm.gamedata.lookup_player_rc(p))
+        .collect();
+        $cgm.gamedata.set_turnorder(turn_order);
     }};
+
 }
 
 // OR DOESNT WORK YET!

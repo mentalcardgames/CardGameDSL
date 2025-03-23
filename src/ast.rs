@@ -25,7 +25,8 @@ pub struct GameData {
     pub table: Table,
     pub teams: Vec<Team>,
     pub players: Vec<Player>,
-    pub turnorder: Vec<String>,
+    // Reference to the players
+    pub turnorder: Vec<Rc<RefCell<Player>>>,
     // precedences should be a HashMap<String (Key-Name), HashMap<...> (precedence hashmap)>
     // then we can just call precedence!("key-name", "same" using precedence).
     // Because we can just look up the key-name.
@@ -170,10 +171,13 @@ impl GameData {
         self.precedences.insert(precedence.name.clone(),precedence);
     }
 
-    fn add_pointmap(&mut self, pointmap: PointMap) {
+    pub fn add_pointmap(&mut self, pointmap: PointMap) {
         self.pointmaps.insert(pointmap.name.clone(), pointmap);
     }
 
+    pub fn set_turnorder(&mut self, ref_players: Vec<Rc<RefCell<Player>>>) {
+        self.turnorder = ref_players;
+    }
 
     
 }
@@ -336,7 +340,7 @@ impl Eq for Card {}
 #[derive(Debug, Clone)]
 pub struct Precedence {
     pub name: String,
-    pub attributes: HashMap<String, i32>,
+    pub attributes: HashMap<String, usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -348,7 +352,7 @@ struct CardCombination {
 #[derive(Debug, Clone)]
 pub struct PointMap {
     pub name: String,
-    pub entries: HashMap<String, i32>,
+    pub entries: HashMap<String, Vec<i32>>,
 }
 
 #[derive(Debug, Clone)]

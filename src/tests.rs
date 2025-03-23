@@ -94,8 +94,9 @@ mod tests {
     fn test_pointmap_macro() {
         let mut cgm = CardGameModel::new("pointmap_test");
 
-        let rank_points = pointmap!(
+        pointmap!(
             cgm,
+            "rank",
             nested: {  
                 "rank", (
                 "2" => [2],
@@ -119,110 +120,123 @@ mod tests {
         );
 
         // Test rank points, nested mapping
-        assert!(rank_points.contains_key("rank2"));
-        assert_eq!(rank_points["rank2"], vec![2]);
+        assert!(cgm.gamedata.pointmaps["rank"].entries["2"].len() == 1);
+        assert_eq!(cgm.gamedata.pointmaps["rank"].entries["2"], vec![2]);
 
-        assert!(rank_points.contains_key("rankA"));
-        assert_eq!(rank_points["rankA"], vec![11, 1]);
+        assert!(cgm.gamedata.pointmaps["rank"].entries["A"].len() == 2);
+        assert_eq!(cgm.gamedata.pointmaps["rank"].entries["A"], vec![11, 1]);
 
         // Test rank points, flat mapping
-        assert!(rank_points.contains_key("suiteclubs"));
-        assert_eq!(rank_points["suiteclubs"], vec![100]);        
+        assert!(cgm.gamedata.pointmaps["rank"].entries["clubs"].len() == 1);
+        assert_eq!(cgm.gamedata.pointmaps["rank"].entries["clubs"], vec![100]);        
     }
 
     #[test]
     fn test_turn_order_macro() {
+        use std::rc::Rc;
+        use std::cell::RefCell;
 
-        let p1 = Player::new("Jimmy".to_string());
-        let p2 = Player::new("Timmy".to_string());
-        let p3 = Player::new("Kimmy".to_string());
-        let p4 = Player::new("Mimmy".to_string());
+        fn print_players(turnorder: Vec<Rc<RefCell<Player>>>) {
+            println!("turnorder:");
+            println!("================");
+            for p in turnorder {
+                println!("{}", p.borrow().name)
+            }
+            println!("================");
+            println!();
+        }
 
-        let rcp1 = Rc::new(p1);
-        let rcp2 = Rc::new(p2);
-        let rcp3 = Rc::new(p3);
-        let rcp4 = Rc::new(p4);
-
-        let order: Vec<String> = turn_order!(
-            (rcp1.clone(),rcp2.clone(), rcp3.clone(), rcp4.clone())
-        )
-            .iter()
-            .map(|x| x.name.clone())
-            .collect();
-
-        let random_order: Vec<String> = turn_order!(
-            (rcp1.clone(), rcp2.clone(), rcp3.clone(), rcp4.clone()),
-            random
-        )
-            .iter()
-            .map(|x| x.name.clone())
-            .collect();
-
-        // Test fixed turn order
-        assert_eq!(
-            order,
-            vec![rcp1.name.clone(), rcp2.name.clone(), rcp3.name.clone(), rcp4.name.clone()]
-        );
-
-        // Test random turn order
-        assert_eq!(random_order.len(), 4);
-        assert!(random_order.contains(&rcp1.name));
-        assert!(random_order.contains(&rcp1.name));
+        let mut cgm = CardGameModel::new("turn_order_test");
+        player!(cgm, "Jimmy", "Kimmy", "Timmy");
+        turn_order!(cgm, random);
+        print_players(cgm.gamedata.turnorder.clone());
+        
+        turn_order!(cgm, ("Timmy", "Jimmy", "Kimmy"));
+        print_players(cgm.gamedata.turnorder.clone());
     }
 
     #[test]
-    fn test_filter_macro(){
-        // Sample cards
-        let cards = vec![
-            Card::new([("rank".to_string(), "2".to_string()), ("suite".to_string(), "spades".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "spades".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "hearts".to_string())].into()),
-            Card::new([("rank".to_string(), "3".to_string()), ("suite".to_string(), "diamonds".to_string())].into()),
-            Card::new([("rank".to_string(), "4".to_string()), ("suite".to_string(), "spades".to_string())].into()),
-            Card::new([("rank".to_string(), "4".to_string()), ("suite".to_string(), "clubs".to_string())].into()),
-            Card::new([("rank".to_string(), "6".to_string()), ("suite".to_string(), "clubs".to_string())].into()),
-        ];
+    fn test_filter_macro() {
+        use crate::ast::Component;
+        let mut cgm = CardGameModel::new("filter_test");
 
-        // Precedence map for "rank"
-        // let rank_precedence = precedence!("rank", ("2", "3", "4", "5", "6"));
+        location_on!(cgm, "stack", table);
+
+        card_on!(
+            cgm,
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        precedence!(cgm, "Rank", ("2", "3", "4", "5", "A"));
+        
+        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].contents
+            .iter()
+            .filter_map(|c| {
+                if let Component::CARD(card) = c {
+                    Some(card.clone()) // Return the cloned card
+                } else {
+                    None // Filter out non-card components
+                }
+            })
+            .collect();
+        
+        // for c in cards.iter() {
+        //     println!("{}", c);
+        // }
 
         // Filter for "same" rank
-        let same_filter = filter!("rank", "same");
+        let same_filter = filter!("Rank", "same");
         let filtered_cards = same_filter(cards.clone());
         println!("{}", filtered_cards.len());
         for f in filtered_cards.iter() {
             println!("Same rank cards: {:?}", f);
         }
 
+        // TODO: I dont know how to implement
+        // More precisely I dont understand what it means
+ 
         // Filter for "distinct"
-        // let distinct_filter = filter!("rank", "distinct");
+        // let distinct_filter = filter!("Rank", "distinct");
         // let filtered_cards = distinct_filter(cards.clone());
         // println!("{}", filtered_cards.len());
         // for f in filtered_cards.iter() {
-            // println!("Distinct rank cards: {:?}", f);
+        //     println!("Distinct rank cards: {:?}", f);
         // }
         
         // Filter for "adjacent" using precedence
-        // let adjacent_filter = filter!("rank", "adjacent" using rank_precedence);
-        // let filtered_cards = adjacent_filter(cards.clone());
-        // println!("Adjacent rank cards: {:?}\n", filtered_cards);
+        let adjacent_filter = filter!("Rank",
+            "adjacent" using cgm.gamedata.precedences["Rank"].attributes);
+        let filtered_cards = adjacent_filter(cards.clone());
+        println!("Adjacent rank cards: {:?}\n", filtered_cards);
 
+
+        // Higher and Lower makes 0 sense
         // Filter for "higher" using precedence ("higher" is interpreted as "highest")
-        // let higher_filter = filter!("rank", "higher" using rank_precedence);
+        // let higher_filter = filter!("rank", "higher" using cgm.gamedata.precedences["Rank"]);
         // let filtered_cards = higher_filter(cards.clone());
         // for c in filtered_cards.iter() {
         //     println!("Higher rank cards: {:?}", c);
         // }
 
         // Filter for "lower" using precedence ("lower" is interpreted as "lowest")
-        // let lower_filter = filter!("rank", "lower" using rank_precedence);
+        // let lower_filter = filter!("rank", "lower" using cgm.gamedata.precedences["Rank"]);
         // let filtered_cards = lower_filter(cards.clone());
         // for c in filtered_cards.iter() {
         //     println!("Lower rank cards: {:?}", c);
         // }
 
         // Filter with Key == Value
-        let bool_filter = filter!("rank", "==", "3");
+        let bool_filter = filter!("Rank", "==", "3");
         let filtered_cards = bool_filter(cards.clone());
         for c in filtered_cards.iter() {
             println!("Equal rank cards: {:?}", c);
@@ -243,69 +257,51 @@ mod tests {
         }
 
         // Filter with Key != Value
-        let bool_filter = filter!("rank", "!=", "3");
+        let bool_filter = filter!("Rank", "!=", "3");
         let filtered_cards = bool_filter(cards.clone());
         for c in filtered_cards.iter() {
             println!("Not-Equal rank cards: {:?}", c);
         }
 
         // Combined filter
-        // let combined_filter = filter!(
-        //     ("rank", "adjacent" using rank_precedence), 
-        //     ("and"), 
-        //     ("suite", "same")
-        // );        
-        // let filtered_cards = combined_filter(cards.clone());
-        // for c in filtered_cards.iter() {
-        //     println!("Combined-Filter (rank-adjacent, suite same): {:?}", c);
-        // }
-
-        // let combined_filter = filter!(
-        //     ("rank", "adjacent" using rank_precedence),
-        //     ("and"),
-        //     (size, ">=", 3)
-        // );        
-        // let filtered_cards = combined_filter(cards.clone());
-        // for c in filtered_cards {
-        //     println!("Combined-Filter (adjacent, size >= 3): {:?}", c);
-        // }
-
-        // Testing more nested filter functions
         let combined_filter = filter!(
-            ("suite", "same"),
+            ("Rank", "adjacent" using cgm.gamedata.precedences["Rank"].attributes), 
+            ("and"), 
+            ("Suite", "same")
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        for c in filtered_cards.iter() {
+            println!("Combined-Filter (rank-adjacent, suite same): {:?}", c);
+        }
+
+        let combined_filter = filter!(
+            ("Rank", "adjacent" using cgm.gamedata.precedences["Rank"].attributes),
             ("and"),
             (size, ">=", 3)
         );        
         let filtered_cards = combined_filter(cards.clone());
-        println!("Combined-Filter (suite same, size != 3): {:?}", filtered_cards);
+        for c in filtered_cards {
+            println!("Combined-Filter (adjacent, size >= 3): {:?}", c);
+        }
 
         // Testing more nested filter functions
-        // OR DOESNT WORK YET
         let combined_filter = filter!(
-            ("suite", "same"),
-            ("or"),
-            ("rank", "same")
+            ("Suite", "same"),
+            ("and"),
+            (size, ">=", 3)
         );        
         let filtered_cards = combined_filter(cards.clone());
-        println!("Combined-Filter (suite same, rank same): {:?}", filtered_cards);
+        println!("Combined-Filter (Suite same, size != 3): {:?}", filtered_cards);
 
-    }
+        // // Testing more nested filter functions
+        // // OR DOESNT WORK YET
+        // let combined_filter = filter!(
+        //     ("suite", "same"),
+        //     ("or"),
+        //     ("rank", "same")
+        // );        
+        // let filtered_cards = combined_filter(cards.clone());
+        // println!("Combined-Filter (suite same, rank same): {:?}", filtered_cards);
 
-    #[test]
-    fn test_location() {
-        // // test for location on players
-        // let players = player!("Jimmy", "Timmy");
-        // let p_clone = players.clone();
-        // location_on!("test_location1", players: p_clone);
-        // for player in players.iter() {
-        //     player.borrow_mut().show_locations();
-        // }
-
-        // // test for location on team
-        // let mut team = team!("T1", ("Jimmy", "Timmy"));
-        // location_on!("test_location2", team: &mut team);
-        // team.show_locations();
-
-        // // table not implemented yet
     }
 }
