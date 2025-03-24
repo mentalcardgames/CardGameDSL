@@ -303,5 +303,61 @@ mod tests {
         // let filtered_cards = combined_filter(cards.clone());
         // println!("Combined-Filter (suite same, rank same): {:?}", filtered_cards);
 
+
+        // this filter caused problems:
+        // filter!(
+        //     ("Suite", "same"),
+        //     ("and"),
+        //     ("Suite", "==", "Hearts")
+        // );
+
+        // but this one works.
+        // WEIRD BUG
+        let combined_filter = filter!(
+            ("Suite", "==", "Hearts"),
+            ("and"),
+            ("Suite", "same")
+        );        
+        let filtered_cards = combined_filter(cards.clone());
+        println!("Combined-Filter (Suite same, size != 3): {:?}", filtered_cards);
     }
+
+
+    #[test]
+    fn test_combo() {
+        let mut cgm = CardGameModel::new("combo_test");
+
+        location_on!(cgm, "stack", table);
+
+        card_on!(
+            cgm,
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        precedence!(cgm, "Rank", ("2", "3", "4", "5", "A"));
+
+        combo!(cgm, "all hearts", filter!(
+            "Suite", "==", "Hearts"
+        ));
+
+        for c in cgm.gamedata
+            .apply_combo("all hearts".to_string(),
+                "stack".to_string())
+            .iter() {
+                for card in c {
+                    println!("{}", card);
+                }
+        }
+    }
+
 }

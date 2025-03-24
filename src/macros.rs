@@ -565,42 +565,15 @@ macro_rules! filter {
 }
 
 macro_rules! combo {
-    ($name:literal, "where", $filter:tt) => {
-        {}
+    ($cgm:expr, $name:literal, $filter:expr) => {
+        use crate::ast::{CardFunction, CardCombination};
+
+        $cgm.gamedata.add_cardcombination(
+            $name.to_string(),
+            CardCombination {
+                name: $name.to_string(),
+                attributes: CardFunction::new(Rc::new($filter)), // Ensure Arc wrapping
+            }
+        );
     };
-}
-
-
-macro_rules! game {
-    (setup: $setup:tt, play: $play:tt, scoring: $scoring:tt) => {
-        {
-            let mut cgm = CardGameModel::new("game");
-            let setup = $setup;
-            let play = $play;
-            let scoring = $scoring;
-
-            // maybe implement it with macros for inner operation on the model?
-            // Something like:
-            // setup_inner(cdgm, ...);
-            // => "edits" the object 
-            //
-            // I think all setup rules need an inner function because we alter the structure of gamedata-object
-            // and we don't want that the person writing in the DSL that they have to add the object every time! 
-            //
-            // ==> The problem with something like setup_inner is that it makes it really hard and annoying to
-            // extend the language. What i mean is it is to inflexible and will cause a lot of annoyance.
-            // I think we should just do setup(&cgm, ...) for the functions that need it. That way we can just treat
-            // it as just an editing of the card-game-model and still give the possibility to extend the model and
-            // to write custom macros easier!
-        }
-    }
-}
-
-macro_rules! setup {
-    // TODO:
-    // Add CreateToken, CreateCombo, CreateMem 
-    (players: $cplayer:tt, ((team: $cteam:tt),*)?, (turnorder: $cturnorder:tt)+,
-        (cards: $ccard:tt, prec: $cprec:tt, pointmap: $cpoint:tt)) => {
-            {}
-    }
 }

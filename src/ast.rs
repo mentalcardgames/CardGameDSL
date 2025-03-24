@@ -1,7 +1,9 @@
 use core::fmt;
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::rc::Rc;
 use std::cell::RefCell;
+use std::sync::Arc;
 
 
 #[derive(Debug, Clone)]
@@ -27,12 +29,9 @@ pub struct GameData {
     pub players: Vec<Player>,
     // Reference to the players
     pub turnorder: Vec<Rc<RefCell<Player>>>,
-    // precedences should be a HashMap<String (Key-Name), HashMap<...> (precedence hashmap)>
-    // then we can just call precedence!("key-name", "same" using precedence).
-    // Because we can just look up the key-name.
-    // We could maybe leave out the "using precedence" (but thats a "fine-tuning" question).
     pub precedences: HashMap<String, Precedence>,
     pub pointmaps: HashMap<String, PointMap>,
+    pub cardcombinations: HashMap<String, CardCombination>,
 }
 impl Default for GameData {
     fn default() -> Self {
@@ -41,7 +40,9 @@ impl Default for GameData {
                     players: vec![],
                     turnorder: vec![],
                     precedences: HashMap::new(),
-                    pointmaps: HashMap::new() }
+                    pointmaps: HashMap::new(),
+                    cardcombinations: HashMap::new(),
+                }
     }
 }
 impl GameData {
@@ -179,7 +180,25 @@ impl GameData {
         self.turnorder = ref_players;
     }
 
-    
+    pub fn add_cardcombination(&mut self, name: String, cardcomb: CardCombination) {
+        self.cardcombinations.insert(name, cardcomb);
+    }
+
+    // TODO:
+    // has to be overworked later !
+    pub fn apply_combo(&mut self, comboname: String, locname: String) -> Vec<Vec<Card>> {
+        // UNWRAP USED!!!
+        let loc = (*self.find_locations(&locname)[0]).clone();
+        self.cardcombinations
+        .get(&comboname)
+        .unwrap()
+        .attributes
+        .deref()(loc
+            .contents
+            .iter()
+            .filter_map(|c| c.clone().to_card())
+            .collect())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -295,6 +314,15 @@ pub enum Component {
     TOKEN,
 }
 
+impl Component {
+    pub fn to_card(self) -> Option<Card> {
+        match self {
+            Component::CARD(card) => Some(card), // Properly destructure `Component::CARD`
+            _ => None, // Return `None` if it's not a `CARD`
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Card {
     pub status: Status,
@@ -343,10 +371,71 @@ pub struct Precedence {
     pub attributes: HashMap<String, usize>,
 }
 
-#[derive(Debug, Clone)]
-struct CardCombination {
+// Wrapper for function to avoid Debug issue
+pub struct CardFunction(Rc<dyn Fn(Vec<Card>) -> Vec<Vec<Card>>>);
+
+impl CardFunction {
+    pub fn new(fun: Rc<dyn Fn(Vec<Card>) -> Vec<Vec<Card>>>) -> Self {
+        Self(fun)
+    }
+}
+
+impl Deref for CardFunction {
+    type Target = dyn Fn(Vec<Card>) -> Vec<Vec<Card>>;
+
+    fn deref(&self) -> &Self::Target {
+        &*self.0 // Dereferences Rc/Arc to get the function
+    }
+}
+
+impl Clone for CardFunction {
+    fn clone(&self) -> Self {
+        Self(Rc::clone(&self.0))
+    }
+}
+
+#[derive(Clone)]
+pub struct CardCombination {
     pub name: String,
-    pub attributes: HashMap<String, String>,
+    // in the thesis there is attributes: HashMap<String, Filter>
+    // Which i dont get at all
+    // Why does ONE CardCombination gave multiple CardCombinations???
+    pub attributes: CardFunction,
+}
+
+impl CardCombination {
+    // // Constructor
+    // pub fn new(name: &str) -> Self {
+    //     Self {
+    //         name: name.to_string(),
+    //         attributes: HashMap::new(),
+    //     }
+    // }
+
+    // // Method to add an attribute function
+    // pub fn add_attribute<F>(&mut self, key: &str, func: F)
+    // where
+    //     F: Fn(Vec<Card>) -> Vec<Vec<Card>> + Send + Sync + 'static,
+    // {
+    //     self.attributes.insert(key.to_string(), CardFunction(Arc::new(func)));
+    // }
+
+    // // Method to apply an attribute function
+    // pub fn apply_attribute(&self, key: &str, cards: Vec<Card>) -> Option<Vec<Vec<Card>>> {
+    //     self.attributes.get(key).map(|func| (func.0)(cards))
+    // }
+}
+
+// Manual Debug implementation for CardCombination
+impl fmt::Debug for CardCombination {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "CardCombination {{ name: {:?}, attributes:  functions }}",
+            self.name,
+            // self.attributes
+        )
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -429,5 +518,4 @@ pub struct Play {
     pub endconditions: Vec<Condition>,
     pub stages: Vec<Stage>,
 }
-
 
