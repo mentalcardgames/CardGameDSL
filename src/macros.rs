@@ -577,3 +577,59 @@ macro_rules! combo {
         );
     };
 }
+
+
+// (Different filters should have different proirities when evaluated.
+// A Filter can have an and/or structure. And there are some things that
+// make the filtering smaller:
+// 1. ==, !=
+// 2. same, distinct, adjacent
+// 3. (not)? combo
+// 4. size >,...
+// )
+//
+// How to evaluate a condition like: If size of Hand > 3 then ...
+//
+// If we just have "filter"-condition (a Condition that is only made out of filters)
+// Then we check if the "result" of the condition is empty (vec![vec![]]).
+// If it is empty we return FALSE
+// Else return TRUE
+//
+// (Optional: Add speial keywards to make writing rules more intuitive)
+
+
+macro_rules! condrule {
+    (conditional: (case: $bool:tt? ($rule:tt+))+) => {
+
+    }
+}
+
+
+macro_rules! ifrule {
+    (iff $bool:tt? then $rule:tt+) => {
+
+    }
+}
+
+macro_rules! oprule {
+    (optional: $rule:tt) => {
+
+    }
+}
+
+macro_rules! choicerule {
+    (choose: $prule1:tt ($(or: $prule2:tt),*)) => {
+
+    }
+}
+
+macro_rules! triggerrule {
+    (trigger: $prule:tt) => {
+
+    }
+}
+
+
+
+
+
