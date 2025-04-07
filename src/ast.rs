@@ -1,9 +1,8 @@
 use core::fmt;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::ops::Deref;
 use std::rc::Rc;
-use std::cell::RefCell;
-use std::sync::Arc;
 
 
 #[derive(Debug, Clone)]
@@ -26,9 +25,10 @@ impl CardGameModel {
 pub struct GameData {
     pub table: Table,
     pub teams: Vec<Team>,
-    pub players: Vec<Player>,
-    // Reference to the players
-    pub turnorder: Vec<Rc<RefCell<Player>>>,
+    // HashMap<String, Player>
+    pub players: HashMap<String, Player>,
+    // Player-Names
+    pub turnorder: Vec<String>,
     pub precedences: HashMap<String, Precedence>,
     pub pointmaps: HashMap<String, PointMap>,
     pub cardcombinations: HashMap<String, CardCombination>,
@@ -37,7 +37,7 @@ impl Default for GameData {
     fn default() -> Self {
         GameData { table: Table { locations: HashMap::new() },
                     teams: vec![],
-                    players: vec![],
+                    players: HashMap::new(),
                     turnorder: vec![],
                     precedences: HashMap::new(),
                     pointmaps: HashMap::new(),
@@ -47,56 +47,45 @@ impl Default for GameData {
 }
 impl GameData {
     pub fn add_player(&mut self, name: String) {
-        self.players.push(Player::new(name));
+        self.players.insert(name.clone(), Player::new(name));
     }
 
     pub fn add_players(&mut self, names: Vec<String>) {
-        for i in 0..names.len() {
-            self.players.push(Player::new(names[i].clone()));
+        for name in names {
+            self.players.insert(name.clone(), Player::new(name));
+
         }
     }
 
-    pub fn lookup_player(&mut self, name: &str) -> Option<&Player> {
+    pub fn lookup_player(&mut self, name: &str) -> Option<&mut Player> {
         // Find all players that match the name
-        let ps: Option<&Player> = self.players
-            .iter()
-            .find(|player| player.name == name);
-
-        match ps {
-            None             => None,
-            Some(p) => Some(p)            
-        }
+        self.players.get_mut(name)
     }
 
-    pub fn lookup_player_rc(&mut self, name: &str) -> Option<Rc<RefCell<Player>>> {
-        // Find all players that match the name
-        let mut res: Vec<Rc<RefCell<Player>>> = self
-            .players
-            .iter()
-            .filter(|player| player.name == name)
-            .cloned()
-            .map(|player| Rc::new(RefCell::new(player)))
-            .collect();
+    // pub fn lookup_player_rc(&mut self, name: &str) -> Option<String> {
+    //     // Find all players that match the name
+    //     let mut res: Vec<String> = self
+    //         .players
+    //         .iter()
+    //         .filter(|player| player.name == name)
+    //         .map(|player| player.name.clone())
+    //         .collect();
 
-        match res.len() {
-            0 => {
-                println!("Error: no player with that name!");
-                None
-            }
-            1 => Some(res.remove(0)), // Return the only matching player
-            _ => {
-                println!("Error: too many players with that name!");
-                None
-            }
-        }
-    }
-
-    fn find_player_mut(&mut self, name: &str) -> Option<&mut Player> {
-        self.players.iter_mut().find(|player| player.name == name)
-    }    
+    //     match res.len() {
+    //         0 => {
+    //             println!("Error: no player with that name!");
+    //             None
+    //         }
+    //         1 => Some(res.remove(0)), // Return the only matching player
+    //         _ => {
+    //             println!("Error: too many players with that name!");
+    //             None
+    //         }
+    //     }
+    // }
 
     pub fn add_loc_player(&mut self, locname: String, playername: String) {
-        match self.find_player_mut(&playername) { // Use find_player_mut to get a mutable reference
+        match self.players.get_mut(&playername) { // Use find_player_mut to get a mutable reference
             Some(p) => {
                 p.locations.insert(locname.clone(), Location::new(locname)); // Modify player
             }
@@ -135,9 +124,10 @@ impl GameData {
             println!("No location in table!");
         }
     
+
         // Iterate over self.players and collect matching locations
-        for player in self.players.iter_mut() {
-            if let Some(loc) = player.locations.get_mut(locname) {
+        for (k, v) in self.players.iter_mut() {
+            if let Some(loc) = v.locations.get_mut(locname) {
                 locs.push(loc);
             }
         }
@@ -151,19 +141,19 @@ impl GameData {
     
         locs
     }
-    
+
     fn remove_player(&mut self, player_name: String) {
-        for i in 0.. self.players.len() {
-            if self.players[i].name == player_name {
-                self.players.remove(i);
-            }
-            // Check where the player is referenced elsewhere
-            // remove from team
-            // remove from pointmap etc...
-        }
+        // for i in 0.. self.players.len() {
+        //     if self.players[i].name == player_name {
+        //         self.players.remove(i);
+        //     }
+        //     // Check where the player is referenced elsewhere
+        //     // remove from team
+        //     // remove from pointmap etc...
+        // }
     }
 
-    pub fn add_team(&mut self, name: String, players: Vec<Rc<RefCell<Player>>>) {
+    pub fn add_team(&mut self, name: String, players: Vec<String>) {
         // TODO: locations
         self.teams.push(Team::new(name, players));
     }
@@ -176,8 +166,8 @@ impl GameData {
         self.pointmaps.insert(pointmap.name.clone(), pointmap);
     }
 
-    pub fn set_turnorder(&mut self, ref_players: Vec<Rc<RefCell<Player>>>) {
-        self.turnorder = ref_players;
+    pub fn set_turnorder(&mut self, playernames: Vec<String>) {
+        self.turnorder = playernames;
     }
 
     pub fn add_cardcombination(&mut self, name: String, cardcomb: CardCombination) {
@@ -214,6 +204,24 @@ pub struct Player {
     pub score: i32,
     pub locations: HashMap<String, Location>,
 }
+impl fmt::Display for Player {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = self.name.clone();
+        let locs: Vec<Location> = self.locations.values().cloned().collect();
+        
+        // Print the name first
+        write!(f, "Player-name: {}", s)?;
+        
+        // Print each location
+        for l in locs {
+            write!(f, " Location: {}", l)?; 
+        }
+
+        // Print the score at the end
+        write!(f, " score: {}", self.score)
+    }
+}
+
 impl Player {
     pub fn new(name: String) -> Player {
         Player {
@@ -235,16 +243,20 @@ impl Player {
             println!("Player {}: locname={}", self.name, k.to_string())
         }
     }
+
+    pub fn find_location(&mut self, locname: &str) -> Option<&Location> {
+        self.locations.get(locname)
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Team {
     pub teamname: String,
-    pub players: Vec<Rc<RefCell<Player>>>,
+    pub players: Vec<String>,
     pub locations: HashMap<String, Location>,
 }
 impl Team {
-    pub fn new(name: String, players: Vec<Rc<RefCell<Player>>>) -> Team {
+    pub fn new(name: String, players: Vec<String>) -> Team {
         Team {
             teamname: name,
             players: players,
@@ -288,11 +300,19 @@ impl Location {
     pub fn new(locname: String) -> Location {
         Location { name: locname, contents: vec![]}
     }
+
+    pub fn get_cards(self) -> Vec<Card> {
+        self.contents
+            .iter()
+            .filter_map(|c| c.clone().to_card())
+            .collect()
+    }
 }
 impl std::fmt::Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let s = self.name.clone();
-        write!(f, "{}", s)
+        write!(f, "{}\n", s)?;
+        write!(f, "content-len: {}", self.contents.len())
     }
 }
 
@@ -399,7 +419,7 @@ pub struct CardCombination {
     pub name: String,
     // in the thesis there is attributes: HashMap<String, Filter>
     // Which i dont get at all
-    // Why does ONE CardCombination gave multiple CardCombinations???
+    // Why does ONE CardCombination have multiple CardCombinations???
     pub attributes: CardFunction,
 }
 
@@ -461,7 +481,7 @@ pub struct StageS {
 
 #[derive(Debug, Clone)]
 pub struct Condition {
-    // maybe Box::new(dyn Fn(...))
+    // maybe Box::new(dyn Fn(...))?
 }
 
 #[derive(Debug, Clone)]
@@ -519,3 +539,13 @@ pub struct Play {
     pub stages: Vec<Stage>,
 }
 
+impl Play {
+    pub fn add_endcondition(&mut self, end_cond: Condition) {
+        self.endconditions.push(end_cond);
+    }
+
+    pub fn add_stage(&mut self, stage: Stage) {
+        self.stages.push(stage);
+    }
+
+}

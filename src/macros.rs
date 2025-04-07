@@ -10,18 +10,8 @@ macro_rules! player {
 macro_rules! team {
     ($cgm:expr, $n:expr, ($($p:expr), *)) => {
         {
-            use crate::ast::Player;
-            use std::cell::RefCell;
-            use std::rc::Rc;
-
             let player_names: Vec<String> = vec![$($p.to_string()), *];
-            let players: Vec<Rc<RefCell<Player>>> = player_names
-                .iter()
-                .filter_map(|name| {
-                    $cgm.gamedata.lookup_player_rc(name)
-                })
-                .collect();
-            $cgm.gamedata.add_team($n.to_string(), players);
+            $cgm.gamedata.add_team($n.to_string(), player_names);
         }
     };
 }
@@ -48,8 +38,6 @@ macro_rules! location_on {
     };
 }
 
-// TODO:
-// Card on location! So the cards still need to be moved in the correct location after they were created.
 macro_rules! card_on {
     (
         $cgm:expr,
@@ -130,8 +118,8 @@ macro_rules! card_on {
             all_cards.push(Card::new(attr));
         }
 
-        // iterate over every player, team and table!
-        // then assign the cards to the correct location!
+        // iterate over every player, team and table
+        // then assign the cards to the correct location
         let mut locs = $cgm.gamedata.find_locations($location);
         let comp_card: Vec<Component> = all_cards.into_iter().map(|c| Component::CARD(c)).collect();
         for i in 0..locs.len() {
@@ -224,35 +212,20 @@ macro_rules! turn_order {
 
     ($cgm:expr, random) => {{
         use rand::seq::SliceRandom;
-        use crate::ast::Player;
-        use std::rc::Rc;
-        use std::cell::RefCell;
 
-        let mut turn_order: Vec<Rc<RefCell<Player>>> = $cgm.gamedata.players
-            .iter()
-            .map(|p| Rc::new(RefCell::new(p.clone())))
-            .collect();
+        // DO NOT CLONE THE REFERENCE
+        let mut turn_order: Vec<String> = $cgm.gamedata.players.keys().cloned().collect();
         let mut rng = rand::thread_rng();
         turn_order.shuffle(&mut rng);
         $cgm.gamedata.set_turnorder(turn_order);
     }};
 
     ($cgm:expr, ($($pname:expr),*)) => {{
-        use crate::ast::Player;
-        use std::rc::Rc;
-        use std::cell::RefCell;
-
-        let player_names = vec![$($pname),*];
-        let turn_order: Vec<Rc<RefCell<Player>>> = player_names
-        .iter()
-        .filter_map(|p| $cgm.gamedata.lookup_player_rc(p))
-        .collect();
-        $cgm.gamedata.set_turnorder(turn_order);
+        $cgm.gamedata.set_turnorder(vec![$($pname.to_string()),*]);
     }};
 
 }
 
-// OR DOESNT WORK YET!
 macro_rules! filter {
     /*
     How it (should) works:
@@ -319,44 +292,42 @@ macro_rules! filter {
 
     // Combine filters with "and" or "or" for Vec<Vec<Card>> results
     (($($filter1:tt)+), ($logical:literal), ($($filter2:tt)+)) => {{
-        // Recursive Call of filter!
         let filter1 = filter!($($filter1)+);
         let filter2 = filter!($($filter2)+);
         move |cards: Vec<Card>| -> Vec<Vec<Card>> {
-            // Apply first filter
+            // Apply first filter, keep as Vec<Vec<Card>>
             let filtered1 = filter1(cards.clone());
 
-            // Wrap the result of filter1 into Vec<Vec<Card>> if it's Vec<Card>
-            let filtered1 = if let Some(group) = filtered1.into_iter().next() {
-                vec![group]
-            } else {
-                vec![] // If it's an empty result, return Vec<Vec<Card>>
-            };
-
-            // Apply the second filter to the result of the first filter
-            let filtered2 = filter2(filtered1.clone().into_iter().flatten().collect::<Vec<Card>>());
-            
-            match filtered2 {
-                // If filtered2 returns Vec<Vec<Card>>, handle the logic
-                filtered2_groups if filtered2_groups.iter().all(|x| !x.is_empty()) => {
-                    match $logical {
-                        "and" => filtered1.into_iter()
-                            .filter(|group| filtered2_groups.contains(group))
-                            .collect(),
-                        "or" => {
-                            let mut result = filtered1;
-                            for group in filtered2_groups {
-                                if !result.contains(&group) {
-                                    result.push(group);
-                                }
-                            }
-                            result
-                        },
-                        _ => panic!("Invalid logical operator: {}", $logical),
-                    }
+            match $logical {
+                "and" => {
+                    // Apply filter2 to each group individually, keep non-empty results
+                    filtered1
+                        .into_iter()
+                        .flat_map(|group| {
+                            filter2(group)
+                                .into_iter()
+                                .filter(|g| !g.is_empty())
+                        })
+                        .collect()
                 }
-                // Handle error for type mismatch
-                _ => panic!("Filter type mismatch"),
+                "or" => {
+                    let mut all_groups: Vec<Vec<Card>> = vec![];
+
+                    // Collect all groups from both filters
+                    for group in filter1(cards.clone()) {
+                        if !group.is_empty() && !all_groups.contains(&group) {
+                            all_groups.push(group);
+                        }
+                    }
+                    for group in filter2(cards) {
+                        if !group.is_empty() && !all_groups.contains(&group) {
+                            all_groups.push(group);
+                        }
+                    }
+
+                    all_groups
+                }
+                _ => panic!("Invalid logical operator: {}", $logical),
             }
         }
     }};
@@ -516,8 +487,7 @@ macro_rules! filter {
         }
     }};
 
-    
-    // Additional filters like "size" remain unchanged
+
     (size, $comparison:literal, $size:expr) => {{
         move |cards: Vec<Card>| -> Vec<Vec<Card>> {
             match $comparison {
@@ -550,7 +520,6 @@ macro_rules! filter {
         }
     }};
 
-    // Additional filters like "size" remain unchanged
     ($key:literal, $comparison:literal, $value:literal) => {{
         move |cards: Vec<Card>| -> Vec<Vec<Card>> {
             match $comparison {
@@ -561,7 +530,13 @@ macro_rules! filter {
         }
     }};
 
+    // ($comboname:literal) => {
 
+    // }
+
+    // (not $comboname:literal) => {
+
+    // }    
 }
 
 macro_rules! combo {
@@ -578,24 +553,83 @@ macro_rules! combo {
     };
 }
 
+macro_rules! create_sps {
+    (Setup: ($setup:tt)+ Play: ($play:tt)+ Scoring: ($scoring:tt)+) => {
+        
+    };
+}
 
-// (Different filters should have different proirities when evaluated.
-// A Filter can have an and/or structure. And there are some things that
-// make the filtering smaller:
-// 1. ==, !=
-// 2. same, distinct, adjacent
-// 3. (not)? combo
-// 4. size >,...
-// )
-//
-// How to evaluate a condition like: If size of Hand > 3 then ...
-//
-// If we just have "filter"-condition (a Condition that is only made out of filters)
-// Then we check if the "result" of the condition is empty (vec![vec![]]).
-// If it is empty we return FALSE
-// Else return TRUE
-//
-// (Optional: Add speial keywards to make writing rules more intuitive)
+macro_rules! repitions {
+    ($i:literal times) => {
+        
+    };
+
+    (once) => {
+        
+    };
+}
+
+macro_rules! endcondition {
+    ($cgm:expr, until $bool:literal) => {
+
+    };
+
+    ($cgm:expr, until $bool:literal and $reps:tt) => {
+
+    };
+
+    ($cgm:expr, until $bool:literal or $reps:tt) => {
+
+    };
+
+    ($reps:tt) => {
+
+    };
+
+    (until end) => {
+
+    };
+}
+
+macro_rules! condition {
+    // bool with cards and player location
+    ($cgm:expr, $turn:literal, $filter:tt of $locname:literal) => {
+        {
+            // println!("{}", $cgm.gamedata
+            //                 .turnorder[$turn]);
+            // println!("inside macro");
+            // println!("{}", $cgm.gamedata.players.get(
+            //                 &$cgm.gamedata.turnorder[$turn])
+            //                 .unwrap()
+            //                 .clone()
+            //                 .find_location($locname)
+            //                 .unwrap());
+                
+            let playername = $cgm.gamedata.turnorder[$turn].clone();
+            let cards = $cgm
+                        .gamedata
+                        .players
+                        .get_mut(
+                            &playername
+                        )
+                        .unwrap()
+                        .find_location($locname)
+                        .unwrap()
+                        .clone()
+                        .get_cards();
+
+            !$filter(cards).is_empty()
+    }};   
+}
+
+// seq-stage
+macro_rules! stage {
+    ($cgm:expr, Stage $stage:literal ffor $playername:literal, $endcondition:tt) => {
+
+    }
+}
+
+
 
 
 macro_rules! condrule {
