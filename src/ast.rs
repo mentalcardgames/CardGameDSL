@@ -24,8 +24,7 @@ impl CardGameModel {
 #[derive(Debug, Clone)]
 pub struct GameData {
     pub table: Table,
-    pub teams: Vec<Team>,
-    // HashMap<String, Player>
+    pub teams: HashMap<String, Team>,
     pub players: HashMap<String, Player>,
     // Player-Names
     pub turnorder: Vec<String>,
@@ -36,7 +35,7 @@ pub struct GameData {
 impl Default for GameData {
     fn default() -> Self {
         GameData { table: Table { locations: HashMap::new() },
-                    teams: vec![],
+                    teams: HashMap::new(),
                     players: HashMap::new(),
                     turnorder: vec![],
                     precedences: HashMap::new(),
@@ -62,28 +61,6 @@ impl GameData {
         self.players.get_mut(name)
     }
 
-    // pub fn lookup_player_rc(&mut self, name: &str) -> Option<String> {
-    //     // Find all players that match the name
-    //     let mut res: Vec<String> = self
-    //         .players
-    //         .iter()
-    //         .filter(|player| player.name == name)
-    //         .map(|player| player.name.clone())
-    //         .collect();
-
-    //     match res.len() {
-    //         0 => {
-    //             println!("Error: no player with that name!");
-    //             None
-    //         }
-    //         1 => Some(res.remove(0)), // Return the only matching player
-    //         _ => {
-    //             println!("Error: too many players with that name!");
-    //             None
-    //         }
-    //     }
-    // }
-
     pub fn add_loc_player(&mut self, locname: String, playername: String) {
         match self.players.get_mut(&playername) { // Use find_player_mut to get a mutable reference
             Some(p) => {
@@ -96,7 +73,7 @@ impl GameData {
     }
 
     fn find_team_mut(&mut self, name: &str) -> Option<&mut Team> {
-        self.teams.iter_mut().find(|team| team.teamname == name)
+        self.teams.get_mut(name)
     }    
 
     pub fn add_loc_team(&mut self, locname: String, teamname: String) {
@@ -124,7 +101,6 @@ impl GameData {
             println!("No location in table!");
         }
     
-
         // Iterate over self.players and collect matching locations
         for (k, v) in self.players.iter_mut() {
             if let Some(loc) = v.locations.get_mut(locname) {
@@ -133,8 +109,8 @@ impl GameData {
         }
     
         // Iterate over self.teams and collect matching locations
-        for team in self.teams.iter_mut() {
-            if let Some(loc) = team.locations.get_mut(locname) {
+        for (k, v) in self.teams.iter_mut() {
+            if let Some(loc) = v.locations.get_mut(locname) {
                 locs.push(loc);
             }
         }
@@ -155,7 +131,7 @@ impl GameData {
 
     pub fn add_team(&mut self, name: String, players: Vec<String>) {
         // TODO: locations
-        self.teams.push(Team::new(name, players));
+        self.teams.insert(name.clone(), Team::new(name, players));
     }
 
     pub fn add_precedence(&mut self, precedence: Precedence) {
@@ -189,6 +165,13 @@ impl GameData {
             .filter_map(|c| c.clone().to_card())
             .collect())
     }
+
+
+    pub fn move_card(self, loc1: Location, mut loc2: Location, cardpos: usize) {
+        let card = loc1.get_cards().remove(cardpos);
+        loc2.contents.push(Component::CARD(card));
+    }
+
 }
 
 #[derive(Debug, Clone)]

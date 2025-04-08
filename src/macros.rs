@@ -539,6 +539,69 @@ macro_rules! filter {
     // }    
 }
 
+/*
+CardPosition → Location (Int | ’Top’ | ’Bottom’) |
+                (’min’ | ’max’) ’of’ CardSet ’using’ ([Precedence] | [PointMap]) 
+*/
+
+macro_rules! cardposition {
+    ($loc:expr, $int:literal) => {
+        $loc.contents.get_cards()[int]
+    };
+
+    ($loc:expr, top) => {
+        $loc.contents.get_cards()[0]
+    };
+
+    ($loc:expr, bottom) => {
+        $loc.contents.get_cards()[-1]
+
+    };
+
+    ($cgm:expr, min of $cardset:tt using prec: $precname:literal) => {
+
+    };
+
+    ($cgm:expr, max of $cardset:tt using prec: $pmname:literal) => {
+
+    };
+
+    ($cgm:expr, min of $cardset:tt using pointmap: $pmname:literal) => {
+
+    };
+
+    ($cgm:expr, max of $cardset:tt using pointmap: $pmname:literal) => {
+
+    };
+}
+
+/*
+CardSet → ([Location] | LocationCollection) (’where’ Filter)? |
+            (’not’)? [Combo] ’in’ ([Location] | LocationCollection) |
+            CardPosition
+*/
+
+macro_rules! cardset {
+    ($loc:expr) => {
+        $loc.get_cards()
+    };
+    
+    // w = where
+    ($loc:expr, w $filter:tt) => {
+        
+    };
+
+    ($cgm:expr, $cardpos:tt) => {
+
+    };
+
+    // (’not’)? [Combo] ’in’ ([Location]
+    // ($cgm:expr) => {
+        
+    // };
+}
+
+
 macro_rules! combo {
     ($cgm:expr, $name:literal, $filter:expr) => {
         use crate::ast::{CardFunction, CardCombination};
@@ -550,12 +613,6 @@ macro_rules! combo {
                 attributes: CardFunction::new(Rc::new($filter)), // Ensure Arc wrapping
             }
         );
-    };
-}
-
-macro_rules! create_sps {
-    (Setup: ($setup:tt)+ Play: ($play:tt)+ Scoring: ($scoring:tt)+) => {
-        
     };
 }
 
@@ -592,20 +649,10 @@ macro_rules! endcondition {
 }
 
 macro_rules! condition {
-    // bool with cards and player location
-    ($cgm:expr, $turn:literal, $filter:tt of $locname:literal) => {
-        {
-            // println!("{}", $cgm.gamedata
-            //                 .turnorder[$turn]);
-            // println!("inside macro");
-            // println!("{}", $cgm.gamedata.players.get(
-            //                 &$cgm.gamedata.turnorder[$turn])
-            //                 .unwrap()
-            //                 .clone()
-            //                 .find_location($locname)
-            //                 .unwrap());
-                
-            let playername = $cgm.gamedata.turnorder[$turn].clone();
+    // bool with cards and player-location
+    ($cgm:expr, $filter:tt of $locname:literal) => {{
+        |turnindex: usize| -> bool {
+             let playername = $cgm.gamedata.turnorder[turnindex].clone();
             let cards = $cgm
                         .gamedata
                         .players
@@ -619,12 +666,54 @@ macro_rules! condition {
                         .get_cards();
 
             !$filter(cards).is_empty()
-    }};   
+    }}};
+    // TODO:
+    // condition for arbitrary things!
+}
+
+// ActionRule → FlipAction |ShuffleAction | MoveAction | MemoryAction | CycleAction |
+//              OutAction | EndAction | DemAction
+macro_rules! actionrule {
+    () => {
+        
+    };
+}
+
+/*
+The defintion is switched in the Thesis.
+It has to be a mistake and should look like this:
+
+Group → Group (’of’ ([Player] | PlayerCollection))?
+
+CardSet → ([Location] | LocationCollection) (’where’ Filter)? |
+            (’not’)? [Combo] ’in’ ([Location] | LocationCollection) |
+            CardPosition
+
+CardPosition → Location (Int | ’Top’ | ’Bottom’) |
+                (’min’ | ’max’) ’of’ CardSet ’using’ ([Precedence] | [PointMap])
+
+*/
+
+
+
+macro_rules! moveaction {
+    // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
+    ($cgm:expr, mv $quantity:literal from $fromcs:tt to $tocs:tt) => {{
+        |cardpositions: Vec<usize>| {
+            
+        }
+    }};
+
+    // DealMove → ’deal’ (Quantity (’from’)? )? CardSet Status ’bound’? ’to’ CardSet
+    () => {
+        
+    };
 }
 
 // seq-stage
 macro_rules! stage {
-    ($cgm:expr, Stage $stage:literal ffor $playername:literal, $endcondition:tt) => {
+    ($cgm:expr, Stage $stage:literal ffor current, $endcondition:tt) => {
+        let name = $stage.to_string();  // So something with it later
 
     }
 }

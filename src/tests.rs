@@ -52,8 +52,8 @@ mod tests {
         let cgm = init_model();
         // Replace the below assertions with actual checks based on how `team!` works.
         // Example:
-        assert!(cgm.gamedata.teams[0].teamname == "Team1".to_string());
-        assert!(cgm.gamedata.teams[0].players == vec!["Jimmy", "Kimmy", "Timmy"]);
+        assert!(cgm.gamedata.teams.get("Team1").unwrap().teamname == "Team1".to_string());
+        assert!(cgm.gamedata.teams.get("Team1").unwrap().players == vec!["Jimmy", "Kimmy", "Timmy"]);
     }
     
     #[test]
@@ -63,7 +63,7 @@ mod tests {
 
         team!(cgm, "t1", ("Kimmy", "Timmy"));
         location_on!(cgm, "teamloc", team: "t1");
-        assert!(cgm.gamedata.teams[1].locations.len() == 1);
+        assert!(cgm.gamedata.teams.get("t1").unwrap().locations.len() == 1);
 
         location_on!(cgm, "stack", table);
         assert!(cgm.gamedata.table.locations.len() == 1);
@@ -370,24 +370,22 @@ mod tests {
         );
 
         let b = condition!(cgm,
-            0,
             (filter!(
                 ("Suite", "same"),
                 ("and"),
                 (size, ">=", 4)
             )) of
-            "hand");
+            "hand")(0);  // location we look at and playersindex
 
         assert_eq!(b, true);
 
         let b = condition!(cgm,
-            0,
             (filter!(
                 ("Suite", "same"),
                 ("and"),
                 (size, ">=", 6)
             )) of
-            "hand");
+            "hand")(0);  // location we look at and playersindex
 
         assert_eq!(b, false);
 
