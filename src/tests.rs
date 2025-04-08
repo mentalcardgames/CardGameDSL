@@ -390,4 +390,40 @@ mod tests {
         assert_eq!(b, false);
 
     }
+
+    #[test]
+    fn test_small_game() {
+        let mut cgm = CardGameModel::new("SmallGame");
+
+        player!(cgm, "P1", "P2");
+
+        location_on!(cgm, "stack", table);
+
+        card_on!(
+            cgm,
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        location_on!(cgm, "hand", players: "P1", "P2");
+
+        turn_order!(cgm, random);
+
+        let mut cond = condition!(cgm, (filter!(size, "==", 0)) of "hand");
+
+        for i in 0..2 {
+            stage!(cgm, stage "testage" ffor current, cond)(i)
+        }
+
+
+    }
 }

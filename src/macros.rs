@@ -652,7 +652,7 @@ macro_rules! condition {
     // bool with cards and player-location
     ($cgm:expr, $filter:tt of $locname:literal) => {{
         |turnindex: usize| -> bool {
-             let playername = $cgm.gamedata.turnorder[turnindex].clone();
+            let playername = $cgm.gamedata.turnorder[turnindex].clone();
             let cards = $cgm
                         .gamedata
                         .players
@@ -698,9 +698,9 @@ CardPosition → Location (Int | ’Top’ | ’Bottom’) |
 
 macro_rules! moveaction {
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
-    ($cgm:expr, mv $quantity:literal from $fromcs:tt to $tocs:tt) => {{
-        |cardpositions: Vec<usize>| {
-            
+    ($cgm:expr, mv one from $fromcs:tt to $tocs:tt) => {{
+        |cardposition: usize| {
+            $cgm.gamedata.move_card(fromcs, tocs, cardposition);
         }
     }};
 
@@ -712,10 +712,18 @@ macro_rules! moveaction {
 
 // seq-stage
 macro_rules! stage {
-    ($cgm:expr, Stage $stage:literal ffor current, $endcondition:tt) => {
-        let name = $stage.to_string();  // So something with it later
-
-    }
+    // This is just a small prototype
+    ($cgm:expr, stage $stage:literal ffor current, $endcond:expr) => {{
+        |turnindex: usize| {
+            let name = $stage.to_string();
+            println!("{}", name);
+            let playername = $cgm.gamedata.turnorder[turnindex].clone();
+            if $endcond(turnindex) {
+                println!("{} is drawing a Card from the stack", playername);
+                // Action here
+            }
+        }
+    }};
 }
 
 

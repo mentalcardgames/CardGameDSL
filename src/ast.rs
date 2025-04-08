@@ -166,10 +166,8 @@ impl GameData {
             .collect())
     }
 
-
-    pub fn move_card(self, loc1: Location, mut loc2: Location, cardpos: usize) {
-        let card = loc1.get_cards().remove(cardpos);
-        loc2.contents.push(Component::CARD(card));
+    pub fn move_card(self, loc1: &mut Location, loc2: &mut Location, index: usize) {
+        loc2.add_component(loc1.remove_card(index));
     }
 
 }
@@ -289,6 +287,18 @@ impl Location {
             .iter()
             .filter_map(|c| c.clone().to_card())
             .collect()
+    }
+
+    pub fn add_card(&mut self, card: Card) {
+        self.contents.push(Component::CARD(card));
+    }
+
+    pub fn add_component(&mut self, comp: Component) {
+        self.contents.push(comp);
+    }
+
+    pub fn remove_card(&mut self, index: usize) -> Component {
+        self.contents.remove(index)
     }
 }
 impl std::fmt::Display for Location {
