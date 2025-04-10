@@ -123,7 +123,7 @@ macro_rules! card_on {
         let mut locs = $cgm.gamedata.find_locations($location);
         let comp_card: Vec<Component> = all_cards.into_iter().map(|c| Component::CARD(c)).collect();
         for i in 0..locs.len() {
-            locs[i].contents.extend(comp_card.clone());
+            locs[i].borrow_mut().contents.extend(comp_card.clone());
         }
     }};
 }
@@ -616,16 +616,6 @@ macro_rules! combo {
     };
 }
 
-macro_rules! repitions {
-    ($i:literal times) => {
-        
-    };
-
-    (once) => {
-        
-    };
-}
-
 macro_rules! endcondition {
     ($cgm:expr, until $bool:literal) => {
 
@@ -639,7 +629,7 @@ macro_rules! endcondition {
 
     };
 
-    ($reps:tt) => {
+    ($reps:expr) => {
 
     };
 
@@ -662,6 +652,7 @@ macro_rules! condition {
                         .unwrap()
                         .find_location($locname)
                         .unwrap()
+                        .borrow()
                         .clone()
                         .get_cards();
 
@@ -673,16 +664,18 @@ macro_rules! condition {
 
 // ActionRule → FlipAction |ShuffleAction | MoveAction | MemoryAction | CycleAction |
 //              OutAction | EndAction | DemAction
-macro_rules! actionrule {
-    () => {
+// macro_rules! actionrule {
+//     () => {
         
-    };
-}
+//     };
+// }
 
 /*
 The defintion is switched in the Thesis.
 It has to be a mistake and should look like this:
 
+
+// Group is in no rules required
 Group → Group (’of’ ([Player] | PlayerCollection))?
 
 CardSet → ([Location] | LocationCollection) (’where’ Filter)? |
@@ -712,22 +705,10 @@ macro_rules! moveaction {
 
 // seq-stage
 macro_rules! stage {
-    // This is just a small prototype
-    ($cgm:expr, stage $stage:literal ffor current, $endcond:expr) => {{
-        |turnindex: usize| {
-            let name = $stage.to_string();
-            println!("{}", name);
-            let playername = $cgm.gamedata.turnorder[turnindex].clone();
-            if $endcond(turnindex) {
-                println!("{} is drawing a Card from the stack", playername);
-                // Action here
-            }
-        }
-    }};
+    ($cgm:expr, stage $stage:literal ffor current, $endcond:expr) => {
+
+    };
 }
-
-
-
 
 macro_rules! condrule {
     (conditional: (case: $bool:tt? ($rule:tt+))+) => {

@@ -74,7 +74,7 @@ mod tests {
         let cgm = init_model();
 
         // Test cards
-        assert!(cgm.gamedata.table.locations.get("stack").unwrap().contents.len() == 20);
+        assert!(cgm.gamedata.table.locations.get("stack").unwrap().borrow().contents.len() == 20);
     }
 
     #[test]
@@ -160,7 +160,7 @@ mod tests {
         use crate::ast::Component;
         let cgm = init_model();
         
-        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].contents
+        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
             .iter()
             .filter_map(|c| {
                 if let Component::CARD(card) = c {
@@ -253,7 +253,7 @@ mod tests {
         use crate::ast::Component;
         let cgm = init_model();
         
-        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].contents
+        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
             .iter()
             .filter_map(|c| {
                 if let Component::CARD(card) = c {
@@ -392,7 +392,7 @@ mod tests {
     }
 
     #[test]
-    fn test_small_game() {
+    fn test_move_card() {
         let mut cgm = CardGameModel::new("SmallGame");
 
         player!(cgm, "P1", "P2");
@@ -418,12 +418,24 @@ mod tests {
 
         turn_order!(cgm, random);
 
-        let mut cond = condition!(cgm, (filter!(size, "==", 0)) of "hand");
+        // let mut cond = condition!(cgm, (filter!(size, "==", 0)) of "hand");
 
-        for i in 0..2 {
-            stage!(cgm, stage "testage" ffor current, cond)(i)
-        }
+        let locto = Rc::clone(
+                        cgm.gamedata.players
+                            .get("P1")
+                            .unwrap()
+                            .locations
+                            .get("hand")
+                            .unwrap());
+        
+        let locfrom = Rc::clone(
+            cgm.gamedata.table.locations
+                .get("stack")
+                .unwrap());
 
+        cgm.gamedata.move_card(locfrom, locto, 0);
 
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow());
+        println!("{}", cgm.gamedata.table.locations.get("stack").unwrap().borrow());
     }
 }

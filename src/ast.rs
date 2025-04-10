@@ -1,7 +1,9 @@
 use core::fmt;
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::hash::Hash;
 use std::ops::Deref;
+use std::os::linux::raw::stat;
 use std::rc::Rc;
 
 
@@ -64,7 +66,7 @@ impl GameData {
     pub fn add_loc_player(&mut self, locname: String, playername: String) {
         match self.players.get_mut(&playername) { // Use find_player_mut to get a mutable reference
             Some(p) => {
-                p.locations.insert(locname.clone(), Location::new(locname)); // Modify player
+                p.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname)))); // Modify player
             }
             None => {
                 println!("Error: player not found!");
@@ -79,7 +81,7 @@ impl GameData {
     pub fn add_loc_team(&mut self, locname: String, teamname: String) {
         match self.find_team_mut(&teamname) { // Use find_player_mut to get a mutable reference
             Some(t) => {
-                t.locations.insert(locname.clone(), Location::new(locname)); // Modify player
+                t.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname)))); // Modify player
             }
             None => {
                 println!("Error: team not found!");
@@ -88,11 +90,11 @@ impl GameData {
     }
 
     pub fn add_loc_table(&mut self, locname: String) {
-        self.table.locations.insert(locname.clone(), Location::new(locname));
+        self.table.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
     }
 
-    pub fn find_locations(&mut self, locname: &str) -> Vec<&mut Location> {
-        let mut locs: Vec<&mut Location> = vec![];
+    pub fn find_locations(&mut self, locname: &str) -> Vec<&mut Rc<RefCell<Location>>> {
+        let mut locs: Vec<&mut Rc<RefCell<Location>>> = vec![];
     
         // Check self.table
         if let Some(l) = self.table.locations.get_mut(locname) {
@@ -160,14 +162,16 @@ impl GameData {
         .unwrap()
         .attributes
         .deref()(loc
+            .clone()
+            .borrow()
             .contents
             .iter()
             .filter_map(|c| c.clone().to_card())
             .collect())
     }
 
-    pub fn move_card(self, loc1: &mut Location, loc2: &mut Location, index: usize) {
-        loc2.add_component(loc1.remove_card(index));
+    pub fn move_card(&mut self, loc1: Rc<RefCell<Location>>, loc2: Rc<RefCell<Location>>, index: usize) {
+        loc2.borrow_mut().add_component(loc1.borrow_mut().remove_card(index));
     }
 
 }
@@ -183,19 +187,23 @@ pub enum Status {
 pub struct Player {
     pub name: String,
     pub score: i32,
-    pub locations: HashMap<String, Location>,
+    // Location needs to be a Rc<RefCell<Location>>
+    // Because it needs to be mut borrowed with other Locations
+    // And because they are all in a Model that means they need to be
+    // Rc<RefCell<...>
+    pub locations: HashMap<String, Rc<RefCell<Location>>>,
 }
 impl fmt::Display for Player {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = self.name.clone();
-        let locs: Vec<Location> = self.locations.values().cloned().collect();
+        let locs: Vec<Rc<RefCell<Location>>> = self.locations.values().cloned().collect();
         
         // Print the name first
         write!(f, "Player-name: {}", s)?;
         
         // Print each location
         for l in locs {
-            write!(f, " Location: {}", l)?; 
+            write!(f, " Location: {}", l.borrow())?; 
         }
 
         // Print the score at the end
@@ -213,7 +221,7 @@ impl Player {
     }
 
     pub fn add_location(&mut self, locname: String) {
-        self.locations.insert(locname.clone(), Location::new(locname));
+        self.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
     }
 
     pub fn show_locations(&mut self) {
@@ -225,7 +233,7 @@ impl Player {
         }
     }
 
-    pub fn find_location(&mut self, locname: &str) -> Option<&Location> {
+    pub fn find_location(&mut self, locname: &str) -> Option<&Rc<RefCell<Location>>> {
         self.locations.get(locname)
     }
 }
@@ -234,7 +242,7 @@ impl Player {
 pub struct Team {
     pub teamname: String,
     pub players: Vec<String>,
-    pub locations: HashMap<String, Location>,
+    pub locations: HashMap<String, Rc<RefCell<Location>>>,
 }
 impl Team {
     pub fn new(name: String, players: Vec<String>) -> Team {
@@ -246,7 +254,7 @@ impl Team {
     }
 
     pub fn add_location(&mut self, locname: String) {
-        self.locations.insert(locname.clone(), Location::new(locname));
+        self.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
     }
 
     pub fn show_locations(&mut self) {
@@ -262,11 +270,11 @@ impl Team {
 
 #[derive(Debug, Clone)]
 pub struct Table {
-    pub locations: HashMap<String, Location>,
+    pub locations: HashMap<String, Rc<RefCell<Location>>>,
 }
 impl Table {
     pub fn add_location(&mut self, locname: String) {
-        self.locations.insert(locname.clone(), Location::new(locname));
+        self.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
     }
 }
 
@@ -309,6 +317,8 @@ impl std::fmt::Display for Location {
     }
 }
 
+
+
 #[derive(Debug, Clone)]
 pub struct Area {
     pub name: String,
@@ -347,6 +357,14 @@ impl Card {
             status: Status::FACEUP,
             attributes: attributes,
         }
+    }
+
+    pub fn change_status(&mut self, status: Status) {
+        self.status = status;
+        // HERE HAS TO HAPPEN THE ENCRYPTION OF THE CARD!
+        //
+        //
+        //
     }
 }
 impl std::fmt::Display for Card {
