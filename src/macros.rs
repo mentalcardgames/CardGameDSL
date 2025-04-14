@@ -120,7 +120,7 @@ macro_rules! card_on {
 
         // iterate over every player, team and table
         // then assign the cards to the correct location
-        let mut locs = $cgm.gamedata.find_locations($location);
+        let locs = $cgm.gamedata.get_mut_locs($location);
         let comp_card: Vec<Component> = all_cards.into_iter().map(|c| Component::CARD(c)).collect();
         for i in 0..locs.len() {
             locs[i].borrow_mut().contents.extend(comp_card.clone());
@@ -228,7 +228,7 @@ macro_rules! turn_order {
 
 macro_rules! filter {
     /*
-    How it (should) works:
+    How it works:
         We want to compute the all legal moves ("all" in a kind of way).
         For that we compute all possible "legal-moves".
         We then get a Vector of playable moves, so
@@ -355,7 +355,7 @@ macro_rules! filter {
     }};
 
     // Group by "adjacent"
-    ($key:expr, "adjacent" using $precedence_map:expr) => {{
+    ($cgm:expr, ($key:expr, "adjacent" using $precedence_map:expr)) => {{
         use std::collections::HashMap;
         fn group_by_adjacent(cards: Vec<Card>, key: &str, precedence_map: &HashMap<String, usize>) -> Vec<Vec<Card>> {
             let mut sorted_cards: Vec<Card> = cards.clone().into_iter()
@@ -480,10 +480,16 @@ macro_rules! filter {
             return result;
         }
             
+        // TODO: Make it safe (bc of unwrap() use)
+        let precedence_map = &$cgm
+            .gamedata
+            .precedences
+            .get($precedence_map)
+            .unwrap()
+            .attributes;
 
-        let precedence_map_ref = &$precedence_map;
         move |cards: Vec<Card>| -> Vec<Vec<Card>> {
-            group_by_adjacent(cards, $key, precedence_map_ref)
+            group_by_adjacent(cards, $key, precedence_map)
         }
     }};
 
@@ -530,13 +536,50 @@ macro_rules! filter {
         }
     }};
 
-    // ($comboname:literal) => {
+    ($cgm:expr, $comboname:literal) => {
+        move |cards: Vec<Card>| -> Vec<Vec<Card>> {
+            use std::ops::Deref;
+            let cardfun: CardFunction = $cgm
+                .gamedata
+                .cardcombinations
+                .get($comboname)
+                .unwrap()
+                .attributes
+                .clone();
+            cardfun.deref()(cards)
+        }
+    };
 
-    // }
-
-    // (not $comboname:literal) => {
-
-    // }    
+    ($cgm:expr, not $comboname:literal) => {{
+        move |cards: Vec<Card>| -> Vec<Vec<Card>> {
+            use std::ops::Deref;
+    
+            let cardfun = $cgm
+                .gamedata
+                .cardcombinations
+                .get($comboname)
+                .unwrap()
+                .attributes
+                .clone();
+    
+            let filtered_out: Vec<Card> = {
+                let mut seen = Vec::new();
+                for card in cardfun.deref()(cards.clone()).into_iter().flatten() {
+                    if !seen.contains(&card) {
+                        seen.push(card);
+                    }
+                }
+                seen
+            };
+    
+            let remaining: Vec<Card> = cards
+                .into_iter()
+                .filter(|card| !filtered_out.contains(card))
+                .collect();
+    
+            vec![remaining]
+        }
+    }};    
 }
 
 /*
@@ -562,7 +605,7 @@ macro_rules! cardposition {
 
     };
 
-    ($cgm:expr, max of $cardset:tt using prec: $pmname:literal) => {
+    ($cgm:expr, max of $cardset:tt using prec: $precname:literal) => {
 
     };
 
@@ -650,7 +693,7 @@ macro_rules! condition {
                             &playername
                         )
                         .unwrap()
-                        .find_location($locname)
+                        .get_location($locname)
                         .unwrap()
                         .borrow()
                         .clone()
@@ -691,20 +734,71 @@ CardPosition → Location (Int | ’Top’ | ’Bottom’) |
 
 macro_rules! moveaction {
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
-    ($cgm:expr, mv one from $fromcs:tt to $tocs:tt) => {{
-        |cardposition: usize| {
-            $cgm.gamedata.move_card(fromcs, tocs, cardposition);
-        }
+    ($cgm:expr, mv $q:literal from $fromcs:tt to $tocs:tt) => {{
+        
+    }};
+    
+    ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, mv $q:literal $fromcs:tt to $tocs:tt) => {{
+        
+    }};
+    
+    ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, mv $fromcs:tt to $tocs:tt) => {{
+        
+    }};
+    
+    ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
+        
     }};
 
     // DealMove → ’deal’ (Quantity (’from’)? )? CardSet Status ’bound’? ’to’ CardSet
-    () => {
+    ($cgm:expr, deal $q:literal from $fromcs:tt to $tocs:tt) => {{
         
-    };
+    }};
+    
+    ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, deal $q:literal $fromcs:tt to $tocs:tt) => {{
+        
+    }};
+    
+    ($cgm:expr, deal $q:literal $fromcs:tt bound to $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, deal $fromcs:tt to $tocs:tt) => {{
+        
+    }};
+    
+    ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
+        
+    }};
+
+    // ExchangeMove → ’exchange’ (Quantity (’from’)?)? CardSet ’with’ CardSet
+    ($cgm:expr, exchange $q:literal from $fromcs:tt with $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, exchange $q:literal $fromcs:tt with $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, exchange $fromcs:tt with $tocs:tt) => {{
+        
+    }};
 }
 
 // seq-stage
-macro_rules! stage {
+macro_rules! seqstage {
     ($cgm:expr, stage $stage:literal ffor current, $endcond:expr) => {
 
     };

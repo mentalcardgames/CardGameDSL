@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::rc::Rc;
-    use crate::ast::{Card, CardGameModel, Player};
+    use crate::ast::{Card, CardGameModel, Component};
 
     fn init_model() -> CardGameModel {
         let mut cgm = CardGameModel::new("player_test");
@@ -195,13 +195,14 @@ mod tests {
         // }
         
         // Filter for "adjacent" using precedence
-        let adjacent_filter = filter!("Rank",
-            "adjacent" using cgm.gamedata.precedences["Rank"].attributes);
+        let adjacent_filter = filter!(
+            cgm, 
+            ("Rank", "adjacent" using "Rank"));
         let filtered_cards = adjacent_filter(cards.clone());
         // println!("Adjacent rank cards: {:?}\n", filtered_cards);
 
 
-        // Higher and Lower makes 0 sense
+        // Higher and Lower makes NO sense
         // Filter for "higher" using precedence ("higher" is interpreted as "highest")
         // let higher_filter = filter!("rank", "higher" using cgm.gamedata.precedences["Rank"]);
         // let filtered_cards = higher_filter(cards.clone());
@@ -266,7 +267,7 @@ mod tests {
         
         // Combined filter
         let combined_filter = filter!(
-            ("Rank", "adjacent" using cgm.gamedata.precedences["Rank"].attributes), 
+            (cgm, ("Rank", "adjacent" using "Rank")), 
             ("and"), 
             ("Suite", "same")
         );        
@@ -276,7 +277,7 @@ mod tests {
         // }
 
         let combined_filter = filter!(
-            ("Rank", "adjacent" using cgm.gamedata.precedences["Rank"].attributes),
+            (cgm, ("Rank", "adjacent" using "Rank")),
             ("and"),
             (size, ">=", 3)
         );        
@@ -347,6 +348,49 @@ mod tests {
                     println!("{}", card);
                 }
         }
+    }
+
+    #[test]
+    fn test_combo_filter() {
+        let mut cgm = init_model();
+
+        combo!(cgm, "all hearts", filter!(
+            "Suite", "==", "Hearts"
+        ));
+
+        // let combo_filter = filter!(
+        //     cgm, "all hearts"
+        // );
+
+        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
+            .iter()
+            .filter_map(|c| {
+                if let Component::CARD(card) = c {
+                    Some(card.clone()) // Return the cloned card
+                } else {
+                    None // Filter out non-card components
+                }
+            })
+            .collect();
+
+        // let filtered_cards = combo_filter(cards.clone());
+        // for cards in filtered_cards {
+        //     for card in cards {
+        //         println!("{}", card)
+        //     }
+        // }
+
+        let combo_filter = filter!(
+            cgm, not "all hearts"
+        );
+
+        let filtered_cards = combo_filter(cards.clone());
+        for cards in filtered_cards {
+            for card in cards {
+                println!("{}", card)
+            }
+        }
+
     }
 
 
@@ -437,5 +481,27 @@ mod tests {
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow());
         println!("{}", cgm.gamedata.table.locations.get("stack").unwrap().borrow());
+
+
+        let p1_loc = Rc::clone(cgm
+            .gamedata
+            .get_mut_loc_name(
+                "P1_hand".to_string(),
+                "P2".to_string()
+            )
+            .unwrap());
+        
+        let p2_loc = Rc::clone(cgm
+            .gamedata
+            .get_mut_loc_name(
+                "P2_hand".to_string(),
+                "P1".to_string()
+            )
+            .unwrap());
+
+        cgm.gamedata.move_card(p1_loc, p2_loc, 0);
+    
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow());
+        println!("{}", cgm.gamedata.players.get("P2").unwrap().locations.get("hand").unwrap().borrow());
     }
 }

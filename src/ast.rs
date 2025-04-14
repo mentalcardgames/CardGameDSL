@@ -1,9 +1,7 @@
 use core::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::hash::Hash;
 use std::ops::Deref;
-use std::os::linux::raw::stat;
 use std::rc::Rc;
 
 
@@ -28,7 +26,7 @@ pub struct GameData {
     pub table: Table,
     pub teams: HashMap<String, Team>,
     pub players: HashMap<String, Player>,
-    // Player-Names
+    pub playertoteam: HashMap<String, String>,
     pub turnorder: Vec<String>,
     pub precedences: HashMap<String, Precedence>,
     pub pointmaps: HashMap<String, PointMap>,
@@ -39,6 +37,7 @@ impl Default for GameData {
         GameData { table: Table { locations: HashMap::new() },
                     teams: HashMap::new(),
                     players: HashMap::new(),
+                    playertoteam: HashMap::new(),
                     turnorder: vec![],
                     precedences: HashMap::new(),
                     pointmaps: HashMap::new(),
@@ -74,12 +73,12 @@ impl GameData {
         }
     }
 
-    fn find_team_mut(&mut self, name: &str) -> Option<&mut Team> {
+    fn get_mut_team(&mut self, name: &str) -> Option<&mut Team> {
         self.teams.get_mut(name)
     }    
 
     pub fn add_loc_team(&mut self, locname: String, teamname: String) {
-        match self.find_team_mut(&teamname) { // Use find_player_mut to get a mutable reference
+        match self.get_mut_team(&teamname) { // Use find_player_mut to get a mutable reference
             Some(t) => {
                 t.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname)))); // Modify player
             }
@@ -93,7 +92,7 @@ impl GameData {
         self.table.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
     }
 
-    pub fn find_locations(&mut self, locname: &str) -> Vec<&mut Rc<RefCell<Location>>> {
+    pub fn get_mut_locs(&mut self, locname: &str) -> Vec<&mut Rc<RefCell<Location>>> {
         let mut locs: Vec<&mut Rc<RefCell<Location>>> = vec![];
     
         // Check self.table
@@ -104,20 +103,108 @@ impl GameData {
         }
     
         // Iterate over self.players and collect matching locations
-        for (k, v) in self.players.iter_mut() {
+        for (_, v) in self.players.iter_mut() {
             if let Some(loc) = v.locations.get_mut(locname) {
                 locs.push(loc);
             }
         }
     
         // Iterate over self.teams and collect matching locations
-        for (k, v) in self.teams.iter_mut() {
+        for (_, v) in self.teams.iter_mut() {
             if let Some(loc) = v.locations.get_mut(locname) {
                 locs.push(loc);
             }
         }
     
         locs
+    }
+
+    // Problem:
+    // We can't find "all" Locations.
+    // For example:
+    // We have a Game like Uno where you might want to know
+    // how many cards each player holds in their hand.
+    // We can't know that.
+    // Another example:
+    // "Move your cards to P1's Location"
+    // We can't do this because we do not have anything
+    // that tells us that this Location exists!
+    //
+    // Solution1:
+    // If you want to directly lookup a Location then do it lke this:
+    // Player: P1's Location: P1_Location
+    // Team:   T1's Location: T1_Location
+    // (Table: Table Location:   Location)
+    //
+    // Solution2:
+    // In a normal Card Game you would just ASK the Player how many Cards they have.
+    // We could also do the same and add an "Information-Request"-Action.
+    // This would be the best Solution, because you would still safe only your Information!
+    // However, you also need to construct the Game-UI and with limited Information.
+    //
+    // => We will do Solution1 for now.
+    pub fn get_mut_loc_name(&mut self, loc_name: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
+        let parts: Vec<&str> = loc_name.split('_').collect();
+
+        if parts.len() > 2 {
+            println!("The Name of the Location does NOT exist!");
+        }
+
+        if parts.len() == 1 {
+            // Check own Player/Team-Locations and Table Locations
+            let locname = parts[0];
+
+            let loc = self.players.get(&pname).unwrap()
+                .locations.get(locname);
+            match loc {
+                None => println!("The Name of the Location does NOT exist in Player!"),
+                Some(l) => return Some(l)
+            }
+
+            let loc = self.table
+                .locations.get(locname);
+            match loc {
+                None => println!("The Name of the Location does NOT exist in Player!"),
+                Some(l) => return Some(l)
+            }
+
+            let tname = self.playertoteam.get(&pname);
+            match tname {
+                None => println!("Player is NOT in a Team!"),
+                Some(t) => {
+                    let loc = self.teams.get(t).unwrap()
+                        .locations.get(locname);
+                    match loc {
+                        None => println!("No Location in Players!"),
+                        Some(l) => return Some(l)
+                    }
+                }
+            }
+        }
+
+        // if parts.len() == 2
+        else {
+            let name = parts[0];
+            let locname = parts[1];
+
+            // Check players
+            let player = self.players.get(name);
+            match player {
+                None => println!("Player NOT found!"),
+                Some(p) => return self
+                    .get_mut_loc_name(locname.to_string(), p.name.clone())
+            }
+
+            // Check teams
+            let team = self.teams.get(name);
+            match team {
+                None => println!("Player NOT found!"),
+                Some(t) => return self
+                    .get_mut_loc_name(locname.to_string(), t.teamname.clone())
+            }
+        }
+
+        return None;
     }
 
     fn remove_player(&mut self, player_name: String) {
@@ -132,8 +219,11 @@ impl GameData {
     }
 
     pub fn add_team(&mut self, name: String, players: Vec<String>) {
-        // TODO: locations
-        self.teams.insert(name.clone(), Team::new(name, players));
+        self.teams.insert(name.clone(), Team::new(name.clone(), players.clone()));
+
+        for p in players {
+            self.playertoteam.insert(p, name.clone());
+        }
     }
 
     pub fn add_precedence(&mut self, precedence: Precedence) {
@@ -156,18 +246,18 @@ impl GameData {
     // has to be overworked later !
     pub fn apply_combo(&mut self, comboname: String, locname: String) -> Vec<Vec<Card>> {
         // UNWRAP USED!!!
-        let loc = (*self.find_locations(&locname)[0]).clone();
+        let loc = (*self.get_mut_locs(&locname)[0]).clone();
         self.cardcombinations
-        .get(&comboname)
-        .unwrap()
-        .attributes
-        .deref()(loc
-            .clone()
-            .borrow()
-            .contents
-            .iter()
-            .filter_map(|c| c.clone().to_card())
-            .collect())
+            .get(&comboname)
+            .unwrap()
+            .attributes
+            .deref()(loc
+                .clone()
+                .borrow()
+                .contents
+                .iter()
+                .filter_map(|c| c.clone().to_card())
+                .collect())
     }
 
     pub fn move_card(&mut self, loc1: Rc<RefCell<Location>>, loc2: Rc<RefCell<Location>>, index: usize) {
@@ -233,7 +323,7 @@ impl Player {
         }
     }
 
-    pub fn find_location(&mut self, locname: &str) -> Option<&Rc<RefCell<Location>>> {
+    pub fn get_location(&mut self, locname: &str) -> Option<&Rc<RefCell<Location>>> {
         self.locations.get(locname)
     }
 }
