@@ -1,5 +1,6 @@
 use core::fmt;
 use std::cell::RefCell;
+use std::collections::btree_map::Values;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -31,6 +32,8 @@ pub struct GameData {
     pub precedences: HashMap<String, Precedence>,
     pub pointmaps: HashMap<String, PointMap>,
     pub cardcombinations: HashMap<String, CardCombination>,
+    // current playerindex
+    pub current: usize
 }
 impl Default for GameData {
     fn default() -> Self {
@@ -42,6 +45,7 @@ impl Default for GameData {
                     precedences: HashMap::new(),
                     pointmaps: HashMap::new(),
                     cardcombinations: HashMap::new(),
+                    current: 0
                 }
     }
 }
@@ -119,91 +123,86 @@ impl GameData {
         locs
     }
 
-    // Problem:
-    // We can't find "all" Locations.
-    // For example:
-    // We have a Game like Uno where you might want to know
-    // how many cards each player holds in their hand.
-    // We can't know that.
-    // Another example:
-    // "Move your cards to P1's Location"
-    // We can't do this because we do not have anything
-    // that tells us that this Location exists!
-    //
-    // Solution1:
-    // If you want to directly lookup a Location then do it lke this:
-    // Player: P1's Location: P1_Location
-    // Team:   T1's Location: T1_Location
-    // (Table: Table Location:   Location)
-    //
-    // Solution2:
-    // In a normal Card Game you would just ASK the Player how many Cards they have.
-    // We could also do the same and add an "Information-Request"-Action.
-    // This would be the best Solution, because you would still safe only your Information!
-    // However, you also need to construct the Game-UI and with limited Information.
-    //
-    // => We will do Solution1 for now.
-    pub fn get_mut_loc_name(&mut self, loc_name: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
-        let parts: Vec<&str> = loc_name.split('_').collect();
-
-        if parts.len() > 2 {
-            println!("The Name of the Location does NOT exist!");
+    pub fn get_mut_loc_of(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
+        // Check players
+        let player = self.players.get(&pname);
+        match player {
+            None => println!("Player NOT found!"),
+            Some(p) => return self
+                .get_mut_loc_name(locname.to_string(), p.name.clone())
         }
 
-        if parts.len() == 1 {
-            // Check own Player/Team-Locations and Table Locations
-            let locname = parts[0];
+        // Check teams
+        let team = self.teams.get(&pname);
+        match team {
+            None => println!("Player NOT found!"),
+            Some(t) => return self
+                .get_mut_loc_name(locname.to_string(), t.teamname.clone())
+        }
 
-            let loc = self.players.get(&pname).unwrap()
-                .locations.get(locname);
-            match loc {
-                None => println!("The Name of the Location does NOT exist in Player!"),
-                Some(l) => return Some(l)
-            }
+        return None;
+    }
 
-            let loc = self.table
-                .locations.get(locname);
-            match loc {
-                None => println!("The Name of the Location does NOT exist in Player!"),
-                Some(l) => return Some(l)
-            }
+    // Hand of playername
+    pub fn get_mut_loc_name(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {            
+        let loc = self.players.get(&pname).unwrap()
+            .locations.get(&locname);
+        match loc {
+            None => println!("The Name of the Location does NOT exist in Player!"),
+            Some(l) => return Some(l)
+        }
 
-            let tname = self.playertoteam.get(&pname);
-            match tname {
-                None => println!("Player is NOT in a Team!"),
-                Some(t) => {
-                    let loc = self.teams.get(t).unwrap()
-                        .locations.get(locname);
-                    match loc {
-                        None => println!("No Location in Players!"),
-                        Some(l) => return Some(l)
-                    }
+        let loc = self.table
+            .locations.get(&locname);
+        match loc {
+            None => println!("The Name of the Location does NOT exist in Player!"),
+            Some(l) => return Some(l)
+        }
+
+        let tname = self.playertoteam.get(&pname);
+        match tname {
+            None => println!("Player is NOT in a Team!"),
+            Some(t) => {
+                let loc = self.teams.get(t).unwrap()
+                    .locations.get(&locname);
+                match loc {
+                    None => println!("No Location in Players!"),
+                    Some(l) => return Some(l)
                 }
             }
         }
+        
+        return None;
+    }
 
-        // if parts.len() == 2
-        else {
-            let name = parts[0];
-            let locname = parts[1];
-
-            // Check players
-            let player = self.players.get(name);
-            match player {
-                None => println!("Player NOT found!"),
-                Some(p) => return self
-                    .get_mut_loc_name(locname.to_string(), p.name.clone())
-            }
-
-            // Check teams
-            let team = self.teams.get(name);
-            match team {
-                None => println!("Player NOT found!"),
-                Some(t) => return self
-                    .get_mut_loc_name(locname.to_string(), t.teamname.clone())
-            }
+    pub fn get_loc_name(&self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {            
+        let loc = self.players.get(&pname).unwrap()
+            .locations.get(&locname);
+        match loc {
+            None => println!("The Name of the Location does NOT exist in Player!"),
+            Some(l) => return Some(l)
         }
 
+        let loc = self.table
+            .locations.get(&locname);
+        match loc {
+            None => println!("The Name of the Location does NOT exist in Player!"),
+            Some(l) => return Some(l)
+        }
+
+        let tname = self.playertoteam.get(&pname);
+        match tname {
+            None => println!("Player is NOT in a Team!"),
+            Some(t) => {
+                let loc = self.teams.get(t).unwrap()
+                    .locations.get(&locname);
+                match loc {
+                    None => println!("No Location in Players!"),
+                    Some(l) => return Some(l)
+                }
+            }
+        }
+        
         return None;
     }
 
@@ -387,6 +386,13 @@ impl Location {
             .collect()
     }
 
+    pub fn get_cards_ref(&self) -> Vec<Card> {
+        self.contents
+            .iter()
+            .filter_map(|c| c.clone().to_card())
+            .collect()
+    }
+
     pub fn add_card(&mut self, card: Card) {
         self.contents.push(Component::CARD(card));
     }
@@ -492,6 +498,29 @@ pub struct Precedence {
     pub attributes: HashMap<String, usize>,
 }
 
+impl Precedence {
+    pub fn get_card_value_ref(&self, card: &Card) -> Option<usize> {
+        for (_, value) in &card.attributes {
+            if let Some(score) = self.attributes.get(value) {                
+                return Some(*score);
+            }
+        }
+
+        None
+    }
+
+    pub fn get_card_value(&self, card: Card) -> Option<usize> {
+        for (_, value) in card.attributes {
+            if let Some(score) = self.attributes.get(&value) {
+                return Some(*score);
+            }
+        }
+
+        None
+    }
+}
+
+
 // Wrapper for function to avoid Debug issue
 pub struct CardFunction(Rc<dyn Fn(Vec<Card>) -> Vec<Vec<Card>>>);
 
@@ -563,6 +592,31 @@ impl fmt::Debug for CardCombination {
 pub struct PointMap {
     pub name: String,
     pub entries: HashMap<String, Vec<i32>>,
+}
+
+impl PointMap {
+    pub fn get_card_value_ref(&self, card: &Card) -> Option<Vec<i32>> {
+        for (_, value) in &card.attributes {
+            if let Some(score) = self.entries.get(value) {                
+                return Some(score.clone());
+            }
+        }
+        println!("SOMETHING WENT WRONG!");
+
+        None
+    }
+
+    pub fn get_card_value(&self, card: Card) -> Option<Vec<i32>> {
+        for (_, value) in card.attributes {
+            if let Some(score) = self.entries.get(&value) {
+                return Some(score.clone());
+            }
+        }
+
+        println!("SOMETHING WENT WRONG!");
+
+        None
+    }   
 }
 
 #[derive(Debug, Clone)]

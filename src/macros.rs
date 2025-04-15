@@ -140,9 +140,7 @@ macro_rules! precedence {
         let mut precedence_map = HashMap::new();
         let mut index = 0;
         $(
-            // TODO: might be overworked later
-
-            precedence_map.insert($name.to_string() + &$value.to_string(), index);
+            precedence_map.insert($value.to_string(), index);
             index += 1;
         )*
         // println!("Precedence for {}: {:?}", $name, precedence_map);
@@ -355,7 +353,7 @@ macro_rules! filter {
     }};
 
     // Group by "adjacent"
-    ($cgm:expr, ($key:expr, "adjacent" using $precedence_map:expr)) => {{
+    ($cgm:expr, ($key:literal "adjacent" using $precedence_map:literal)) => {{
         use std::collections::HashMap;
         fn group_by_adjacent(cards: Vec<Card>, key: &str, precedence_map: &HashMap<String, usize>) -> Vec<Vec<Card>> {
             let mut sorted_cards: Vec<Card> = cards.clone().into_iter()
@@ -382,8 +380,8 @@ macro_rules! filter {
                         if let Some(last_value) = last {
                             // We now work directly with the values, not cloned ones.
                             if let (Some(last_index), Some(current_index)) = (
-                                precedence_map.get(&($key.to_string() + last_value).to_string()),
-                                precedence_map.get(&($key.to_string() + &c_value).to_string()),
+                                precedence_map.get(&(last_value).to_string()),
+                                precedence_map.get(&(c_value).to_string()),
                             ) {
                                 if *current_index == *last_index + 1 {
                                     current_group.push(Some(c_value));
@@ -582,66 +580,236 @@ macro_rules! filter {
     }};    
 }
 
-/*
-CardPosition → Location (Int | ’Top’ | ’Bottom’) |
-                (’min’ | ’max’) ’of’ CardSet ’using’ ([Precedence] | [PointMap]) 
-*/
-
 macro_rules! cardposition {
-    ($loc:expr, $int:literal) => {
-        $loc.contents.get_cards()[int]
+    ($cgm:expr, $locname:literal $int:literal) => {{
+        vec![cardset!($cgm, $locname)[$int].clone()]
+    }};
+
+    ($cgm:expr, $locname:literal top) => {
+        vec![cardset!($cgm, $locname)[0].clone()]
     };
 
-    ($loc:expr, top) => {
-        $loc.contents.get_cards()[0]
-    };
+    ($cgm:expr, $locname:literal bottom) => {{
+        let len = &cardset!($cgm, $locname).len();
 
-    ($loc:expr, bottom) => {
-        $loc.contents.get_cards()[-1]
+        vec![cardset!($cgm, $locname)[len - 1].clone()]
+    }};
 
-    };
+    ($cgm:expr, min of $cardset:tt using prec: $precname:literal) => {{
+        let prec = $cgm.gamedata.precedences.get($precname).unwrap();
 
-    ($cgm:expr, min of $cardset:tt using prec: $precname:literal) => {
+        let mut scored: Vec<(Card, usize)> = $cardset
+            .into_iter()
+            .filter_map(|card| {
+                prec.get_card_value_ref(&card).map(|score| (card.clone(), score))
+            })
+            .collect();
 
-    };
+        scored.sort_by_key(|x| x.1);
 
-    ($cgm:expr, max of $cardset:tt using prec: $precname:literal) => {
+        let min_score = scored.first().map(|x| x.1);
 
-    };
+        let min_cards: Vec<Card> = match min_score {
+            Some(score) => scored
+                .into_iter()
+                .filter(|(_, val)| val == &score)
+                .map(|(card, _)| card)
+                .collect(),
+            None => vec![],
+        };
 
-    ($cgm:expr, min of $cardset:tt using pointmap: $pmname:literal) => {
+        min_cards
+    }};
 
-    };
+    ($cgm:expr, max of $cardset:tt using prec: $precname:literal) => {{
+        use std::cmp::Reverse;
 
-    ($cgm:expr, max of $cardset:tt using pointmap: $pmname:literal) => {
+        let prec = $cgm.gamedata.precedences.get($precname).unwrap();
 
-    };
+        let mut scored: Vec<(Card, usize)> = $cardset
+            .into_iter()
+            .map(|card| (card.clone(), prec.get_card_value_ref(&card).unwrap()))
+            .collect();
+
+        scored.sort_by_key(|x| Reverse(x.1));
+
+        let max_score = scored.first().map(|x| x.1);
+
+        let max_cards: Vec<Card> = match max_score {
+            Some(score) => scored
+                .into_iter()
+                .filter(|(_, val)| val == &score)
+                .map(|(card, _)| card)
+                .collect(),
+            None => vec![],
+        };
+
+        max_cards
+    }};
+
+    ($cgm:expr, min of $cardset:tt using pointmap: $pmname:literal) => {{
+        let pointmap = $cgm.gamedata.pointmaps.get($pmname).unwrap();
+
+        let mut scored: Vec<(Card, i32)> = $cardset
+            .into_iter()
+            .filter_map(|card| {
+                pointmap.get_card_value_ref(&card).map(|score| (card.clone(), *score.iter().min().unwrap()))
+            })
+            .collect();
+
+        scored.sort_by_key(|x| x.1);
+
+        let min_score = scored.first().map(|x| x.1);
+
+        let min_cards: Vec<Card> = match min_score {
+            Some(score) => scored
+                .into_iter()
+                .filter(|(_, val)| val == &score)
+                .map(|(card, _)| card)
+                .collect(),
+            None => vec![],
+        };
+
+        min_cards
+    }};
+
+    ($cgm:expr, max of $cardset:tt using pointmap: $pmname:literal) => {{
+        use std::cmp::Reverse;
+
+        let pointmap = $cgm.gamedata.pointmaps.get($pmname).unwrap();
+
+        let mut scored: Vec<(Card, i32)> = $cardset
+            .into_iter()
+            .filter_map(|card| {
+                pointmap.get_card_value_ref(&card).map(|score| (card.clone(), *score.iter().max().unwrap()))
+            })
+            .collect();
+
+        scored.sort_by_key(|x| Reverse(x.1));
+
+        let max_score = scored.first().map(|x| x.1);
+
+        let max_cards: Vec<Card> = match max_score {
+            Some(score) => scored
+                .into_iter()
+                .filter(|(_, val)| val == &score)
+                .map(|(card, _)| card)
+                .collect(),
+            None => vec![],
+        };
+
+        max_cards
+    }};
 }
 
-/*
-CardSet → ([Location] | LocationCollection) (’where’ Filter)? |
-            (’not’)? [Combo] ’in’ ([Location] | LocationCollection) |
-            CardPosition
-*/
-
 macro_rules! cardset {
-    ($loc:expr) => {
-        $loc.get_cards()
-    };
+    ($cgm:expr, $($locname:literal), *) => {{
+        let locs: Vec<&str> =  vec![$($locname), *];
+
+        let pname = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
+
+        let mut cards: Vec<Vec<Card>> = vec![];
+
+        for loc in locs.iter() {
+            cards.push($cgm.gamedata
+                .get_loc_name(loc.to_string(), pname.clone())
+                .unwrap()
+                .borrow()
+                .get_cards_ref())
+        }
+
+        let result: Vec<Card> = cards.into_iter().flatten().collect();
+        result
+    }};
     
     // w = where
-    ($loc:expr, w $filter:tt) => {
+    ($cgm:expr, $($locname:literal), * w $f:tt) => {{
+        let locs: Vec<&str> =  vec![$($locname), *];
+
+        let pname = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
+
+        let mut cards: Vec<Vec<Card>> = vec![];
+
+        for loc in locs.iter() {
+            cards.push($cgm.gamedata
+                .get_loc_name(loc.to_string(), pname.clone())
+                .unwrap()
+                .borrow()
+                .get_cards_ref())
+        }
+
+        let cards: Vec<Card> = cards.into_iter().flatten().collect();
         
-    };
+        let fc: Vec<Card> = $f(cards.clone()).into_iter().flatten().collect();
 
-    ($cgm:expr, $cardpos:tt) => {
-
-    };
+        cards.into_iter().filter(|card| fc.contains(card)).collect()
+    }};
 
     // (’not’)? [Combo] ’in’ ([Location]
-    // ($cgm:expr) => {
+    ($cgm:expr, $comboname:literal inn $($locname:literal), *) => {{
+        let locs: Vec<&str> =  vec![$($locname), *];
+
+        let pname = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
+
+        let mut cards: Vec<Vec<Card>> = vec![];
+
+        for loc in locs.iter() {
+            cards.push($cgm.gamedata
+                .get_loc_name(loc.to_string(), pname.clone())
+                .unwrap()
+                .borrow()
+                .get_cards_ref())
+        }
+
+        let cards: Vec<Card> = cards.into_iter().flatten().collect();
         
-    // };
+        let cardfun = $cgm
+                .gamedata
+                .cardcombinations
+                .get($comboname)
+                .unwrap()
+                .attributes
+                .clone();
+        
+        let fc: Vec<Card> = cardfun(cards.clone()).into_iter().flatten().collect();
+
+        cards.into_iter().filter(|card| fc.contains(card)).collect()
+    }};
+
+    ($cgm:expr, not $comboname:literal inn $($locname:literal), *) => {{
+        let locs: Vec<&str> =  vec![$($locname), *];
+
+        let pname = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
+
+        let mut cards: Vec<Vec<Card>> = vec![];
+
+        for loc in locs.iter() {
+            cards.push($cgm.gamedata
+                .get_loc_name(loc.to_string(), pname.clone())
+                .unwrap()
+                .borrow()
+                .get_cards_ref())
+        }
+
+        let cards: Vec<Card> = cards.into_iter().flatten().collect();
+        
+        let cardfun = $cgm
+                .gamedata
+                .cardcombinations
+                .get($comboname)
+                .unwrap()
+                .attributes
+                .clone();
+        
+        let fc: Vec<Card> = cardfun(cards.clone()).into_iter().flatten().collect();
+
+        cards.into_iter().filter(|card| !fc.contains(card)).collect()
+    }};
+
+    ($cgm:expr, $cardpos:tt) => {{
+        let cardpos: Vec<Card> = $cardpos; 
+        cardpos
+    }};
 }
 
 
@@ -684,23 +852,22 @@ macro_rules! endcondition {
 macro_rules! condition {
     // bool with cards and player-location
     ($cgm:expr, $filter:tt of $locname:literal) => {{
-        |turnindex: usize| -> bool {
-            let playername = $cgm.gamedata.turnorder[turnindex].clone();
-            let cards = $cgm
-                        .gamedata
-                        .players
-                        .get_mut(
-                            &playername
-                        )
-                        .unwrap()
-                        .get_location($locname)
-                        .unwrap()
-                        .borrow()
-                        .clone()
-                        .get_cards();
+        let playername = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
+        let cards = $cgm
+                    .gamedata
+                    .players
+                    .get_mut(
+                        &playername
+                    )
+                    .unwrap()
+                    .get_location($locname)
+                    .unwrap()
+                    .borrow()
+                    .clone()
+                    .get_cards();
 
-            !$filter(cards).is_empty()
-    }}};
+        !$filter(cards).is_empty()
+    }};
     // TODO:
     // condition for arbitrary things!
 }
