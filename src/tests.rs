@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-    use crate::ast::{Card, CardGameModel, Component};
+    use std::{collections::HashMap, rc::Rc};
+    use crate::ast::{Card, CardGameModel, Component, LocationRef};
 
     fn init_model() -> CardGameModel {
         let mut cgm = CardGameModel::new("player_test");
@@ -435,6 +435,138 @@ mod tests {
 
     }
 
+    fn print_cards(cards: Vec<Card>) {
+        for c in cards {
+            println!("{}", c)
+        }
+    }
+
+    fn print_loc_cards(loc_cards: HashMap<LocationRef, Vec<Card>>) {
+        for (locname, v) in loc_cards {
+                println!("{}", locname);
+                print_cards(v);
+            }
+    }
+
+    #[test]
+    fn test_cardset() {
+        let mut cgm = init_model();
+
+        card_on!(
+            cgm,
+            "hand",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        let a1 = cardset!(cgm, "stack");
+        print_loc_cards(a1);
+    
+        let a2 = cardset!(cgm, "stack", "hand");
+        print_loc_cards(a2);
+
+        let b1 = cardset!(cgm, "stack" w (filter!("Suite", "==", "Hearts")));
+        print_loc_cards(b1);
+        
+        let b2 = cardset!(cgm, "stack", "hand" w (filter!("Suite", "==", "Hearts")));
+        print_loc_cards(b2);
+
+        combo!(cgm, "all hearts", filter!(
+            "Suite", "==", "Hearts"
+        ));
+
+        let d1 = cardset!(cgm, "all hearts" inn "stack");
+        print_loc_cards(d1);
+
+        let d2 = cardset!(cgm, "all hearts" inn "stack", "hand");
+        print_loc_cards(d2);
+
+        let e1 = cardset!(cgm, not "all hearts" inn "stack");
+        print_loc_cards(e1);
+
+        let e2 = cardset!(cgm, not "all hearts" inn "stack", "hand");
+        print_loc_cards(e2);
+
+        let f = cardset!(cgm, (cardposition!(cgm, "stack" 1)));
+        print_loc_cards(f);
+
+    }
+
+    #[test]
+    pub fn test_cardpos() {
+        let mut cgm = init_model();
+
+        card_on!(
+            cgm,
+            "hand",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        precedence!(cgm, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
+
+        let card = cardposition!(cgm, "stack" 1);
+        print_loc_cards(card);
+
+        let card = cardposition!(cgm, "stack" top);
+        print_loc_cards(card);
+
+        let card = cardposition!(cgm, "stack" bottom);
+        print_loc_cards(card);
+
+        let card = cardposition!(cgm, min of (cardset!(cgm, "stack", "hand")) using prec: "Rank");
+        print_loc_cards(card);
+        
+        let card = cardposition!(cgm, max of (cardset!(cgm, "stack", "hand")) using prec: "Rank");
+        print_loc_cards(card);
+
+        pointmap!(
+            cgm,
+            "Rank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "10" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            }
+        );
+
+        let card= cardposition!(cgm, min of (cardset!(cgm, "stack", "hand")) using pointmap: "Rank");
+        print_loc_cards(card);
+        
+        let card = cardposition!(cgm, max of (cardset!(cgm, "stack")) using pointmap: "Rank");
+        print_loc_cards(card);
+        
+        
+    }
+
     #[test]
     fn test_move_card() {
         let mut cgm = CardGameModel::new("SmallGame");
@@ -462,182 +594,6 @@ mod tests {
 
         turn_order!(cgm, random);
 
-        // let mut cond = condition!(cgm, (filter!(size, "==", 0)) of "hand");
-
-        let locto = Rc::clone(
-                        cgm.gamedata.players
-                            .get("P1")
-                            .unwrap()
-                            .locations
-                            .get("hand")
-                            .unwrap());
-        
-        let locfrom = Rc::clone(
-            cgm.gamedata.table.locations
-                .get("stack")
-                .unwrap());
-
-        cgm.gamedata.move_card(locfrom, locto, 0);
-
-        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow());
-        println!("{}", cgm.gamedata.table.locations.get("stack").unwrap().borrow());
-
-
-        // let p1_loc = Rc::clone(cgm
-        //     .gamedata
-        //     .get_mut_loc_name(
-        //         "P1_hand".to_string(),
-        //         "P2".to_string()
-        //     )
-        //     .unwrap());
-        
-        // let p2_loc = Rc::clone(cgm
-        //     .gamedata
-        //     .get_mut_loc_name(
-        //         "P2_hand".to_string(),
-        //         "P1".to_string()
-        //     )
-        //     .unwrap());
-
-        // cgm.gamedata.move_card(p1_loc, p2_loc, 0);
-    
-        // println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow());
-        // println!("{}", cgm.gamedata.players.get("P2").unwrap().locations.get("hand").unwrap().borrow());
-    }
-
-    #[test]
-    fn test_cardset() {
-        let mut cgm = init_model();
-
-        card_on!(
-            cgm,
-            "hand",
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Diamond", "Hearts"),
-                Color("Red")
-            },
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Spades", "Clubs"),
-                Color("Black")
-            }
-        );
-
-        let a1 = cardset!(cgm, "stack");
-        for c in a1 {
-            println!("{}", c)
-        }
-
-        let a2 = cardset!(cgm, "stack", "hand");
-        for c in a2 {
-            println!("{}", c)
-        }
-
-        let b1: Vec<Card> = cardset!(cgm, "stack" w (filter!("Suite", "==", "Hearts")));
-        for c in b1 {
-            println!("{}", c)
-        }
-
-        let b2: Vec<Card> = cardset!(cgm, "stack", "hand" w (filter!("Suite", "==", "Hearts")));
-        for c in b2 {
-            println!("{}", c)
-        }
-
-        combo!(cgm, "all hearts", filter!(
-            "Suite", "==", "Hearts"
-        ));
-
-        let d1: Vec<Card> = cardset!(cgm, "all hearts" inn "stack");
-        for c in d1 {
-            println!("{}", c)
-        }
-
-        let d2: Vec<Card> = cardset!(cgm, "all hearts" inn "stack", "hand");
-        for c in d2 {
-            println!("{}", c)
-        }
-
-        let e1: Vec<Card> = cardset!(cgm, not "all hearts" inn "stack");
-        for c in e1 {
-            println!("{}", c)
-        }
-
-        let e2: Vec<Card> = cardset!(cgm, not "all hearts" inn "stack", "hand");
-        for c in e2 {
-            println!("{}", c)
-        }
-
-        let f: Vec<Card> = cardset!(cgm, (cardposition!(cgm, "stack" 1)));
-        for c in f {
-            println!("{}", c)
-        }
 
     }
-
-    #[test]
-    pub fn test_cardpos() {
-        let mut cgm = init_model();
-
-        precedence!(cgm, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
-
-        let card = cardposition!(cgm, "stack" 1);
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        let card = cardposition!(cgm, "stack" top);
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        let card = cardposition!(cgm, "stack" bottom);
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        let card = cardposition!(cgm, min of (cardset!(cgm, "stack")) using prec: "Rank");
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        let card = cardposition!(cgm, max of (cardset!(cgm, "stack")) using prec: "Rank");
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        pointmap!(
-            cgm,
-            "Rank",
-            nested: {  
-                "Rank", (
-                "2" => [2],
-                "3" => [3],
-                "4" => [4],
-                "5" => [5],
-                "6" => [6],
-                "7" => [7],
-                "8" => [8],
-                "9" => [9],
-                "10" => [10],
-                "J" => [10],
-                "Q" => [10],
-                "K" => [10],
-                "A" => [11, 1]
-                )
-            }
-        );
-
-        let card= cardposition!(cgm, min of (cardset!(cgm, "stack")) using pointmap: "Rank");
-        for c in card.iter() {
-            println!("{}", c);
-        }
-
-        let card = cardposition!(cgm, max of (cardset!(cgm, "stack")) using pointmap: "Rank");
-        for c in card.iter() {
-            println!("{}", c);
-        }
-        
-    }
-
 }

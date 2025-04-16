@@ -1,6 +1,5 @@
 use core::fmt;
 use std::cell::RefCell;
-use std::collections::btree_map::Values;
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
@@ -123,99 +122,51 @@ impl GameData {
         locs
     }
 
-    pub fn get_mut_loc_of(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
-        // Check players
-        let player = self.players.get(&pname);
-        match player {
-            None => println!("Player NOT found!"),
-            Some(p) => return self
-                .get_mut_loc_name(locname.to_string(), p.name.clone())
-        }
+    // pub fn get_mut_loc_of(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
+    //     // Check players
+    //     let player = self.players.get(&pname);
+    //     match player {
+    //         None => println!("Player NOT found!"),
+    //         Some(p) => return self
+    //             .get_loc_name(locname.to_string(), p.name.clone())
+    //     }
 
-        // Check teams
-        let team = self.teams.get(&pname);
-        match team {
-            None => println!("Player NOT found!"),
-            Some(t) => return self
-                .get_mut_loc_name(locname.to_string(), t.teamname.clone())
-        }
+    //     // Check teams
+    //     let team = self.teams.get(&pname);
+    //     match team {
+    //         None => println!("Player NOT found!"),
+    //         Some(t) => return self
+    //             .get_loc_name(locname.to_string(), t.teamname.clone())
+    //     }
 
-        return None;
-    }
+    //     return None;
+    // }
 
-    // Hand of playername
-    pub fn get_mut_loc_name(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {            
-        let loc = self.players.get(&pname).unwrap()
-            .locations.get(&locname);
-        match loc {
-            None => println!("The Name of the Location does NOT exist in Player!"),
-            Some(l) => return Some(l)
-        }
-
-        let loc = self.table
-            .locations.get(&locname);
-        match loc {
-            None => println!("The Name of the Location does NOT exist in Player!"),
-            Some(l) => return Some(l)
-        }
-
-        let tname = self.playertoteam.get(&pname);
-        match tname {
-            None => println!("Player is NOT in a Team!"),
-            Some(t) => {
-                let loc = self.teams.get(t).unwrap()
-                    .locations.get(&locname);
-                match loc {
-                    None => println!("No Location in Players!"),
-                    Some(l) => return Some(l)
-                }
+    pub fn get_location(&self, loc_ref: &LocationRef) -> Option<&Rc<RefCell<Location>>> {
+        match loc_ref {
+            LocationRef::Own(locname) => {
+                let pname = &self.turnorder[self.current];
+                self.players.get(pname)
+                    .and_then(|player| player.locations.get(locname))
+                    .or_else(|| self.table.locations.get(locname))
+            }
+            LocationRef::Player(pname, locname) => {
+                self.players.get(pname)?
+                    .locations.get(locname)
+            }
+            LocationRef::Team(teamname, locname) => {
+                self.teams.get(teamname)?
+                    .locations.get(locname)
+            }
+            LocationRef::Table(locname) => {
+                self.table.locations.get(locname)
             }
         }
+    }
+
+    // fn remove_player(&mut self, player_name: String) {
         
-        return None;
-    }
-
-    pub fn get_loc_name(&self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {            
-        let loc = self.players.get(&pname).unwrap()
-            .locations.get(&locname);
-        match loc {
-            None => println!("The Name of the Location does NOT exist in Player!"),
-            Some(l) => return Some(l)
-        }
-
-        let loc = self.table
-            .locations.get(&locname);
-        match loc {
-            None => println!("The Name of the Location does NOT exist in Player!"),
-            Some(l) => return Some(l)
-        }
-
-        let tname = self.playertoteam.get(&pname);
-        match tname {
-            None => println!("Player is NOT in a Team!"),
-            Some(t) => {
-                let loc = self.teams.get(t).unwrap()
-                    .locations.get(&locname);
-                match loc {
-                    None => println!("No Location in Players!"),
-                    Some(l) => return Some(l)
-                }
-            }
-        }
-        
-        return None;
-    }
-
-    fn remove_player(&mut self, player_name: String) {
-        // for i in 0.. self.players.len() {
-        //     if self.players[i].name == player_name {
-        //         self.players.remove(i);
-        //     }
-        //     // Check where the player is referenced elsewhere
-        //     // remove from team
-        //     // remove from pointmap etc...
-        // }
-    }
+    // }
 
     pub fn add_team(&mut self, name: String, players: Vec<String>) {
         self.teams.insert(name.clone(), Team::new(name.clone(), players.clone()));
@@ -259,10 +210,28 @@ impl GameData {
                 .collect())
     }
 
-    pub fn move_card(&mut self, loc1: Rc<RefCell<Location>>, loc2: Rc<RefCell<Location>>, index: usize) {
-        loc2.borrow_mut().add_component(loc1.borrow_mut().remove_card(index));
+    pub fn move_card_index(
+        from: &mut Location,
+        to: &mut Location,
+        card_index: usize
+    ) -> Result<(), String> {
+        match from.remove_card_at_index(card_index) {
+            Some(card) => {
+                to.add_card(card);
+                Ok(())
+            }
+            None => Err(format!("No card at index {} in source location.", card_index)),
+        }
     }
 
+    pub fn move_card(
+        from: &mut Location,
+        to: &mut Location,
+        card: &Card
+    ) {
+        from.remove_card(card);
+        to.add_card(card.clone());
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -350,7 +319,7 @@ impl Team {
         if self.locations.is_empty() {
             println!("No Locations!")
         }
-        for (k, v) in self.locations.iter() {
+        for (k, _) in self.locations.iter() {
             println!("Player {}: locname={}", self.teamname, k.to_string())
         }
     }
@@ -364,6 +333,24 @@ pub struct Table {
 impl Table {
     pub fn add_location(&mut self, locname: String) {
         self.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum LocationRef {
+    Own(String),            // e.g., Own("hand")
+    Player(String, String), // e.g., Player("P2", "hand")
+    Table(String),          // e.g., Table("drawpile")
+    Team(String, String),   // e.g., Team("TeamA", "bench")
+}
+impl fmt::Display for LocationRef {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            LocationRef::Own(loc) => write!(f, "\"{}\"", loc),
+            LocationRef::Player(player, loc) => write!(f, "\"{}\" of {}", loc, player),
+            LocationRef::Table(loc) => write!(f, "\"{}\" of Table", loc),
+            LocationRef::Team(team, loc) => write!(f, "\"{}\" of Team {}", loc, team),
+        }
     }
 }
 
@@ -393,16 +380,52 @@ impl Location {
             .collect()
     }
 
+    pub fn remove_card_at_index(&mut self, i: usize) -> Option<Card> {
+        let mut card_index = 0;
+
+        for pos in 0..self.contents.len() {
+            if let Component::CARD(_card) = &self.contents[pos] {
+                if card_index == i {
+                    if let Component::CARD(card) = self.contents.remove(pos) {
+                        return Some(card);
+                    }
+                }
+                card_index += 1;
+            }
+        }
+
+        None // Not enough cards in contents
+    }
+
+    pub fn remove_card_index(&mut self, index: usize) -> Component {
+        self.contents.remove(index)
+    }
+
     pub fn add_card(&mut self, card: Card) {
         self.contents.push(Component::CARD(card));
     }
 
-    pub fn add_component(&mut self, comp: Component) {
-        self.contents.push(comp);
+    pub fn remove_card(&mut self, card: &Card) {
+        self.contents.retain(|component| {
+            match component {
+                Component::CARD(c) => c != card,
+                _ => true,
+            }
+        });
     }
 
-    pub fn remove_card(&mut self, index: usize) -> Component {
-        self.contents.remove(index)
+    pub fn extract_cards(&self) -> Vec<Card> {
+        self.contents.iter().filter_map(|c| {
+            if let Component::CARD(card) = c {
+                Some(card.clone())
+            } else {
+                None
+            }
+        }).collect()
+    }
+
+    pub fn has_card(&self, card: &Card) -> bool {
+        self.contents.iter().any(|c| matches!(c, Component::CARD(c2) if c2 == card))
     }
 }
 impl std::fmt::Display for Location {
@@ -601,7 +624,6 @@ impl PointMap {
                 return Some(score.clone());
             }
         }
-        println!("SOMETHING WENT WRONG!");
 
         None
     }
