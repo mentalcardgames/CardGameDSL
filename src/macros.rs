@@ -1051,28 +1051,86 @@ CardPosition → Location (Int | ’Top’ | ’Bottom’) |
 
 */
 
+// TODO:
+// Dont just take the first N cards.
+// Be able to take any card (has to be asked from the player).
+macro_rules! move_cardset_with_quantity {
+    ($cgm:expr, $fromcs:tt, $tocs:tt, $q:literal, $bound:expr) => {{
+        for (from_locref, cards) in $fromcs.into_iter() {
+            // Copy the available cards so we can let the user remove them interactively.
+            let mut available: Vec<Card> = cards.clone();
+            let mut selected: Vec<Card> = Vec::new();
 
+            // Allow the user to select up to $q cards as long as cards remain.
+            while selected.len() < $q && !available.is_empty() {
+                // Print available cards and prompt for selection.
+                if let Some(idx) = $cgm.gamedata.prompt_select_card(&available) {
+                    // Remove the selected card from available and add it to the selection.
+                    selected.push(available.remove(idx));
+                } else {
+                    break; // exit if no valid selection
+                }
+            }
+
+            // Get the source location.
+            if let Some(from_loc) = $cgm.gamedata.get_location(&from_locref).cloned() {
+                // For each target location (typically you intend one destination per move).
+                for (to_locref, _) in &$tocs {
+                    if let Some(to_loc) = $cgm.gamedata.get_location(to_locref).cloned() {
+                        // if $bound {
+                        //     from_loc.borrow_mut().move_cards_bound(&mut to_loc.borrow_mut(), &selected);
+                        // } else {
+                        from_loc.borrow_mut().move_cards(&mut to_loc.borrow_mut(), &selected);
+                        // }
+                    } else {
+                        println!("Target location {:?} not found!", to_locref);
+                    }
+                    break; // Here we assume one destination per source.
+                }
+            } else {
+                println!("Source location {:?} not found!", from_locref);
+            }
+        }
+    }};
+}
 
 macro_rules! moveaction {
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
+    // move X from <from> to <to>
     ($cgm:expr, mv $q:literal from $fromcs:tt to $tocs:tt) => {{
-        
-    }};
-    
-    ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
-        
+        move_cardset_with_quantity!($cgm, $fromcs, $tocs, $q, false);
     }};
 
-    ($cgm:expr, mv $q:literal $fromcs:tt to $tocs:tt) => {{
-        
+    // move X from <from> bound to <to>
+    ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
+        move_cardset_with_quantity!($cgm, $fromcs, $tocs, $q, true);
     }};
-    
+
+    // move X <from> to <to> (implicit "from")
+    ($cgm:expr, mv $q:literal $fromcs:tt to $tocs:tt) => {{
+        move_cardset_with_quantity!($cgm, $fromcs, $tocs, $q, false);
+    }};
+
+    // move X <from> bound to <to> (implicit "from")
     ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
-        
+        move_cardset_with_quantity!($cgm, $fromcs, $tocs, $q, true);
     }};
 
     ($cgm:expr, mv $fromcs:tt to $tocs:tt) => {{
-        
+        for (from_locref, cards) in $fromcs.into_iter() {
+            if let Some(mut from_loc) = $cgm.gamedata.get_location(&from_locref).cloned() {
+                for (to_locref, _) in &$tocs {
+                    if let Some(mut to_loc) = $cgm.gamedata.get_location(to_locref).cloned() {
+                        from_loc.borrow_mut().move_cards(&mut to_loc.borrow_mut(), &cards);
+                    } else {
+                        println!("Target location {:?} not found!", to_locref);
+                    }
+                    break; // Only move to one destination per source
+                }
+            } else {
+                println!("Source location {:?} not found!", from_locref);
+            }
+        }
     }};
     
     ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{

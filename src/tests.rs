@@ -569,6 +569,21 @@ mod tests {
 
     #[test]
     fn test_move_card() {
+        fn print_loc_hand(cgm: &CardGameModel) {
+            let loc = cgm
+                .gamedata
+                .players
+                .get(
+                &cgm
+                .gamedata
+                .turnorder[cgm.gamedata.current])
+                .unwrap()
+                .locations
+                .get("hand")
+                .unwrap();
+
+            println!("{}", loc.borrow());
+        }
         let mut cgm = CardGameModel::new("SmallGame");
 
         player!(cgm, "P1", "P2");
@@ -590,10 +605,35 @@ mod tests {
             }
         );
 
+        precedence!(cgm, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
+
+        combo!(cgm, "all hearts", filter!(
+            "Suite", "==", "Hearts"
+        ));
+
         location_on!(cgm, "hand", players: "P1", "P2");
 
         turn_order!(cgm, random);
 
+        // moveaction!(cgm, mv (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
+
+        // print_loc_hand(&cgm);
+
+        // moveaction!(cgm, mv (cardset!(cgm, "hand")) to (cardset!(cgm, "stack")));
+
+        // print_loc_hand(&cgm);
+        
+        // moveaction!(cgm, mv (cardset!(cgm, "all hearts" inn "stack")) to (cardset!(cgm, "hand")));
+        
+        // print_loc_hand(&cgm);
+
+        // moveaction!(cgm, mv 1 from (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
+
+        // print_loc_hand(&cgm);
+
+        // moveaction!(cgm, mv 1 from (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
+
+        // print_loc_hand(&cgm);
 
     }
 }

@@ -1,6 +1,7 @@
 use core::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::io::{self, Write};
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -232,6 +233,22 @@ impl GameData {
         from.remove_card(card);
         to.add_card(card.clone());
     }
+
+    // THIS IS TEMPORARY FOR TESTING
+    // ------------------------------------------------------------------
+    pub fn prompt_select_card(&self, cards: &[Card]) -> Option<usize> {
+        for (i, card) in cards.iter().enumerate() {
+            println!("{}: {}", i, card); // Assuming Card implements Display
+        }
+    
+        print!("Select a card by index: ");
+        io::stdout().flush().unwrap();
+    
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+    
+        input.trim().parse::<usize>().ok().filter(|i| *i < cards.len())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -426,6 +443,35 @@ impl Location {
 
     pub fn has_card(&self, card: &Card) -> bool {
         self.contents.iter().any(|c| matches!(c, Component::CARD(c2) if c2 == card))
+    }
+
+    pub fn move_card(&mut self, target: &mut Location, card: &Card) -> bool {
+        if let Some(pos) = self.contents.iter().position(|c| {
+            matches!(c, Component::CARD(c_) if c_ == card)
+        }) {
+            let removed = self.contents.remove(pos);
+            target.contents.push(removed);
+            true
+        } else {
+            false
+        }
+    }
+
+    pub fn move_cards(&mut self, target: &mut Location, cards: &[Card]) -> usize {
+        let mut moved_count = 0;
+
+        for card in cards {
+            if let Some(index) = self.contents.iter().position(|comp| match comp {
+                Component::CARD(c) => c == card,
+                _ => false,
+            }) {
+                let comp = self.contents.remove(index);
+                target.contents.push(comp);
+                moved_count += 1;
+            }
+        }
+
+        moved_count
     }
 }
 impl std::fmt::Display for Location {
