@@ -312,6 +312,16 @@ impl Player {
         self.locations.get(locname)
     }
 }
+// This can be done better, but it is complicated with the Rc<RefCell<...>>
+// Lets stick to this one and change it if we have time left.
+impl PartialEq for Player {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.score == other.score
+        // Not comparing locations!
+    }
+}
+impl Eq for Player {}
+
 
 #[derive(Debug, Clone)]
 pub struct Team {
@@ -704,7 +714,16 @@ pub struct StageS {
 
 #[derive(Debug, Clone)]
 pub struct Condition {
-    // maybe Box::new(dyn Fn(...))?
+    // Should be just a bool
+    // I think still needs to be in a Box::...
+    // but maybe not because the cgm si changed
+    /*
+    let conditions: Vec<Box<dyn Fn(&CardGameModel) -> bool>> = vec![
+        Box::new(|cgm| bool!(cgm, condition1)),
+        Box::new(|cgm| bool!(cgm, condition2)),
+        Box::new(|cgm| bool!(cgm, condition3)),
+    ];
+    */
 }
 
 #[derive(Debug, Clone)]

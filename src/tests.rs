@@ -393,48 +393,6 @@ mod tests {
 
     }
 
-
-    #[test]
-    fn test_condition_filter() {
-        let mut cgm = init_model();
-
-        card_on!(
-            cgm,
-            "hand",
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Diamond", "Hearts"),
-                Color("Red")
-            },
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Spades", "Clubs"),
-                Color("Black")
-            }
-        );
-
-        let b = condition!(cgm,
-            (filter!(
-                ("Suite", "same"),
-                ("and"),
-                (size, ">=", 4)
-            )) of
-            "hand");  // location we look at and playersindex
-
-        assert_eq!(b, true);
-
-        let b = condition!(cgm,
-            (filter!(
-                ("Suite", "same"),
-                ("and"),
-                (size, ">=", 6)
-            )) of
-            "hand");  // location we look at and playersindex
-
-        assert_eq!(b, false);
-
-    }
-
     fn print_cards(cards: Vec<Card>) {
         for c in cards {
             println!("{}", c)
@@ -636,4 +594,231 @@ mod tests {
         // print_loc_hand(&cgm);
 
     }
+
+    #[test]
+    fn test_int() {
+        let mut cgm = init_model();
+
+        assert_eq!(int!(cgm, int!(cgm, 5, "mod", 3), "-", 1), 1);
+
+        assert_eq!(int!(cgm, 3), 3);
+
+        assert_eq!(
+            int!(
+                cgm,
+                vec![1, 2, 3, 4],
+                (int!(cgm, int!(cgm, 5, "mod", 3), "-", 1))
+            ),
+            2
+        );
+
+        assert_eq!(int!(cgm, sum of vec![1, 2, 3, 4]), 10);
+        
+        pointmap!(
+            cgm,
+            "Rank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "10" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            }
+        );
+
+        location_on!(cgm, "hand", players: "P1");
+
+        card_on!(
+            cgm,
+            "hand",
+            {
+                Rank("A"),
+                Suite("Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("10"),
+                Suite("Clubs"),
+                Color("Black")
+            }
+        );
+
+        assert_eq!(int!(cgm, sum of min (cardset!(cgm, "hand")), using "Rank"), 11);
+
+        assert_eq!(int!(cgm, sum of max (cardset!(cgm, "hand")), using "Rank"), 21);
+
+        assert_eq!(int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" gt 20), 21);
+
+        assert_eq!(int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" lt 15), 11);
+
+        assert_eq!(int!(cgm, max of vec![1, 2, 3, 4]), 4);
+
+        assert_eq!(int!(cgm, min of vec![1, 2, 3, 4]), 1);
+    }
+
+    #[test]
+    fn test_string() {
+        let mut cgm = init_model();
+
+        assert_eq!(string!("banana"), "banana");
+
+        assert_eq!(string!("Rank" of cardposition!(cgm, "stack" top)), "2");
+
+        assert_eq!(string!(vec!["a", "b", "c", "d"], 1), "b");
+    }
+
+    #[test]
+    fn test_bool() {
+        let mut cgm = init_model();
+
+        assert_eq!(bool!(
+            string:
+            string!("Rank" of cardposition!(cgm, "stack" top)),
+            "!=",
+            string!("Rank" of cardposition!(cgm, "stack" bottom))),
+        true);
+        
+        assert_eq!(bool!(
+            string:
+            string!("Rank" of cardposition!(cgm, "stack" top)),
+            "!=",
+            string!("Rank" of cardposition!(cgm, "stack" top))),
+        false);
+
+        pointmap!(
+            cgm,
+            "Rank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "10" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            }
+        );
+
+        location_on!(cgm, "hand", players: "P1");
+
+        card_on!(
+            cgm,
+            "hand",
+            {
+                Rank("A"),
+                Suite("Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("10"),
+                Suite("Clubs"),
+                Color("Black")
+            }
+        );
+
+        assert_eq!(bool!(
+            int:
+            int!(cgm, sum of min (cardset!(cgm, "hand")), using "Rank"),
+            "==",
+            int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" lt 15)),
+        true);
+
+
+        assert_eq!(bool!(
+            cardset:
+            cardset!(cgm, "hand"), "==", cardset!(cgm, "hand")),
+            true
+        );
+
+        assert_eq!(bool!(
+            cardset:
+            cardset!(cgm, "hand"), "==", cardset!(cgm, "stack")),
+            false
+        );
+
+        location_on!(cgm, "hand_empty", players: "P1", "p2");
+
+        assert_eq!(bool!(
+            cardset!(cgm, "hand_empty"), is empty),
+            true
+        );
+
+        assert_eq!(bool!(
+            cardset!(cgm, "hand"), is not empty),
+            true
+        );
+        
+        // player and team tests
+        assert_eq!(
+            bool!(
+                pt:
+                player_ref!(cgm, owner of cardposition!(cgm, "hand" top)),
+                "==",
+                player_ref!(cgm, owner of cardposition!(cgm, "hand" top))
+            ),
+            true
+        );
+        
+        assert_eq!(
+            bool!(
+                pt:
+                player_ref!(cgm, current),
+                "!=",
+                player_ref!(cgm, previous)
+            ),
+            true
+        );
+
+        assert_eq!(
+            bool!(
+                pt:
+                player_ref!(cgm, previous),
+                "!=",
+                player_ref!(cgm, next)
+            ),
+            true
+        );
+
+        assert_eq!(
+            bool!(
+                pt:
+                player_ref!(cgm, turnorder 1),
+                "!=",
+                player_ref!(cgm, next)
+            ),
+            true
+        );
+        
+        assert_eq!(
+            bool!(
+                pt:
+                team_ref!(cgm, "Team1"),
+                "==",
+                team_ref!(cgm, team of player_ref!(cgm, current))
+            ),
+            true
+        );
+        
+
+
+    }
+
 }

@@ -847,7 +847,7 @@ macro_rules! cardset {
             let loc_ref = LocationRef::Own(loc.to_string());
     
             if let Some(location) = $cgm.gamedata.get_location(&loc_ref) {
-                let cards = location.borrow().get_cards_ref();
+                let cards = location.borrow().clone().get_cards();
                 loc_cards.insert(loc_ref, cards);
             } else {
                 eprintln!("⚠️ Location '{}' (Own) not found!", loc);
@@ -981,19 +981,24 @@ macro_rules! combo {
     };
 }
 
+// ’until’ Bool ((’and’ | ’or’) Repetitions)? | Repetitions | ’until’ ’end’
 macro_rules! endcondition {
     ($cgm:expr, until $bool:literal) => {
-
+        // I would say until the bool is false
+        $bool
     };
 
+    // Where do we save the repitions?
     ($cgm:expr, until $bool:literal and $reps:tt) => {
 
     };
 
+    // Where do we save the repitions?
     ($cgm:expr, until $bool:literal or $reps:tt) => {
 
     };
 
+    // Where do i save the repitions?
     ($reps:expr) => {
 
     };
@@ -1003,28 +1008,480 @@ macro_rules! endcondition {
     };
 }
 
-macro_rules! condition {
-    // bool with cards and player-location
-    ($cgm:expr, $filter:tt of $locname:literal) => {{
-        let playername = $cgm.gamedata.turnorder[$cgm.gamedata.current].clone();
-        let cards = $cgm
-                    .gamedata
-                    .players
-                    .get_mut(
-                        &playername
-                    )
-                    .unwrap()
-                    .get_location($locname)
-                    .unwrap()
-                    .borrow()
-                    .clone()
-                    .get_cards();
+/*
+This is needed for Condition:
 
-        !$filter(cards).is_empty()
+Int → INT | ’(’ Int (’+’ | ’-’ | ’*’ | ’//’ | ’mod’) Int ’)’ |
+    [IntCollection] Int | size’ ’of’ [Collection] |
+    ’sum’ ’of’ ([IntCollection] | CardSet ’using’ [PointMap]) |
+    (’min’ | ’max’) ’of’ [IntCollection] |
+    ’stageroundcounter’ | ’playroundcounter’
+
+TODO:
+Implement the Types above!
+(maybe call them IntCond, StringCond, BoolCond or something like that,
+because it is confusing if we call tehm Int, String, Bool)
+
+*/
+
+
+macro_rules! int {
+    ($cgm:expr, $int:literal) => {{
+        let i: i32 = $int;
+        i
     }};
-    // TODO:
-    // condition for arbitrary things!
+
+    ($cgm:expr, $int1:expr, $op:literal, $int2:expr) => {{
+        let i1: i32 = $int1;
+        let i2: i32 = $int2;
+        match $op {
+            "+"   => (i1 + i2),
+            "-"   => (i1 - i2),
+            "*"   => (i1 * i2),
+            "//"  => (i1 / i2),
+            "mod" => (i1 % i2),
+            _ => {
+                    println!("{} not defined", $op);
+                    0
+                }
+        }
+    }};
+
+    ($cgm:expr, $intcol:expr, $int:tt) => {{
+        let index: usize = $int as usize;
+        $intcol[index]        
+    }};
+
+    // size’ ’of’ [Collection] 
+    ($cgm:expr, size of $col:expr) => {{
+        $col.len()
+    }};
+
+    // ’sum’ ’of’ [IntCollection]
+    ($cgm:expr, sum of $intcol:expr) => {{
+        let intcol: Vec<i32> = $intcol;
+        intcol.iter().sum::<i32>()
+    }};
+
+    ($cgm:expr, sum of min $cardset:expr, using $pmname:literal) => {{
+        let pmap = $cgm.gamedata.pointmaps.get($pmname).unwrap().clone();
+        
+        let mut sum = 0;
+
+        let cardset = $cardset;
+
+        let mut cards = vec![];
+        for (_, cs) in cardset.iter() {
+            for c in cs {
+                cards.push(c);
+            }
+        }
+
+        for card in cards.iter() {
+            // let values = pmap.get_card_value_ref(card).unwrap();
+            // let min_value = values.iter().min().unwrap();
+            // sum += min_value;
+            sum += pmap.get_card_value_ref(card).unwrap().iter().min().unwrap();
+        }
+
+        sum
+    }};
+
+    ($cgm:expr, sum of max $cardset:expr, using $pmname:literal) => {{
+        let pmap = $cgm.gamedata.pointmaps.get($pmname).unwrap().clone();
+        
+        let mut sum = 0;
+
+        let cardset = $cardset;
+
+        let mut cards = vec![];
+        for (_, cs) in cardset.iter() {
+            for c in cs {
+                cards.push(c);
+            }
+        }
+
+
+        for card in cards.iter() {
+            sum += pmap.get_card_value_ref(&card).unwrap().iter().max().unwrap();
+        }
+
+        sum
+    }};
+
+    
+    ($cgm:expr, sum of $cardset:expr, using $pmname:literal gt $int:expr) => {{
+        /*
+        [
+            [i11, i12, ...],
+            [i21, i22, ...],
+            ...
+        ]
+
+        You can only choose 1 Value from each list.
+        Find the minimum of the sum of each chosen value
+        with a boundary: >= value.
+        */
+
+        fn dfs(
+            matrix: &Vec<Vec<i32>>,
+            row: usize,
+            current_sum: i32,
+            target: i32,
+            min_sum: &mut i32,
+        ) {
+            if row == matrix.len() {
+                if current_sum >= target {
+                    *min_sum = (*min_sum).min(current_sum);
+                }
+                return;
+            }
+        
+            for &val in &matrix[row] {
+                // Prune if current sum already worse than best
+                if current_sum + val >= *min_sum {
+                    continue;
+                }
+                dfs(matrix, row + 1, current_sum + val, target, min_sum);
+            }
+        }
+        
+        fn min_sum_greater_equal(matrix: Vec<Vec<i32>>, target: i32) -> Option<i32> {
+            let mut min_sum = i32::MAX;
+            dfs(&matrix, 0, 0, target, &mut min_sum);
+            if min_sum == i32::MAX {
+                None
+            } else {
+                Some(min_sum)
+            }
+        }        
+
+        let pmap = $cgm.gamedata.pointmaps.get($pmname).unwrap().clone();
+
+        let target = $int;
+        
+        let mut matrix = vec![];
+
+        let cardset = $cardset;
+
+        let mut cards = vec![];
+        for (_, cs) in cardset.iter() {
+            for c in cs {
+                cards.push(c);
+            }
+        }
+
+        for card in cards.iter() {
+            matrix.push(pmap.get_card_value_ref(&card).unwrap());
+        }
+
+        min_sum_greater_equal(matrix, target).unwrap()
+    }};
+
+    ($cgm:expr, sum of $cardset:expr, using $pmname:literal lt $int:expr) => {{
+        /*
+        [
+            [i11, i12, ...],
+            [i21, i22, ...],
+            ...
+        ]
+
+        You can only choose 1 Value from each list.
+        Find the minimum of the sum of each chosen value
+        with a boundary: >= value.
+        */
+        
+        fn dfs(
+            matrix: &Vec<Vec<i32>>,
+            row: usize,
+            current_sum: i32,
+            target: i32,
+            min_sum: &mut i32,
+        ) {
+            if row == matrix.len() {
+                if current_sum >= target {
+                    *min_sum = (*min_sum).min(current_sum);
+                }
+                return;
+            }
+        
+            for &val in &matrix[row] {
+                // Prune if current sum already worse than best
+                if current_sum + val >= *min_sum {
+                    continue;
+                }
+                dfs(matrix, row + 1, current_sum + val, target, min_sum);
+            }
+        }
+        
+        fn min_sum_greater_equal(matrix: Vec<Vec<i32>>, target: i32) -> Option<i32> {
+            let mut min_sum = i32::MAX;
+            dfs(&matrix, 0, 0, target, &mut min_sum);
+            if min_sum == i32::MAX {
+                None
+            } else {
+                Some(min_sum)
+            }
+        }
+
+        fn negate_vec(vec: Vec<i32>) -> Vec<i32> {
+            vec.iter().map(|x| -x).collect()
+        }        
+
+        let pmap = $cgm.gamedata.pointmaps.get($pmname).unwrap();
+
+        // same problem just negate everything
+        let target = - $int;
+        
+        let cardset = $cardset;
+
+        let mut cards = vec![];
+        for (_, cs) in cardset.iter() {
+            for c in cs {
+                cards.push(c);
+            }
+        }
+
+        let mut matrix = vec![];
+
+        for card in cards.iter() {
+            matrix.push(negate_vec(pmap.get_card_value_ref(&card).unwrap()));
+        }
+
+        - min_sum_greater_equal(matrix, target).unwrap()
+    }};
+
+    // (’min’ | ’max’) ’of’ [IntCollection] 
+    ($cgm:expr, min of $intcol:expr) => {{
+        *$intcol.iter().min().unwrap()
+    }};
+
+    ($cgm:expr, max of $intcol:expr) => {{
+        *$intcol.iter().max().unwrap()
+    }};
+
+    // TODO: 
+    // ’stageroundcounter’ | ’playroundcounter’
 }
+
+/*
+String → ID | [Key] ’of’ CardPosition | [StringCollection] Int |
+    [Key] ’of’ CardPosition
+*/
+macro_rules! string {
+    ($id:literal) => {{
+        $id
+    }};
+
+    // Problem:
+    // there are multiple minima and maxima,
+    // so it is not always one card (but should be maybe)
+    // let map: HashMap<LocationRef, Vec<Card>> = $cardpos;
+    ($key:literal of $cardpos:expr) => {{
+        use std::collections::HashMap;
+
+        let map = $cardpos;
+        let card = map.iter().next().map(|(_, v)| v[0].clone()).unwrap();
+
+        card.clone().attributes.get($key).unwrap()
+    }};
+
+    ($stringcol:expr, $int:expr) => {{
+        let index = $int as usize;
+        $stringcol[index]
+    }}; 
+}
+
+/*
+// Bool == Condition (kind of)
+Bool → String (’==’ | ’!=’) String | Int (’==’ | ’!=’ | ’<’ | ’>’ | ’<=’ | ’>=’) Int
+    CardSet (’==’ | ’!=’) CardSet | CardSet ’is’ (’not’)? ’empty’ |
+    Player (’==’ | ’!=’) Player | Team (’==’ | ’!=’) Team |
+    ’(’ Bool (’and’ | ’or’) Bool ’)’ | ’not’ ’(’ Bool ’)’ |
+    ([Player] | PlayerCollection) ’out’ ’of’ ([Stage] | ’stage’ | ’play’ | ’game’)
+*/
+macro_rules! bool {
+    (string: $string1:expr, $op:literal, $string2:expr) => {{
+        
+        match $op {
+            "==" => $string1 == $string2,
+            "!=" => $string1 != $string2,
+            _    => {
+                        println!("Unknown Operator!");
+                        false
+                    }
+        }
+    }};
+
+    (int: $int1:expr, $op:literal, $int2:expr) => {{
+        match $op {
+            "==" => $int1 == $int2,
+            "!=" => $int1 != $int2,
+            "<"  => $int1 < $int2,
+            ">"  => $int1 > $int2,
+            "<=" => $int1 <= $int2,
+            ">=" => $int1 >= $int2,
+            _    => {
+                        println!("Unknown Operator!");
+                        false
+                    }
+        }
+    }};
+
+    // CardSet (’==’ | ’!=’) CardSet
+    (cardset: $cs1:expr, $op:literal, $cs2:expr) => {{
+        fn eq(
+            cs1: HashMap<LocationRef, Vec<Card>>,
+            cs2: HashMap<LocationRef, Vec<Card>>,
+        ) -> bool {
+            let cards1: Vec<&Card> = cs1.values().flatten().collect();
+            let cards2: Vec<&Card> = cs2.values().flatten().collect();
+        
+            cards1 == cards2
+        }
+
+
+        match $op {
+            "==" => eq($cs1, $cs2),
+            "!=" => !eq($cs1, $cs2),
+            _    => {
+                        println!("Unknown Operator!");
+                        false
+                    }
+        }
+    }};
+
+    // CardSet ’is’ (’not’)? ’empty’
+    ($cs:expr, is empty) => {{
+        $cs.is_empty()
+    }};
+
+    ($cs:expr, is not empty) => {{
+        !$cs.is_empty()
+    }};
+
+    // Player == Player and Team == Team
+    (pt: $ref1:expr, $op:literal, $ref2:expr) => {{
+        use std::ptr;
+
+        match $op {
+            "==" => ptr::eq($ref1, $ref2),
+            "!=" => !ptr::eq($ref1, $ref2),
+            _    => {
+                        println!("Unknown Operator!");
+                        false
+                    }
+        }
+    }};
+
+    // ’(’ Bool (’and’ | ’or’) Bool ’)’ 
+    ($b1:expr, $op:literal, $b2:expr) => {{
+        match $op {
+            "and" => $b1 && $b2,
+            "or"  => $b1 || $b2,
+            _     => {
+                        println!("Unknown Operator!");
+                        false
+                    }
+        }
+    }};
+
+    // ’not’ ’(’ Bool ’)’
+    (not $b1:expr) => {{
+        !$b1
+    }};
+
+    // TODO:
+    // ([Player] | PlayerCollection) ’out’ ’of’ ([Stage] | ’stage’ | ’play’ | ’game’)
+    //  
+    // () => {{
+
+    // }};
+}
+
+macro_rules! player_ref {
+    // Player → PlayerName | ’current’ | ’next’ | ’previous’ | ’competitor’ | ’Turnorder’
+    //      Int | ’owner’ ’of’ (CardPosition | (’highest’ | ’lowest’) [Memory])
+    ($cgm:expr, $pname:literal) => {{
+        $cgm.gamedata.players.get($pname).unwrap()
+    }};
+
+    ($cgm:expr, current) => {{
+        let current = $cgm.gamedata.current as usize;
+        let pname   = $cgm.gamedata.turnorder[current].clone();
+        $cgm.gamedata.players.get(&pname).unwrap()
+    }};
+
+    ($cgm:expr, next) => {{
+        let current = $cgm.gamedata.current as i32;
+        let next    = ((current + 1) % ($cgm.gamedata.turnorder.len() as i32)) as usize;
+        let pname   = $cgm.gamedata.turnorder[next].clone();
+        $cgm.gamedata.players.get(&pname).unwrap()
+    }};
+
+    ($cgm:expr, previous) => {{
+        let current = $cgm.gamedata.current as i32;
+        let len = $cgm.gamedata.turnorder.len() as i32;
+        let previous    = ((current - 1 + len) % len) as usize;
+        let pname   = $cgm.gamedata.turnorder[previous].clone();
+        $cgm.gamedata.players.get(&pname).unwrap()
+    }};
+
+    // If we have teams or no teams at all then we have multiple competitors
+    // makes not a lot of sense
+    // ($cgm:expr, competitor) => {{
+    //     $cgm.playertoteam
+    //     $cgm.gamedata.players.get(pname).unwrap()
+    // }};
+    
+    ($cgm:expr, turnorder $int:expr) => {{
+        let i       = $int as i32;
+        let len = $cgm.gamedata.turnorder.len() as i32;
+        let index   = ((i - 1 + len) % len) as usize;
+        let pname   = $cgm.gamedata.turnorder[index].clone();
+        $cgm.gamedata.players.get(&pname).unwrap()
+    }};
+
+    // ’owner’ ’of’ CardPosition
+    ($cgm:expr, owner of $cardpos:expr) => {{
+        let map = $cardpos;
+        let i     = $cgm.gamedata.current as usize;
+        let pname = $cgm.gamedata.turnorder[i].clone();
+        let locowner: LocationRef = map.iter().next().map(|(k, _)| k.clone()).unwrap();
+        match locowner {
+            LocationRef::Own(_)       => $cgm.gamedata.players.get(&pname).unwrap(),
+            LocationRef::Player(player, _) => $cgm.gamedata.players.get(&player).unwrap(),
+            _                             => {
+                println!("No owner found!");
+                // Placeholder for player return (return current if not found)
+                $cgm.gamedata.players.get(&pname).unwrap()
+            }  
+            // We try to find one player so we ignore teams
+            // LocationRef::Team(tname, _) => $cgm.gamedata.players.get(pname).unwrap(),
+            // LocationRef::Table(pname) => $cgm.gamedata.players.get(pname).unwrap(),
+        }
+    }}
+
+    // TODO:
+    // ’owner’ ’of’ (’highest’ | ’lowest’) [Memory]
+    
+}
+
+// Team → TeamName | ’team’ ’of’ [Player]
+macro_rules! team_ref {
+    ($cgm:expr, $tname:literal) => {{
+        $cgm.gamedata.teams.get($tname).unwrap()
+    }};
+
+    ($cgm:expr, team of $pref:expr) => {{
+        use crate::ast::Player;
+        let player: &Player = $pref;
+        let pname: String = player.name.clone();
+        let tname = $cgm.gamedata.playertoteam.get(&pname).unwrap();
+        $cgm.gamedata.teams.get(tname).unwrap()
+    }};
+}
+
 
 // ActionRule → FlipAction |ShuffleAction | MoveAction | MemoryAction | CycleAction |
 //              OutAction | EndAction | DemAction
@@ -1035,20 +1492,8 @@ macro_rules! condition {
 // }
 
 /*
-The defintion is switched in the Thesis.
-It has to be a mistake and should look like this:
-
-
 // Group is in no rules required
 Group → Group (’of’ ([Player] | PlayerCollection))?
-
-CardSet → ([Location] | LocationCollection) (’where’ Filter)? |
-            (’not’)? [Combo] ’in’ ([Location] | LocationCollection) |
-            CardPosition
-
-CardPosition → Location (Int | ’Top’ | ’Bottom’) |
-                (’min’ | ’max’) ’of’ CardSet ’using’ ([Precedence] | [PointMap])
-
 */
 
 // TODO:
