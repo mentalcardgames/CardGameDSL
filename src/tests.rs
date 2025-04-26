@@ -7,18 +7,18 @@ mod tests {
         let mut cgm = CardGameModel::new("player_test");
 
         // Ensure the macro modifies the cgm instance
-        player!(cgm, "Jimmy", "Kimmy", "Timmy");
+        player!(&mut cgm.gamedata, "Jimmy", "Kimmy", "Timmy");
 
-        turn_order!(cgm, ("Jimmy", "Kimmy", "Timmy"));
+        turn_order!(&mut cgm.gamedata, ("Jimmy", "Kimmy", "Timmy"));
 
-        team! { cgm, "Team1", ("Jimmy", "Kimmy", "Timmy") };
+        team!(&mut cgm.gamedata, "Team1", ("Jimmy", "Kimmy", "Timmy"));
 
-        location_on!(cgm, "hand", players: "Jimmy", "Kimmy", "Timmy");
+        location_on!(&mut cgm.gamedata, "hand", players: "Jimmy", "Kimmy", "Timmy");
 
-        location_on!(cgm, "stack", table);
+        location_on!(&mut cgm.gamedata, "stack", table);
 
         card_on!(
-            cgm,
+            &mut cgm.gamedata,
             "stack",
             {
                 Rank("2", "3", "4", "5", "A"),
@@ -32,7 +32,7 @@ mod tests {
             }
         );
 
-        precedence!(cgm, "Rank", ("2", "3", "4", "5", "A"));
+        precedence!(&mut cgm.gamedata, "Rank", ("2", "3", "4", "5", "A"));
 
         cgm
     }
@@ -61,11 +61,11 @@ mod tests {
         let mut cgm = init_model();
         assert!(cgm.gamedata.players.get("Jimmy").unwrap().locations.len() == 1);
 
-        team!(cgm, "t1", ("Kimmy", "Timmy"));
-        location_on!(cgm, "teamloc", team: "t1");
+        team!(&mut cgm.gamedata, "t1", ("Kimmy", "Timmy"));
+        location_on!(&mut cgm.gamedata, "teamloc", team: "t1");
         assert!(cgm.gamedata.teams.get("t1").unwrap().locations.len() == 1);
 
-        location_on!(cgm, "stack", table);
+        location_on!(&mut cgm.gamedata, "stack", table);
         assert!(cgm.gamedata.table.locations.len() == 1);
     }
 
@@ -81,8 +81,8 @@ mod tests {
     fn test_precedence_macro() {
         let mut cgm = CardGameModel::new("precedence_test");
 
-        precedence!(cgm, "rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
-        precedence!(cgm, "suite", ("Clubs", "Diamonds", "Hearts", "Spades"));
+        precedence!(&mut cgm.gamedata, "rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
+        precedence!(&mut cgm.gamedata, "suite", ("Clubs", "Diamonds", "Hearts", "Spades"));
 
         // Test rank precedence
         assert!(cgm.gamedata.precedences.get("rank").unwrap().attributes.contains_key(&("2".to_string())));
@@ -98,7 +98,7 @@ mod tests {
         let mut cgm = CardGameModel::new("pointmap_test");
 
         pointmap!(
-            cgm,
+            &mut cgm.gamedata,
             "rank",
             nested: {  
                 "rank", (
@@ -147,11 +147,11 @@ mod tests {
         }
 
         let mut cgm = CardGameModel::new("turn_order_test");
-        player!(cgm, "Jimmy", "Kimmy", "Timmy");
-        turn_order!(cgm, random);
+        player!(&mut cgm.gamedata, "Jimmy", "Kimmy", "Timmy");
+        turn_order!(&mut cgm.gamedata, random);
         print_players(cgm.gamedata.turnorder.clone());
         
-        turn_order!(cgm, ("Timmy", "Jimmy", "Kimmy"));
+        turn_order!(&mut cgm.gamedata, ("Timmy", "Jimmy", "Kimmy"));
         print_players(cgm.gamedata.turnorder.clone());
     }
 
@@ -196,7 +196,7 @@ mod tests {
         
         // Filter for "adjacent" using precedence
         let adjacent_filter = filter!(
-            cgm, 
+            &cgm.gamedata, 
             ("Rank" "adjacent" using "Rank"));
         let filtered_cards = adjacent_filter(cards.clone());
         // println!("Adjacent rank cards: {:?}\n", filtered_cards);
@@ -267,7 +267,7 @@ mod tests {
         
         // Combined filter
         let combined_filter = filter!(
-            (cgm, ("Rank" "adjacent" using "Rank")), 
+            (&cgm.gamedata, ("Rank" "adjacent" using "Rank")), 
             ("and"), 
             ("Suite", "same")
         );        
@@ -277,7 +277,7 @@ mod tests {
         // }
 
         let combined_filter = filter!(
-            (cgm, ("Rank" "adjacent" using "Rank")),
+            (&cgm.gamedata, ("Rank" "adjacent" using "Rank")),
             ("and"),
             (size, ">=", 3)
         );        
@@ -336,13 +336,14 @@ mod tests {
     fn test_combo() {
         let mut cgm = init_model();
 
-        combo!(cgm, "all hearts", filter!(
+        combo!(&mut cgm.gamedata, "all hearts", filter!(
             "Suite", "==", "Hearts"
         ));
 
         for c in cgm.gamedata
-            .apply_combo("all hearts".to_string(),
-                "stack".to_string())
+            .apply_combo("all hearts",
+                &LocationRef::Own(String::from("stack")))
+            .unwrap()
             .iter() {
                 for card in c {
                     println!("{}", card);
@@ -354,7 +355,7 @@ mod tests {
     fn test_combo_filter() {
         let mut cgm = init_model();
 
-        combo!(cgm, "all hearts", filter!(
+        combo!(&mut cgm.gamedata, "all hearts", filter!(
             "Suite", "==", "Hearts"
         ));
 
@@ -381,7 +382,7 @@ mod tests {
         // }
 
         let combo_filter = filter!(
-            cgm, not "all hearts"
+            &cgm.gamedata, not "all hearts"
         );
 
         let filtered_cards = combo_filter(cards.clone());
@@ -411,7 +412,7 @@ mod tests {
         let mut cgm = init_model();
 
         card_on!(
-            cgm,
+            &mut cgm.gamedata,
             "hand",
             {
                 Rank("2", "3", "4", "5", "A"),
@@ -425,35 +426,35 @@ mod tests {
             }
         );
 
-        let a1 = cardset!(cgm, "stack");
+        let a1 = cardset!(&cgm.gamedata, "stack");
         print_loc_cards(a1);
     
-        let a2 = cardset!(cgm, "stack", "hand");
+        let a2 = cardset!(&cgm.gamedata, "stack", "hand");
         print_loc_cards(a2);
 
-        let b1 = cardset!(cgm, "stack" w (filter!("Suite", "==", "Hearts")));
+        let b1 = cardset!(&cgm.gamedata, "stack" w (filter!("Suite", "==", "Hearts")));
         print_loc_cards(b1);
         
-        let b2 = cardset!(cgm, "stack", "hand" w (filter!("Suite", "==", "Hearts")));
+        let b2 = cardset!(&cgm.gamedata, "stack", "hand" w (filter!("Suite", "==", "Hearts")));
         print_loc_cards(b2);
 
-        combo!(cgm, "all hearts", filter!(
+        combo!(&mut cgm.gamedata, "all hearts", filter!(
             "Suite", "==", "Hearts"
         ));
 
-        let d1 = cardset!(cgm, "all hearts" inn "stack");
+        let d1 = cardset!(&cgm.gamedata, "all hearts" inn "stack");
         print_loc_cards(d1);
 
-        let d2 = cardset!(cgm, "all hearts" inn "stack", "hand");
+        let d2 = cardset!(&cgm.gamedata, "all hearts" inn "stack", "hand");
         print_loc_cards(d2);
 
-        let e1 = cardset!(cgm, not "all hearts" inn "stack");
+        let e1 = cardset!(&cgm.gamedata, not "all hearts" inn "stack");
         print_loc_cards(e1);
 
-        let e2 = cardset!(cgm, not "all hearts" inn "stack", "hand");
+        let e2 = cardset!(&cgm.gamedata, not "all hearts" inn "stack", "hand");
         print_loc_cards(e2);
 
-        let f = cardset!(cgm, (cardposition!(cgm, "stack" 1)));
+        let f = cardset!((cardposition!(&cgm.gamedata, "stack" 1)));
         print_loc_cards(f);
 
     }
@@ -463,7 +464,7 @@ mod tests {
         let mut cgm = init_model();
 
         card_on!(
-            cgm,
+            &mut cgm.gamedata,
             "hand",
             {
                 Rank("2", "3", "4", "5", "A"),
@@ -477,25 +478,27 @@ mod tests {
             }
         );
 
-        precedence!(cgm, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
+        precedence!(&mut cgm.gamedata, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
 
-        let card = cardposition!(cgm, "stack" 1);
+        let card = cardposition!(&cgm.gamedata, "stack" 1);
         print_loc_cards(card);
 
-        let card = cardposition!(cgm, "stack" top);
+        let card = cardposition!(&cgm.gamedata, "stack" top);
         print_loc_cards(card);
 
-        let card = cardposition!(cgm, "stack" bottom);
+        let card = cardposition!(&cgm.gamedata, "stack" bottom);
         print_loc_cards(card);
 
-        let card = cardposition!(cgm, min of (cardset!(cgm, "stack", "hand")) using prec: "Rank");
+        let card = cardposition!(&cgm.gamedata,
+                min of (cardset!(&cgm.gamedata, "stack", "hand")) using prec: "Rank");
         print_loc_cards(card);
         
-        let card = cardposition!(cgm, max of (cardset!(cgm, "stack", "hand")) using prec: "Rank");
+        let card = cardposition!(&cgm.gamedata,
+            max of (cardset!(&cgm.gamedata, "stack", "hand")) using prec: "Rank");
         print_loc_cards(card);
 
         pointmap!(
-            cgm,
+            &mut cgm.gamedata,
             "Rank",
             nested: {  
                 "Rank", (
@@ -516,106 +519,37 @@ mod tests {
             }
         );
 
-        let card= cardposition!(cgm, min of (cardset!(cgm, "stack", "hand")) using pointmap: "Rank");
+        let card= cardposition!(&cgm.gamedata,
+            min of (cardset!(&cgm.gamedata, "stack", "hand")) using pointmap: "Rank");
         print_loc_cards(card);
         
-        let card = cardposition!(cgm, max of (cardset!(cgm, "stack")) using pointmap: "Rank");
+        let card = cardposition!(&cgm.gamedata,
+            max of (cardset!(&cgm.gamedata, "stack")) using pointmap: "Rank");
         print_loc_cards(card);
         
         
-    }
-
-    #[test]
-    fn test_move_card() {
-        fn print_loc_hand(cgm: &CardGameModel) {
-            let loc = cgm
-                .gamedata
-                .players
-                .get(
-                &cgm
-                .gamedata
-                .turnorder[cgm.gamedata.current])
-                .unwrap()
-                .locations
-                .get("hand")
-                .unwrap();
-
-            println!("{}", loc.borrow());
-        }
-        let mut cgm = CardGameModel::new("SmallGame");
-
-        player!(cgm, "P1", "P2");
-
-        location_on!(cgm, "stack", table);
-
-        card_on!(
-            cgm,
-            "stack",
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Diamond", "Hearts"),
-                Color("Red")
-            },
-            {
-                Rank("2", "3", "4", "5", "A"),
-                Suite("Spades", "Clubs"),
-                Color("Black")
-            }
-        );
-
-        precedence!(cgm, "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"));
-
-        combo!(cgm, "all hearts", filter!(
-            "Suite", "==", "Hearts"
-        ));
-
-        location_on!(cgm, "hand", players: "P1", "P2");
-
-        turn_order!(cgm, random);
-
-        // moveaction!(cgm, mv (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
-
-        // print_loc_hand(&cgm);
-
-        // moveaction!(cgm, mv (cardset!(cgm, "hand")) to (cardset!(cgm, "stack")));
-
-        // print_loc_hand(&cgm);
-        
-        // moveaction!(cgm, mv (cardset!(cgm, "all hearts" inn "stack")) to (cardset!(cgm, "hand")));
-        
-        // print_loc_hand(&cgm);
-
-        // moveaction!(cgm, mv 1 from (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
-
-        // print_loc_hand(&cgm);
-
-        // moveaction!(cgm, mv 1 from (cardset!(cgm, "stack")) to (cardset!(cgm, "hand")));
-
-        // print_loc_hand(&cgm);
-
     }
 
     #[test]
     fn test_int() {
         let mut cgm = init_model();
 
-        assert_eq!(int!(cgm, int!(cgm, 5, "mod", 3), "-", 1), 1);
+        assert_eq!(int!(int!(5, "mod", 3), "-", 1), 1);
 
-        assert_eq!(int!(cgm, 3), 3);
+        assert_eq!(int!(3), 3);
 
         assert_eq!(
             int!(
-                cgm,
                 vec![1, 2, 3, 4],
-                (int!(cgm, int!(cgm, 5, "mod", 3), "-", 1))
+                (int!(int!(5, "mod", 3), "-", 1))
             ),
             2
         );
 
-        assert_eq!(int!(cgm, sum of vec![1, 2, 3, 4]), 10);
+        assert_eq!(int!(sum of vec![1, 2, 3, 4]), 10);
         
         pointmap!(
-            cgm,
+            &mut cgm.gamedata,
             "Rank",
             nested: {  
                 "Rank", (
@@ -636,10 +570,10 @@ mod tests {
             }
         );
 
-        location_on!(cgm, "hand", players: "P1");
+        location_on!(&mut cgm.gamedata, "hand", players: "P1");
 
         card_on!(
-            cgm,
+            &mut cgm.gamedata,
             "hand",
             {
                 Rank("A"),
@@ -653,17 +587,17 @@ mod tests {
             }
         );
 
-        assert_eq!(int!(cgm, sum of min (cardset!(cgm, "hand")), using "Rank"), 11);
+        assert_eq!(int!(&cgm.gamedata, sum of min (cardset!(&cgm.gamedata, "hand")), using "Rank"), 11);
 
-        assert_eq!(int!(cgm, sum of max (cardset!(cgm, "hand")), using "Rank"), 21);
+        assert_eq!(int!(&cgm.gamedata, sum of max (cardset!(&cgm.gamedata, "hand")), using "Rank"), 21);
 
-        assert_eq!(int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" gt 20), 21);
+        assert_eq!(int!(&cgm.gamedata, sum of (cardset!(&cgm.gamedata, "hand")), using "Rank" gt 20), 21);
 
-        assert_eq!(int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" lt 15), 11);
+        assert_eq!(int!(&cgm.gamedata, sum of (cardset!(&cgm.gamedata, "hand")), using "Rank" lt 15), 11);
 
-        assert_eq!(int!(cgm, max of vec![1, 2, 3, 4]), 4);
+        assert_eq!(int!(max of vec![1, 2, 3, 4]), 4);
 
-        assert_eq!(int!(cgm, min of vec![1, 2, 3, 4]), 1);
+        assert_eq!(int!(min of vec![1, 2, 3, 4]), 1);
     }
 
     #[test]
@@ -672,7 +606,7 @@ mod tests {
 
         assert_eq!(string!("banana"), "banana");
 
-        assert_eq!(string!("Rank" of cardposition!(cgm, "stack" top)), "2");
+        assert_eq!(string!("Rank" of cardposition!(&cgm.gamedata, "stack" top)), "2");
 
         assert_eq!(string!(vec!["a", "b", "c", "d"], 1), "b");
     }
@@ -683,20 +617,20 @@ mod tests {
 
         assert_eq!(bool!(
             string:
-            string!("Rank" of cardposition!(cgm, "stack" top)),
+            string!("Rank" of cardposition!(&cgm.gamedata, "stack" top)),
             "!=",
-            string!("Rank" of cardposition!(cgm, "stack" bottom))),
+            string!("Rank" of cardposition!(&cgm.gamedata, "stack" bottom))),
         true);
         
         assert_eq!(bool!(
             string:
-            string!("Rank" of cardposition!(cgm, "stack" top)),
+            string!("Rank" of cardposition!(&cgm.gamedata, "stack" top)),
             "!=",
-            string!("Rank" of cardposition!(cgm, "stack" top))),
+            string!("Rank" of cardposition!(&cgm.gamedata, "stack" top))),
         false);
 
         pointmap!(
-            cgm,
+            &mut cgm.gamedata,
             "Rank",
             nested: {  
                 "Rank", (
@@ -717,10 +651,12 @@ mod tests {
             }
         );
 
-        location_on!(cgm, "hand", players: "P1");
+        player!(&mut cgm.gamedata, "P1", "P2");
+
+        location_on!(&mut cgm.gamedata, "hand", players: "P1");
 
         card_on!(
-            cgm,
+            &mut cgm.gamedata,
             "hand",
             {
                 Rank("A"),
@@ -736,33 +672,33 @@ mod tests {
 
         assert_eq!(bool!(
             int:
-            int!(cgm, sum of min (cardset!(cgm, "hand")), using "Rank"),
+            int!(&cgm.gamedata, sum of min (cardset!(&cgm.gamedata, "hand")), using "Rank"),
             "==",
-            int!(cgm, sum of (cardset!(cgm, "hand")), using "Rank" lt 15)),
+            int!(&cgm.gamedata, sum of (cardset!(&cgm.gamedata, "hand")), using "Rank" lt 15)),
         true);
 
 
         assert_eq!(bool!(
             cardset:
-            cardset!(cgm, "hand"), "==", cardset!(cgm, "hand")),
+            cardset!(&cgm.gamedata, "hand"), "==", cardset!(&cgm.gamedata, "hand")),
             true
         );
 
         assert_eq!(bool!(
             cardset:
-            cardset!(cgm, "hand"), "==", cardset!(cgm, "stack")),
+            cardset!(&cgm.gamedata, "hand"), "==", cardset!(&cgm.gamedata, "stack")),
             false
         );
 
-        location_on!(cgm, "hand_empty", players: "P1", "p2");
+        location_on!(&mut cgm.gamedata, "hand_empty", players: "P1", "P2", "Jimmy", "Timmy", "Kimmy");
 
         assert_eq!(bool!(
-            cardset!(cgm, "hand_empty"), is empty),
+            cardset!(&cgm.gamedata, "hand_empty"), is empty),
             true
         );
 
         assert_eq!(bool!(
-            cardset!(cgm, "hand"), is not empty),
+            cardset!(&cgm.gamedata, "hand"), is not empty),
             true
         );
         
@@ -770,9 +706,9 @@ mod tests {
         assert_eq!(
             bool!(
                 pt:
-                player_ref!(cgm, owner of cardposition!(cgm, "hand" top)),
+                player_ref!(&cgm.gamedata, owner of cardposition!(&cgm.gamedata, "hand" top)),
                 "==",
-                player_ref!(cgm, owner of cardposition!(cgm, "hand" top))
+                player_ref!(&cgm.gamedata, owner of cardposition!(&cgm.gamedata, "hand" top))
             ),
             true
         );
@@ -780,9 +716,9 @@ mod tests {
         assert_eq!(
             bool!(
                 pt:
-                player_ref!(cgm, current),
+                player_ref!(&cgm.gamedata, current),
                 "!=",
-                player_ref!(cgm, previous)
+                player_ref!(&cgm.gamedata, previous)
             ),
             true
         );
@@ -790,9 +726,9 @@ mod tests {
         assert_eq!(
             bool!(
                 pt:
-                player_ref!(cgm, previous),
+                player_ref!(&cgm.gamedata, previous),
                 "!=",
-                player_ref!(cgm, next)
+                player_ref!(&cgm.gamedata, next)
             ),
             true
         );
@@ -800,9 +736,9 @@ mod tests {
         assert_eq!(
             bool!(
                 pt:
-                player_ref!(cgm, turnorder 1),
+                player_ref!(&cgm.gamedata, turnorder 1),
                 "!=",
-                player_ref!(cgm, next)
+                player_ref!(&cgm.gamedata, next)
             ),
             true
         );
@@ -810,15 +746,12 @@ mod tests {
         assert_eq!(
             bool!(
                 pt:
-                team_ref!(cgm, "Team1"),
+                team_ref!(&cgm.gamedata, "Team1"),
                 "==",
-                team_ref!(cgm, team of player_ref!(cgm, current))
+                team_ref!(&cgm.gamedata, team of player_ref!(&cgm.gamedata, current))
             ),
             true
         );
-        
-
-
     }
 
 }

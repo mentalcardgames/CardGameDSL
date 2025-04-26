@@ -50,62 +50,67 @@ impl Default for GameData {
     }
 }
 impl GameData {
-    pub fn add_player(&mut self, name: String) {
-        self.players.insert(name.clone(), Player::new(name));
+    pub fn add_player(&mut self, name: &str) {
+        self.players.insert(String::from(name), Player::new(String::from(name)));
     }
 
-    pub fn add_players(&mut self, names: Vec<String>) {
+    pub fn add_players(&mut self, names: Vec<&str>) {
         for name in names {
-            self.players.insert(name.clone(), Player::new(name));
-
+            self.players.insert(String::from(name), Player::new(String::from(name)));
         }
     }
 
-    pub fn lookup_player(&mut self, name: &str) -> Option<&mut Player> {
-        // Find all players that match the name
-        self.players.get_mut(name)
+    fn get_mut_player(&mut self, name: &str) -> &mut Player {
+        self.players.get_mut(name).unwrap()
     }
 
-    pub fn add_loc_player(&mut self, locname: String, playername: String) {
-        match self.players.get_mut(&playername) { // Use find_player_mut to get a mutable reference
-            Some(p) => {
-                p.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname)))); // Modify player
-            }
-            None => {
-                println!("Error: player not found!");
-            }
+    pub fn get_player(&self, name: &str) -> Result<&Player, GameError> {
+        match self.players.get(name) {
+            None => Err(GameError::PlayerNameNotFound(String::from(name))),
+            Some(p) => Ok(p),
         }
     }
 
-    fn get_mut_team(&mut self, name: &str) -> Option<&mut Team> {
-        self.teams.get_mut(name)
+    pub fn add_loc_player(&mut self, locname: &str, name: &str) {
+        let player = self.get_mut_player(name);
+        player.locations.insert(
+            locname.to_string(),
+            Rc::new(RefCell::new(Location::new(locname.to_string())))
+        );
+    }
+
+    fn get_mut_team(&mut self, name: &str) -> &mut Team {
+        self.teams.get_mut(name).unwrap()
     }    
 
-    pub fn add_loc_team(&mut self, locname: String, teamname: String) {
-        match self.get_mut_team(&teamname) { // Use find_player_mut to get a mutable reference
-            Some(t) => {
-                t.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname)))); // Modify player
-            }
-            None => {
-                println!("Error: team not found!");
-            }
+    fn get_team(&self, name: &str) -> Result<&Team, GameError> {
+        match self.teams.get(name) {
+            None => Err(GameError::PlayerNameNotFound(String::from(name))),
+            Some(t) => Ok(t),
         }
     }
 
-    pub fn add_loc_table(&mut self, locname: String) {
-        self.table.locations.insert(locname.clone(), Rc::new(RefCell::new(Location::new(locname))));
+    pub fn add_loc_team(&mut self, locname: &str, teamname: &str) {
+        let team = self.get_mut_team(teamname); // Uses `?` to propagate error
+        team.locations.insert(
+            locname.to_string(),
+            Rc::new(RefCell::new(Location::new(locname.to_string())))
+        );
     }
 
-    pub fn get_mut_locs(&mut self, locname: &str) -> Vec<&mut Rc<RefCell<Location>>> {
+    pub fn add_loc_table(&mut self, locname: &str) {
+        self.table.locations.insert(String::from(locname),
+        Rc::new(RefCell::new(Location::new(String::from(locname)))));
+    }
+
+    pub fn get_mut_locs(&mut self, locname: &str) -> Result<Vec<&mut Rc<RefCell<Location>>>, GameError> {
         let mut locs: Vec<&mut Rc<RefCell<Location>>> = vec![];
     
         // Check self.table
         if let Some(l) = self.table.locations.get_mut(locname) {
             locs.push(l);
-        } else {
-            println!("No location in table!");
         }
-    
+
         // Iterate over self.players and collect matching locations
         for (_, v) in self.players.iter_mut() {
             if let Some(loc) = v.locations.get_mut(locname) {
@@ -120,47 +125,51 @@ impl GameData {
             }
         }
     
-        locs
+        if locs.is_empty() {
+            Err(GameError::LocationNameNotFound(String::from(locname)))
+        } else {
+            Ok(locs)
+        }
     }
 
-    // pub fn get_mut_loc_of(&mut self, locname: String, pname: String) -> Option<&Rc<RefCell<Location>>> {
-    //     // Check players
-    //     let player = self.players.get(&pname);
-    //     match player {
-    //         None => println!("Player NOT found!"),
-    //         Some(p) => return self
-    //             .get_loc_name(locname.to_string(), p.name.clone())
-    //     }
-
-    //     // Check teams
-    //     let team = self.teams.get(&pname);
-    //     match team {
-    //         None => println!("Player NOT found!"),
-    //         Some(t) => return self
-    //             .get_loc_name(locname.to_string(), t.teamname.clone())
-    //     }
-
-    //     return None;
-    // }
-
-    pub fn get_location(&self, loc_ref: &LocationRef) -> Option<&Rc<RefCell<Location>>> {
+    pub fn get_location(&self, loc_ref: &LocationRef) -> Result<&Rc<RefCell<Location>>, GameError> {
         match loc_ref {
             LocationRef::Own(locname) => {
                 let pname = &self.turnorder[self.current];
-                self.players.get(pname)
-                    .and_then(|player| player.locations.get(locname))
-                    .or_else(|| self.table.locations.get(locname))
+                if let Some(player) = self.players.get(pname) {
+                    if let Some(loc) = player.locations.get(locname) {
+                        Ok(loc)
+                    } else {
+                        if let Some(loc) = self.table.locations.get(locname) {
+                            Ok(loc)
+                        } else {
+                            Err(GameError::LocationNameNotFound(String::from(locname)))
+                        }
+                    }
+                } else {
+                    Err(GameError::PlayerNameNotFound(String::from(pname)))
+                }
             }
             LocationRef::Player(pname, locname) => {
-                self.players.get(pname)?
-                    .locations.get(locname)
+                if let Some(loc) = self.get_player(pname)?.locations.get(locname) {
+                    Ok(loc)
+                } else {
+                    Err(GameError::LocationNameNotFound(String::from(locname)))
+                }
             }
             LocationRef::Team(teamname, locname) => {
-                self.teams.get(teamname)?
-                    .locations.get(locname)
+                if let Some(loc) = self.get_team(teamname)?.locations.get(locname) {
+                    Ok(loc)
+                } else {
+                    Err(GameError::LocationNameNotFound(String::from(locname)))
+                }
             }
             LocationRef::Table(locname) => {
-                self.table.locations.get(locname)
+                if let Some(loc) = self.table.locations.get(locname) {
+                    Ok(loc)
+                } else {
+                    Err(GameError::LocationNameNotFound(String::from(locname)))
+                }
             }
         }
     }
@@ -169,11 +178,15 @@ impl GameData {
         
     // }
 
-    pub fn add_team(&mut self, name: String, players: Vec<String>) {
-        self.teams.insert(name.clone(), Team::new(name.clone(), players.clone()));
+    pub fn add_team(&mut self, name: &str, players: Vec<&str>) {
+        self.teams.insert(String::from(name),
+        Team::new(String::from(name), players
+            .iter()
+            .map(|p| String::from(*p))
+            .collect()));
 
         for p in players {
-            self.playertoteam.insert(p, name.clone());
+            self.playertoteam.insert(String::from(p), String::from(name));
         }
     }
 
@@ -181,58 +194,65 @@ impl GameData {
         self.precedences.insert(precedence.name.clone(),precedence);
     }
 
+    pub fn get_precedence(&self, precname: &str) -> Result<&Precedence, GameError> {
+        if let Some(prec) = self.precedences.get(precname) {
+            Ok(prec)
+        } else {
+            Err(GameError::PrecedenceNameNotFound(String::from(precname)))
+        }
+    }
+
     pub fn add_pointmap(&mut self, pointmap: PointMap) {
         self.pointmaps.insert(pointmap.name.clone(), pointmap);
+    }
+
+    pub fn get_pointmap(&self, pname: &str) -> Result<&PointMap, GameError> {
+        if let Some(pm) = self.pointmaps.get(pname) {
+            Ok(pm)
+        } else {
+            Err(GameError::PrecedenceNameNotFound(String::from(pname)))
+        }
     }
 
     pub fn set_turnorder(&mut self, playernames: Vec<String>) {
         self.turnorder = playernames;
     }
 
-    pub fn add_cardcombination(&mut self, name: String, cardcomb: CardCombination) {
-        self.cardcombinations.insert(name, cardcomb);
+    pub fn add_cardcombination(&mut self, name: &str, cardcomb: CardCombination) {
+        self.cardcombinations.insert(String::from(name), cardcomb);
     }
 
-    // TODO:
-    // has to be overworked later !
-    pub fn apply_combo(&mut self, comboname: String, locname: String) -> Vec<Vec<Card>> {
-        // UNWRAP USED!!!
-        let loc = (*self.get_mut_locs(&locname)[0]).clone();
-        self.cardcombinations
-            .get(&comboname)
-            .unwrap()
+    pub fn get_combo(&self, comboname: &str) -> Result<&CardCombination, GameError> {
+        match self.cardcombinations.get(comboname) {
+            None => Err(GameError::ComboNameNotFound(String::from(comboname))),
+            Some(cc) => Ok(cc)
+        }
+    }
+
+    pub fn apply_combo(&mut self, comboname: &str, locref: &LocationRef) -> Result<Vec<Vec<Card>>, GameError> {
+        let loc = self.get_location(locref)?;
+        let cardcombo: &CardCombination = self.get_combo(comboname)?;
+        let cards = cardcombo
             .attributes
             .deref()(loc
-                .clone()
                 .borrow()
                 .contents
                 .iter()
                 .filter_map(|c| c.clone().to_card())
-                .collect())
+                .collect());
+        Ok(cards)
     }
 
-    pub fn move_card_index(
-        from: &mut Location,
-        to: &mut Location,
-        card_index: usize
-    ) -> Result<(), String> {
-        match from.remove_card_at_index(card_index) {
-            Some(card) => {
-                to.add_card(card);
-                Ok(())
-            }
-            None => Err(format!("No card at index {} in source location.", card_index)),
-        }
-    }
 
-    pub fn move_card(
-        from: &mut Location,
-        to: &mut Location,
-        card: &Card
-    ) {
-        from.remove_card(card);
-        to.add_card(card.clone());
-    }
+
+    // pub fn move_card(
+    //     from: &mut Location,
+    //     to: &mut Location,
+    //     card: &Card
+    // ) {
+    //     from.remove_card(card);
+    //     to.add_card(card.clone());
+    // }
 
     // THIS IS TEMPORARY FOR TESTING
     // ------------------------------------------------------------------
@@ -307,10 +327,6 @@ impl Player {
             println!("Player {}: locname={}", self.name, k.to_string())
         }
     }
-
-    pub fn get_location(&mut self, locname: &str) -> Option<&Rc<RefCell<Location>>> {
-        self.locations.get(locname)
-    }
 }
 // This can be done better, but it is complicated with the Rc<RefCell<...>>
 // Lets stick to this one and change it if we have time left.
@@ -321,6 +337,16 @@ impl PartialEq for Player {
     }
 }
 impl Eq for Player {}
+
+impl Default for Player {
+    fn default() -> Player {
+        Player {
+            name: format!("default"),
+            score: 0,
+            locations: HashMap::new()
+        }
+    }
+}
 
 
 #[derive(Debug, Clone)]
@@ -483,6 +509,20 @@ impl Location {
 
         moved_count
     }
+
+    pub fn move_card_index(
+        &mut self,
+        target: &mut Location,
+        card_index: usize
+    ) -> Result<(), String> {
+        match self.remove_card_at_index(card_index) {
+            Some(card) => {
+                target.add_card(card);
+                Ok(())
+            }
+            None => Err(format!("No card at index {} in source location.", card_index)),
+        }
+    }
 }
 impl std::fmt::Display for Location {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -575,6 +615,12 @@ impl Eq for Card {}
 pub struct Precedence {
     pub name: String,
     pub attributes: HashMap<String, usize>,
+}
+
+impl Default for Precedence {
+    fn default() -> Self {
+        Precedence { name: format!("default"), attributes: HashMap::new() }
+    }
 }
 
 impl Precedence {
@@ -789,5 +835,36 @@ impl Play {
     pub fn add_stage(&mut self, stage: Stage) {
         self.stages.push(stage);
     }
+}
 
+// Error-handling Logic
+#[derive(Debug)]
+pub enum GameError {
+    PlayerNameNotFound(String),
+    TeamNameNotFound(String),
+    LocationNameNotFound(String),
+    ComboNameNotFound(String),
+    PrecedenceNameNotFound(String),
+    PlayerNotFound,
+    TeamNotFound,
+    LocationNotFound,
+    InvalidInput(String),
+}
+
+impl fmt::Display for GameError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            // MyError::NotFound => write!(f, "Item not found"),
+            // MyError::InvalidInput => write!(f, "Invalid input provided"),
+            GameError::PlayerNameNotFound(pname) => write!(f, "PlayerName: {pname} not found"),
+            GameError::TeamNameNotFound(tname) => write!(f, "TeamName: {tname} not found"),
+            GameError::LocationNameNotFound(lname) => write!(f, "LocationName: {lname} not found"),
+            GameError::ComboNameNotFound(cname) => write!(f, "ComboName: {cname} not found"),
+            GameError::PrecedenceNameNotFound(precname) => write!(f, "ComboName: {precname} not found"),
+            GameError::PlayerNotFound => write!(f, "Player not found"),
+            GameError::TeamNotFound => write!(f, "Team not found"),
+            GameError::LocationNotFound => write!(f, "Location not found"),
+            GameError::InvalidInput(iinput) => write!(f, "Invalid input provided: {iinput}"),
+        }
+    }
 }
