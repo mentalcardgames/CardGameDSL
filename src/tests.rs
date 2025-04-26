@@ -570,7 +570,9 @@ mod tests {
             }
         );
 
-        location_on!(&mut cgm.gamedata, "hand", players: "P1");
+        // player!(&mut cgm, "P1");
+
+        // location_on!(&mut cgm.gamedata, "hand", players: "P1");
 
         card_on!(
             &mut cgm.gamedata,
