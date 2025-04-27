@@ -343,7 +343,6 @@ mod tests {
         for c in cgm.gamedata
             .apply_combo("all hearts",
                 &LocationRef::Own(String::from("stack")))
-            .unwrap()
             .iter() {
                 for card in c {
                     println!("{}", card);

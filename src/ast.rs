@@ -61,14 +61,11 @@ impl GameData {
     }
 
     fn get_mut_player(&mut self, name: &str) -> &mut Player {
-        self.players.get_mut(name).unwrap()
+        self.players.get_mut(name).expect(&format!("Could not find Player with name: {name}"))
     }
 
-    pub fn get_player(&self, name: &str) -> Result<&Player, GameError> {
-        match self.players.get(name) {
-            None => Err(GameError::PlayerNameNotFound(String::from(name))),
-            Some(p) => Ok(p),
-        }
+    pub fn get_player(&self, name: &str) -> &Player {
+        self.players.get(name).expect(&format!("Could not find Player with name: {name}"))
     }
 
     pub fn add_loc_player(&mut self, locname: &str, name: &str) {
@@ -80,14 +77,11 @@ impl GameData {
     }
 
     fn get_mut_team(&mut self, name: &str) -> &mut Team {
-        self.teams.get_mut(name).unwrap()
+        self.teams.get_mut(name).expect(&format!("Could not find team with name: {name}"))
     }    
 
-    fn get_team(&self, name: &str) -> Result<&Team, GameError> {
-        match self.teams.get(name) {
-            None => Err(GameError::PlayerNameNotFound(String::from(name))),
-            Some(t) => Ok(t),
-        }
+    pub fn get_team(&self, name: &str) -> &Team {
+        self.teams.get(name).expect(&format!("Could not find team with name: {name}"))
     }
 
     pub fn add_loc_team(&mut self, locname: &str, teamname: &str) {
@@ -103,7 +97,7 @@ impl GameData {
         Rc::new(RefCell::new(Location::new(String::from(locname)))));
     }
 
-    pub fn get_mut_locs(&mut self, locname: &str) -> Result<Vec<&mut Rc<RefCell<Location>>>, GameError> {
+    pub fn get_mut_locs(&mut self, locname: &str) -> Vec<&mut Rc<RefCell<Location>>> {
         let mut locs: Vec<&mut Rc<RefCell<Location>>> = vec![];
     
         // Check self.table
@@ -126,50 +120,50 @@ impl GameData {
         }
     
         if locs.is_empty() {
-            Err(GameError::LocationNameNotFound(String::from(locname)))
-        } else {
-            Ok(locs)
+            eprintln!("No Location found in the whole Game with the name: {locname}");
         }
+
+        locs
     }
 
-    pub fn get_location(&self, loc_ref: &LocationRef) -> Result<&Rc<RefCell<Location>>, GameError> {
+    pub fn get_location(&self, loc_ref: &LocationRef) -> &Rc<RefCell<Location>> {
         match loc_ref {
             LocationRef::Own(locname) => {
                 let pname = &self.turnorder[self.current];
-                if let Some(player) = self.players.get(pname) {
-                    if let Some(loc) = player.locations.get(locname) {
-                        Ok(loc)
-                    } else {
-                        if let Some(loc) = self.table.locations.get(locname) {
-                            Ok(loc)
-                        } else {
-                            Err(GameError::LocationNameNotFound(String::from(locname)))
+                self
+                    .get_player(pname)
+                    .locations
+                    .get(locname)
+                    .or_else(|| {
+                        self
+                            .table
+                            .locations
+                            .get(locname)
                         }
-                    }
-                } else {
-                    Err(GameError::PlayerNameNotFound(String::from(pname)))
-                }
+                    )
+                    .expect(&format!("No Location found at Player '{pname}' with name: {locname}\n
+                                 AND No Location found at Table with name: {locname}"))
             }
             LocationRef::Player(pname, locname) => {
-                if let Some(loc) = self.get_player(pname)?.locations.get(locname) {
-                    Ok(loc)
-                } else {
-                    Err(GameError::LocationNameNotFound(String::from(locname)))
-                }
+                self
+                    .get_player(pname)
+                    .locations
+                    .get(locname)
+                    .expect(&format!("No Location found at Player '{pname}' with name: {locname}"))
             }
             LocationRef::Team(teamname, locname) => {
-                if let Some(loc) = self.get_team(teamname)?.locations.get(locname) {
-                    Ok(loc)
-                } else {
-                    Err(GameError::LocationNameNotFound(String::from(locname)))
-                }
+                self
+                    .get_team(teamname)
+                    .locations
+                    .get(locname)
+                    .expect(&format!("No Location found at Team '{teamname}' with name: {locname}"))
             }
             LocationRef::Table(locname) => {
-                if let Some(loc) = self.table.locations.get(locname) {
-                    Ok(loc)
-                } else {
-                    Err(GameError::LocationNameNotFound(String::from(locname)))
-                }
+                self
+                    .table
+                    .locations
+                    .get(locname)
+                    .expect(&format!("No Location found at Table with name: {locname}"))
             }
         }
     }
@@ -194,24 +188,16 @@ impl GameData {
         self.precedences.insert(precedence.name.clone(),precedence);
     }
 
-    pub fn get_precedence(&self, precname: &str) -> Result<&Precedence, GameError> {
-        if let Some(prec) = self.precedences.get(precname) {
-            Ok(prec)
-        } else {
-            Err(GameError::PrecedenceNameNotFound(String::from(precname)))
-        }
+    pub fn get_precedence(&self, precname: &str) -> &Precedence {
+        self.precedences.get(precname).expect(&format!("No Precedence found with name: {precname}"))
     }
 
     pub fn add_pointmap(&mut self, pointmap: PointMap) {
         self.pointmaps.insert(pointmap.name.clone(), pointmap);
     }
 
-    pub fn get_pointmap(&self, pname: &str) -> Result<&PointMap, GameError> {
-        if let Some(pm) = self.pointmaps.get(pname) {
-            Ok(pm)
-        } else {
-            Err(GameError::PrecedenceNameNotFound(String::from(pname)))
-        }
+    pub fn get_pointmap(&self, pname: &str) -> &PointMap {
+        self.pointmaps.get(pname).expect(&format!("No PointMap with name: {pname}"))
     }
 
     pub fn set_turnorder(&mut self, playernames: Vec<String>) {
@@ -222,16 +208,13 @@ impl GameData {
         self.cardcombinations.insert(String::from(name), cardcomb);
     }
 
-    pub fn get_combo(&self, comboname: &str) -> Result<&CardCombination, GameError> {
-        match self.cardcombinations.get(comboname) {
-            None => Err(GameError::ComboNameNotFound(String::from(comboname))),
-            Some(cc) => Ok(cc)
-        }
+    pub fn get_combo(&self, comboname: &str) -> &CardCombination {
+        self.cardcombinations.get(comboname).expect(&format!("No CardCombination with the name: {comboname}"))
     }
 
-    pub fn apply_combo(&mut self, comboname: &str, locref: &LocationRef) -> Result<Vec<Vec<Card>>, GameError> {
-        let loc = self.get_location(locref)?;
-        let cardcombo: &CardCombination = self.get_combo(comboname)?;
+    pub fn apply_combo(&mut self, comboname: &str, locref: &LocationRef) -> Vec<Vec<Card>> {
+        let loc = self.get_location(locref);
+        let cardcombo: &CardCombination = self.get_combo(comboname);
         let cards = cardcombo
             .attributes
             .deref()(loc
@@ -240,34 +223,7 @@ impl GameData {
                 .iter()
                 .filter_map(|c| c.clone().to_card())
                 .collect());
-        Ok(cards)
-    }
-
-
-
-    // pub fn move_card(
-    //     from: &mut Location,
-    //     to: &mut Location,
-    //     card: &Card
-    // ) {
-    //     from.remove_card(card);
-    //     to.add_card(card.clone());
-    // }
-
-    // THIS IS TEMPORARY FOR TESTING
-    // ------------------------------------------------------------------
-    pub fn prompt_select_card(&self, cards: &[Card]) -> Option<usize> {
-        for (i, card) in cards.iter().enumerate() {
-            println!("{}: {}", i, card); // Assuming Card implements Display
-        }
-    
-        print!("Select a card by index: ");
-        io::stdout().flush().unwrap();
-    
-        let mut input = String::new();
-        io::stdin().read_line(&mut input).unwrap();
-    
-        input.trim().parse::<usize>().ok().filter(|i| *i < cards.len())
+        cards
     }
 }
 
