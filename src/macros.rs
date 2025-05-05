@@ -1,7 +1,7 @@
 
 // $gd = gamedata
 macro_rules! player {
-    ($gd:expr, $($n:expr), *) => {
+    ($gd:expr, $($n:literal), *) => {
         {
             $gd.add_players(vec![$($n), *])
         }
@@ -15,6 +15,17 @@ macro_rules! team {
         }
     };
 }
+
+/*
+In what way can you get a location object?
+- Using LocationRef and .get_location() (so like "hand" of player_ref!(...))
+(i think that is the only way??????) 
+*/
+// macro_rules! location {
+//     () => {
+        
+//     };
+// }
 
 macro_rules! location_on {
     ($gd:expr, $location:literal, players: $($p:expr), *) => {
@@ -51,7 +62,6 @@ macro_rules! card_on {
     ) => {
         {
         use crate::ast::Card;
-        use crate::ast::Component;
         use std::collections::HashMap;
         use std::collections::BTreeSet;
         let mut keys_set: BTreeSet<String> = BTreeSet::new();
@@ -120,7 +130,7 @@ macro_rules! card_on {
         // iterate over every player, team and table
         // then assign the cards to the correct location
         let locs = $gd.get_mut_locs($location);
-        let comp_card: Vec<Component> = all_cards.into_iter().map(|c| Component::CARD(c)).collect();
+        let comp_card: Vec<Card> = all_cards;
         for i in 0..locs.len() {
             locs[i].borrow_mut().contents.extend(comp_card.clone());
         }
@@ -583,6 +593,42 @@ macro_rules! cardposition {
         loc_card
     }};
 
+    ($gd:expr, $locname:literal of player: $pref:expr, $int:literal) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Player($pref.name, $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let card = cards
+            .get($int)
+            .expect(&format!("No Card at index {} in Location '{}' in CardSet", $int, $locname));
+        loc_card.insert(LocationRef::Player($pref.name, $locname.to_string()), 
+            vec![card.clone()]);
+    
+        loc_card
+    }};
+
+    ($gd:expr, $locname:literal of player: $tref:expr, $int:literal) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Team($tref.teamname.clone(), $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let card = cards
+            .get($int)
+            .expect(&format!("No Card at index {} in Location '{}' in CardSet", $int, $locname));
+        loc_card.insert(LocationRef::Team($tref.teamname.clone(), $locname.to_string()), 
+            vec![card.clone()]);
+    
+        loc_card
+    }};
+
+
+
     ($gd:expr, $locname:literal top) => {{
         use crate::ast::LocationRef;
 
@@ -595,6 +641,38 @@ macro_rules! cardposition {
             .get(0)
             .expect(&format!("No Card at TOP in Location '{}' in CardSet", $locname));
         loc_card.insert(LocationRef::Own($locname.to_string()), vec![card.clone()]);
+    
+        loc_card
+    }};
+
+    ($gd:expr, $locname:literal of player: $pref:expr, top) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Player($pref.name.clone(), $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let card = cards
+            .get(0)
+            .expect(&format!("No Card at TOP in Location '{}' in CardSet", $locname));
+        loc_card.insert(LocationRef::Player($pref.name.clone(), $locname.to_string()), vec![card.clone()]);
+    
+        loc_card
+    }};
+
+    ($gd:expr, $locname:literal of team: $tref:expr, top) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Team($tref.teamname.clone(), $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let card = cards
+            .get(0)
+            .expect(&format!("No Card at TOP in Location '{}' in CardSet", $locname));
+        loc_card.insert(LocationRef::Team($tref.teamname.clone(), $locname.to_string()), vec![card.clone()]);
     
         loc_card
     }};
@@ -615,6 +693,48 @@ macro_rules! cardposition {
             .get(len - 1)
             .expect(&format!("No Card at index {} in Location '{}' in CardSet", len - 1, $locname));
         loc_card.insert(LocationRef::Own($locname.to_string()),
+            vec![card.clone()]);
+    
+        loc_card
+    }};
+
+    ($gd:expr, $locname:literal of player: $pref:expr, bottom) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Player($pref.name.clone(), $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let len = cards.len();
+        // TODO:
+        // That has to be handled later,
+        // because what if the location is empty???
+        let card = cards
+            .get(len - 1)
+            .expect(&format!("No Card at index {} in Location '{}' in CardSet", len - 1, $locname));
+        loc_card.insert(LocationRef::Player($pref.name.clone(), $locname.to_string()),
+            vec![card.clone()]);
+    
+        loc_card
+    }};
+
+    ($gd:expr, $locname:literal of player: $tref:expr, bottom) => {{
+        use crate::ast::LocationRef;
+
+        let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let card_map = cardset!($gd, $locname);
+        let cards = card_map
+            .get(&LocationRef::Team($tref.teamname.clone(), $locname.to_string()))
+            .expect(&format!("No Location with name '{}' in Own(...) found in CardSet", $locname));
+        let len = cards.len();
+        // TODO:
+        // That has to be handled later,
+        // because what if the location is empty???
+        let card = cards
+            .get(len - 1)
+            .expect(&format!("No Card at index {} in Location '{}' in CardSet", len - 1, $locname));
+        loc_card.insert(LocationRef::Team($tref.teamname.clone(), $locname.to_string()),
             vec![card.clone()]);
     
         loc_card
@@ -812,6 +932,38 @@ macro_rules! cardset {
         let locs: Vec<&str> =  vec![$($locname), *];
         for loc in locs.iter() {
             let loc_ref = LocationRef::Own(String::from(*loc));
+            let location_ref = $gd.get_location(&loc_ref);
+            let location_borrow = location_ref.borrow(); // type: Ref<Location>
+            let cards: &Vec<Card> = location_borrow.get_cards_ref(); // now safe
+
+            loc_cards.insert(loc_ref, cards.clone());
+        }
+
+        loc_cards
+    }};
+
+    ($gd:expr, $($locname:literal), * of player: $pref:expr) => {{
+        use std::collections::HashMap;
+
+        let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let locs: Vec<&str> =  vec![$($locname), *];
+        for loc in locs.iter() {
+            let loc_ref = LocationRef::Player($pref.name.clone(), String::from(*loc));
+            let location = $gd.get_location(&loc_ref);
+            let cards = location.borrow().clone().get_cards();
+            loc_cards.insert(loc_ref, cards);
+        }
+
+        loc_cards
+    }};
+
+    ($gd:expr, $($locname:literal), * of team: $tref:expr) => {{
+        use std::collections::HashMap;
+
+        let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let locs: Vec<&str> =  vec![$($locname), *];
+        for loc in locs.iter() {
+            let loc_ref = LocationRef::Team($tref.teamname.clone(), String::from(*loc));
             let location = $gd.get_location(&loc_ref);
             let cards = location.borrow().clone().get_cards();
             loc_cards.insert(loc_ref, cards);
@@ -822,17 +974,64 @@ macro_rules! cardset {
     
     // w = where
     ($gd:expr, $($locname:literal), * w $f:tt) => {{
+        use crate::ast::{LocationRef, Card};
+        use std::collections::HashMap;
+
+        let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let locs: Vec<&str> = vec![$($locname),*];
+
+        for loc in locs.iter() {
+            let location_ref = LocationRef::Own(loc.to_string());
+            let location = $gd.get_location(&location_ref);
+            let cards = location.borrow().clone().get_cards(); // Assume this is Vec<Card> or &Vec<Card>
+            
+            // Clone only what's needed
+            let selected_cards: Vec<Card> = $f(cards.clone()).into_iter().flatten().collect();
+
+            // Filter original cards (need to clone here, or avoid re-binding `cards`)
+            let filtered: Vec<Card> = cards
+                .iter()
+                .filter(|card| selected_cards.contains(card))
+                .cloned()
+                .collect();
+
+            loc_cards.insert(location_ref, filtered);
+        }
+
+        loc_cards
+    }};
+
+    ($gd:expr, $($locname:literal), * of player: $pref:expr, w $f:tt) => {{
         use crate::ast::LocationRef;
         use std::collections::HashMap;
 
         let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
         let locs: Vec<&str> =  vec![$($locname), *];
         for loc in locs.iter() {
-            let l = $gd.get_location(&LocationRef::Own(loc.to_string()));
-            let mut cards = l.borrow().get_cards_ref();
+            let l = $gd.get_location(&LocationRef::Player($pref.name.clone(), loc.to_string()));
+            let mut cards = l.borrow().clone().get_cards();
             let fc: Vec<Card> = $f(cards.clone()).into_iter().flatten().collect();
             cards = cards.into_iter().filter(|card| fc.contains(card)).collect();
-            loc_cards.insert(LocationRef::Own(loc.to_string()),
+            loc_cards.insert(LocationRef::Player($pref.name.clone(), loc.to_string()),
+                cards
+            );
+        }
+
+        loc_cards
+    }};
+
+    ($gd:expr, $($locname:literal), * of team: $tref:expr, w $f:tt) => {{
+        use crate::ast::LocationRef;
+        use std::collections::HashMap;
+
+        let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+        let locs: Vec<&str> =  vec![$($locname), *];
+        for loc in locs.iter() {
+            let l = $gd.get_location(&LocationRef::Team($tref.teamname.clone(), loc.to_string()));
+            let mut cards = l.borrow().clone().get_cards();
+            let fc: Vec<Card> = $f(cards.clone()).into_iter().flatten().collect();
+            cards = cards.into_iter().filter(|card| fc.contains(card)).collect();
+            loc_cards.insert(LocationRef::Team($tref.teamname.clone(), loc.to_string()),
                 cards
             );
         }
@@ -848,7 +1047,7 @@ macro_rules! cardset {
         let locs: Vec<&str> =  vec![$($locname), *];
         for loc in locs.iter() {
             let l = $gd.get_location(&LocationRef::Own(loc.to_string()));
-            let mut cards = l.borrow().get_cards_ref();
+            let mut cards = l.borrow().clone().get_cards();
             let cardcombo = $gd.get_combo($comboname);
             let cardfun = &cardcombo.attributes;
             let fc: Vec<Card> = cardfun(cards.clone()).into_iter().flatten().collect();
@@ -869,7 +1068,7 @@ macro_rules! cardset {
         let locs: Vec<&str> =  vec![$($locname), *];
         for loc in locs.iter() {
             let l = $gd.get_location(&LocationRef::Own(loc.to_string()));
-            let mut cards = l.borrow().get_cards_ref();
+            let mut cards = l.borrow().clone().get_cards();
             let cardcombo = $gd.get_combo($comboname);
             let cardfun = &cardcombo.attributes;
             let fc: Vec<Card> = cardfun(cards.clone()).into_iter().flatten().collect();
@@ -1416,93 +1615,31 @@ macro_rules! team_ref {
 macro_rules! moveaction {
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
     // move X from <from> to <to>
-    ($cgm:expr, mv $q:literal from $fromcs:tt to $tocs:tt) => {{
+    ($gd:expr, mv $q:literal from $fromcs:tt to $tocs:tt) => {{
+        $gd.move_q_cards($q, $fromcs, $tocs)        
     }};
 
-    // move X from <from> bound to <to>
-    ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
-    }};
-
-    // move X <from> to <to> (implicit "from")
-    ($cgm:expr, mv $q:literal $fromcs:tt to $tocs:tt) => {{
-    }};
-
-    // move X <from> bound to <to> (implicit "from")
-    ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
-    }};
-
-    ($cgm:expr, mv $fromcs:tt to $tocs:tt) => {{
-        for (from_locref, cards) in $fromcs.into_iter() {
-            let _: Vec<Card> = cards;
-            if let Some(from_loc) = $cgm.gamedata.get_location(&from_locref).cloned() {
-                for (to_locref, _) in &$tocs {
-                    if let Some(to_loc) = $cgm.gamedata.get_location(to_locref).cloned() {
-                        from_loc.borrow_mut().move_cards(&mut to_loc.borrow_mut(), &cards);
-                    } else {
-                        println!("Target location {:?} not found!", to_locref);
-                    }
-                    break; // Only move to one destination per source
-                }
-            } else {
-                println!("Source location {:?} not found!", from_locref);
-            }
-        }
+    ($gd:expr, mv $fromcs:tt to $tocs:tt) => {{
+        $gd.move_cardsets($fromcs, $tocs);
     }};
     
-    ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
-
-    }};
-
     // DealMove → ’deal’ (Quantity (’from’)? )? CardSet Status ’bound’? ’to’ CardSet
-    ($cgm:expr, deal $q:literal from $fromcs:tt to $tocs:tt) => {{
-        let mut counter = $q;
-        // get the top card of the from-card-set
-        let fromcs_vec: Vec<(LocationRef, Vec<Card>)> = $fromcs.into_iter().collect();
-        let toloc_ref: LocationRef = $tocs.iter().next().map(|(k, _)| k.clone()).expect("CardSet is empty");
-        if let Some(toloc) = &$cgm.gamedata.get_location(&toloc_ref).cloned() {
-            for (loc_ref, fromcards) in fromcs_vec.iter() {
-                if let Some(fromloc) = &$cgm.gamedata.get_location(&loc_ref).cloned() {
-                    for i in 0..counter {
-                        if i == fromcards.len() {
-                            break;
-                        }
-                        // TODO:
-                        // Handle error
-                        let _ = fromloc.borrow_mut().move_card_index(
-                            &mut toloc.borrow_mut(),
-                            0
-                        );
-
-                        counter -= 1;
-                        
-                        if counter == 0 {
-                            break;
-                        }
-                    }
-                } else {
-                    println!("Target location {:?} not found!", loc_ref);
-                }
-                if counter == 0 {
-                    break;
-                }
+    ($gd:expr, deal $q:literal from $fromcs:tt to $tocs:tt) => {{
+        |cards: Vec<(LocationRef, LocationRef)>| {
+            if $q > cards.len() {
+                panic!("To few cards to deal!");
             }
-        } else {
-            println!("Target location {:?} not found!", toloc_ref);
+            for _ in 0..$q {
+                $gd.deal_1_card($fromcs, $tocs)(cards[0].clone());
+            }
         }
     }};
     
-    ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{
-        
-    }};
-
     ($cgm:expr, deal $fromcs:tt to $tocs:tt) => {{
         moveaction!($cgm, mv $fromcs to $tocs);
     }};
     
-    ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
-        moveaction!($cgm, mv $fromcs bound to $tocs);
-    }};
-
+    // TODO:
     // ExchangeMove → ’exchange’ (Quantity (’from’)?)? CardSet ’with’ CardSet
     ($cgm:expr, exchange $q:literal from $fromcs:tt with $tocs:tt) => {{
         
@@ -1515,6 +1652,29 @@ macro_rules! moveaction {
     ($cgm:expr, exchange $fromcs:tt with $tocs:tt) => {{
         
     }};
+
+
+    // I dont know if we need to implement 'bound'.
+    // Because it just makes things more complicated
+    // and i dont know ny game where it is useful.
+    // It is an interesting feature but nothing more.
+    // 
+    // move X from <from> bound to <to>
+    // ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // move X <from> bound to <to> (implicit "from")
+    // ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{ 
+    // }};
+
+    // ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
+    // }};
 }
 
 

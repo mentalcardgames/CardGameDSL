@@ -1,7 +1,6 @@
 use core::fmt;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::io::{self, Write};
 use std::ops::Deref;
 use std::rc::Rc;
 
@@ -168,9 +167,111 @@ impl GameData {
         }
     }
 
-    // fn remove_player(&mut self, player_name: String) {
+
+    // move quantity cards
+    pub fn move_q_cards<'a>(&'a self, q: usize, mut fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> impl FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a{
+        move |cardsfromto: Vec<((LocationRef, usize), (LocationRef, usize))>| {
+            use std::collections::HashMap;
+
+            // Validate all locations exist
+            for ((from_loc, i1), (to_loc, _)) in &cardsfromto {
+                if !fromcs.contains_key(from_loc) {
+                    panic!("Source location {:?} not in fromcs", from_loc);
+                } else {
+                    let location_ref = self.get_location(from_loc);
+                    let location_borrow = location_ref.borrow();
+                    let cards_ref = location_borrow.get_cards_ref();
+                    let card = cards_ref[*i1].clone();
+
+                    if !fromcs.get(from_loc).unwrap().contains(&card) {
+                        panic!("Card not on Source-CardSet {:?} in fromcs", card);
+                    }
+                }
+                if !tocs.contains_key(to_loc) {
+                    panic!("Target location {:?} not in tocs", to_loc);
+                }
+            }
         
+            // Group by from location
+            let mut grouped_from: HashMap<LocationRef, Vec<usize>> = HashMap::new();
+            for ((from_loc, index), _) in &cardsfromto {
+                grouped_from.entry(from_loc.clone()).or_default().push(*index);
+            }
+        
+            // For each from location, sort indices descending and remove cards
+            let mut moved_cards: Vec<(Card, LocationRef, usize)> = vec![];
+            for (loc, mut indices) in grouped_from {
+                indices.sort_unstable_by(|a, b| b.cmp(a)); // high to low
+                let from_vec = fromcs.get_mut(&loc).unwrap();
+        
+                for index in indices {
+                    let card = from_vec.remove(index);
+                    // Find destination info from original list
+                    let (_, (to_loc, to_index)) = cardsfromto
+                        .iter()
+                        .find(|((f, i), _)| f == &loc && *i == index)
+                        .unwrap();
+                    moved_cards.push((card, to_loc.clone(), *to_index));
+                }
+            }
+
+            if moved_cards.len() != q {
+                panic!("Player has to move {} Cards!", q)
+            }
+
+            for (_, loc_ref, i) in moved_cards.iter() {
+                let location = self.get_location(loc_ref);
+                location.borrow_mut().remove_card_at_index(*i);
+            }
+        
+            // Sort by destination index descending and insert
+            moved_cards.sort_by(|a, b| b.2.cmp(&a.2));
+            for (card, to_loc, index) in moved_cards {
+                let location = self.get_location(&to_loc);
+                location.borrow_mut().add_card_index(card, index);
+            }
+        }
+    }
+
+    // moving something bound means,
+    // that after the cards have been moved,
+    // they stay 'glued' together and you can reference all of the cards by one index
+    // (in my opinion its very 'annoying' to implement and not an important feature, but i can be wrong)
+    // pub fn move_q_cards_bound<'a>(&'a self, q: usize, mut fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> impl FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a{
+    //        
     // }
+
+    fn move_cardsets(&mut self, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) {
+        for (from_locref, cards) in fromcs.into_iter() {
+            let _: Vec<Card> = cards;
+            let from_loc = self.get_location(&from_locref);
+            for (to_locref, _) in &tocs {
+                let to_loc = self.get_location(to_locref);
+                from_loc.borrow_mut().move_cards(&mut to_loc.borrow_mut(), &cards);
+                break; // Only move to one destination per source
+            } 
+        }
+    }
+
+    pub fn deal_1_card<'a>(&'a self, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> impl FnOnce((LocationRef, LocationRef)) + 'a{
+        move |cardsfromto: (LocationRef, LocationRef)| {
+            let from_loc = cardsfromto.0;
+            let to_loc = cardsfromto.1;
+            
+            // Validate all locations exist
+            if !fromcs.contains_key(&from_loc) {
+                panic!("Source location {:?} not in fromcs", from_loc);
+            }
+            if !tocs.contains_key(&to_loc) {
+                panic!("Target location {:?} not in tocs", to_loc);
+            }
+            
+            let mut fromlocation = self.get_location(&from_loc).borrow_mut();
+            let mut tolocation = self.get_location(&to_loc).borrow_mut();
+
+            fromlocation.move_card_index(&mut *tolocation, 0, 0);        
+        }
+    }
 
     pub fn add_team(&mut self, name: &str, players: Vec<&str>) {
         self.teams.insert(String::from(name),
@@ -220,9 +321,7 @@ impl GameData {
             .deref()(loc
                 .borrow()
                 .contents
-                .iter()
-                .filter_map(|c| c.clone().to_card())
-                .collect());
+                .clone());
         cards
     }
 }
@@ -368,7 +467,10 @@ pub struct Location {
     //    AREA(Area),
     //    PILE(Pile),
     pub name: String,
-    pub contents: Vec<Component>
+    // I dont like that we can have Tokens and Cards in one Vec.
+    // I would rather have a seperate Location that either takes tokens or cards.
+    // This is just inconvenient for everything and can lead to unwanted bugs.
+    pub contents: Vec<Card>
 }
 impl Location {
     pub fn new(locname: String) -> Location {
@@ -377,70 +479,40 @@ impl Location {
 
     pub fn get_cards(self) -> Vec<Card> {
         self.contents
-            .iter()
-            .filter_map(|c| c.clone().to_card())
-            .collect()
     }
 
-    pub fn get_cards_ref(&self) -> Vec<Card> {
-        self.contents
-            .iter()
-            .filter_map(|c| c.clone().to_card())
-            .collect()
+    pub fn get_cards_ref(&self) -> &Vec<Card> {
+        &self.contents
     }
 
-    pub fn remove_card_at_index(&mut self, i: usize) -> Option<Card> {
-        let mut card_index = 0;
-
-        for pos in 0..self.contents.len() {
-            if let Component::CARD(_card) = &self.contents[pos] {
-                if card_index == i {
-                    if let Component::CARD(card) = self.contents.remove(pos) {
-                        return Some(card);
-                    }
-                }
-                card_index += 1;
-            }
-        }
-
-        None // Not enough cards in contents
-    }
-
-    pub fn remove_card_index(&mut self, index: usize) -> Component {
-        self.contents.remove(index)
+    pub fn remove_card_at_index(&mut self, i: usize) -> Card {
+        self.contents.remove(i)
     }
 
     pub fn add_card(&mut self, card: Card) {
-        self.contents.push(Component::CARD(card));
+        self.contents.push(card);
+    }
+
+    pub fn add_card_index(&mut self, card: Card, index: usize) {
+        self.contents.insert(index, card);
     }
 
     pub fn remove_card(&mut self, card: &Card) {
-        self.contents.retain(|component| {
-            match component {
-                Component::CARD(c) => c != card,
-                _ => true,
-            }
+        self.contents.retain(|c| {
+            c != card
         });
     }
 
-    pub fn extract_cards(&self) -> Vec<Card> {
-        self.contents.iter().filter_map(|c| {
-            if let Component::CARD(card) = c {
-                Some(card.clone())
-            } else {
-                None
-            }
-        }).collect()
+    pub fn extract_cards(self) -> Vec<Card> {
+        self.contents
     }
 
     pub fn has_card(&self, card: &Card) -> bool {
-        self.contents.iter().any(|c| matches!(c, Component::CARD(c2) if c2 == card))
+        self.contents.contains(card)
     }
 
     pub fn move_card(&mut self, target: &mut Location, card: &Card) -> bool {
-        if let Some(pos) = self.contents.iter().position(|c| {
-            matches!(c, Component::CARD(c_) if c_ == card)
-        }) {
+        if let Some(pos) = self.contents.iter().position(|c| c == card) {
             let removed = self.contents.remove(pos);
             target.contents.push(removed);
             true
@@ -449,14 +521,11 @@ impl Location {
         }
     }
 
-    pub fn move_cards(&mut self, target: &mut Location, cards: &[Card]) -> usize {
+    pub fn move_cards(&mut self, target: &mut Location, cards: &Vec<Card>) -> usize {
         let mut moved_count = 0;
 
         for card in cards {
-            if let Some(index) = self.contents.iter().position(|comp| match comp {
-                Component::CARD(c) => c == card,
-                _ => false,
-            }) {
+            if let Some(index) = self.contents.iter().position(|c| c == card) {
                 let comp = self.contents.remove(index);
                 target.contents.push(comp);
                 moved_count += 1;
@@ -469,15 +538,11 @@ impl Location {
     pub fn move_card_index(
         &mut self,
         target: &mut Location,
+        target_index: usize,
         card_index: usize
-    ) -> Result<(), String> {
-        match self.remove_card_at_index(card_index) {
-            Some(card) => {
-                target.add_card(card);
-                Ok(())
-            }
-            None => Err(format!("No card at index {} in source location.", card_index)),
-        }
+    ) {
+        let card = self.remove_card_at_index(card_index);
+        target.add_card_index(card, target_index);
     }
 }
 impl std::fmt::Display for Location {
@@ -705,7 +770,7 @@ pub enum Stage {
     SEQ(StageS),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct StageS {
     pub name: String,
     pub endconditions: Vec<Condition>,
@@ -714,24 +779,55 @@ pub struct StageS {
     pub rules: Vec<Rule>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Condition {
-    // Should be just a bool
-    // I think still needs to be in a Box::...
-    // but maybe not because the cgm si changed
-    /*
-    let conditions: Vec<Box<dyn Fn(&CardGameModel) -> bool>> = vec![
-        Box::new(|cgm| bool!(cgm, condition1)),
-        Box::new(|cgm| bool!(cgm, condition2)),
-        Box::new(|cgm| bool!(cgm, condition3)),
-    ];
-    */
+impl Clone for StageS {
+    fn clone(&self) -> Self {
+        StageS {
+            name: self.name.clone(),
+            endconditions: vec![], // or panic!(), or skip, or clone dummy data
+            substages: self.substages.clone(),
+            turncounter: self.turncounter,
+            rules: self.rules.clone(),
+        }
+    }
 }
 
-#[derive(Debug, Clone)]
+// #[derive(Debug, Clone)]
+pub struct Condition {
+    condition: Box<dyn Fn(&CardGameModel) -> bool>,
+}
+impl Condition {
+    pub fn new<F>(f: F) -> Self
+    where
+        F: Fn(&CardGameModel) -> bool + 'static,
+    {
+        Self {
+            condition: Box::new(f),
+        }
+    }
+
+    pub fn evaluate(&self, model: &CardGameModel) -> bool {
+        (self.condition)(model)
+    }
+}
+impl fmt::Debug for Condition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<Condition>")
+    }
+}
+
+#[derive(Debug)]
 pub struct ConditionalCase {
     pub conditions: Vec<Condition>,
     pub rules: Vec<Rule>,
+}
+
+impl Clone for ConditionalCase {
+    fn clone(&self) -> Self {
+        ConditionalCase {
+            conditions: vec![], // or panic!(), or skip, or clone dummy data
+            rules: self.rules.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -777,10 +873,19 @@ pub struct Scoring {
     pub scoringrules: Vec<Rule>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Play {
     pub endconditions: Vec<Condition>,
     pub stages: Vec<Stage>,
+}
+
+impl Clone for Play {
+    fn clone(&self) -> Self {
+        Play {
+            endconditions: vec![], // or panic!(), or skip, or clone dummy data
+            stages: self.stages.clone(),
+        }
+    }
 }
 
 impl Play {
@@ -793,34 +898,35 @@ impl Play {
     }
 }
 
-// Error-handling Logic
-#[derive(Debug)]
-pub enum GameError {
-    PlayerNameNotFound(String),
-    TeamNameNotFound(String),
-    LocationNameNotFound(String),
-    ComboNameNotFound(String),
-    PrecedenceNameNotFound(String),
-    PlayerNotFound,
-    TeamNotFound,
-    LocationNotFound,
-    InvalidInput(String),
-}
 
-impl fmt::Display for GameError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            // MyError::NotFound => write!(f, "Item not found"),
-            // MyError::InvalidInput => write!(f, "Invalid input provided"),
-            GameError::PlayerNameNotFound(pname) => write!(f, "PlayerName: {pname} not found"),
-            GameError::TeamNameNotFound(tname) => write!(f, "TeamName: {tname} not found"),
-            GameError::LocationNameNotFound(lname) => write!(f, "LocationName: {lname} not found"),
-            GameError::ComboNameNotFound(cname) => write!(f, "ComboName: {cname} not found"),
-            GameError::PrecedenceNameNotFound(precname) => write!(f, "ComboName: {precname} not found"),
-            GameError::PlayerNotFound => write!(f, "Player not found"),
-            GameError::TeamNotFound => write!(f, "Team not found"),
-            GameError::LocationNotFound => write!(f, "Location not found"),
-            GameError::InvalidInput(iinput) => write!(f, "Invalid input provided: {iinput}"),
-        }
-    }
-}
+// // Error-handling Logic
+// #[derive(Debug)]
+// pub enum GameError {
+//     PlayerNameNotFound(String),
+//     TeamNameNotFound(String),
+//     LocationNameNotFound(String),
+//     ComboNameNotFound(String),
+//     PrecedenceNameNotFound(String),
+//     PlayerNotFound,
+//     TeamNotFound,
+//     LocationNotFound,
+//     InvalidInput(String),
+// }
+
+// impl fmt::Display for GameError {
+//     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+//         match self {
+//             // MyError::NotFound => write!(f, "Item not found"),
+//             // MyError::InvalidInput => write!(f, "Invalid input provided"),
+//             GameError::PlayerNameNotFound(pname) => write!(f, "PlayerName: {pname} not found"),
+//             GameError::TeamNameNotFound(tname) => write!(f, "TeamName: {tname} not found"),
+//             GameError::LocationNameNotFound(lname) => write!(f, "LocationName: {lname} not found"),
+//             GameError::ComboNameNotFound(cname) => write!(f, "ComboName: {cname} not found"),
+//             GameError::PrecedenceNameNotFound(precname) => write!(f, "ComboName: {precname} not found"),
+//             GameError::PlayerNotFound => write!(f, "Player not found"),
+//             GameError::TeamNotFound => write!(f, "Team not found"),
+//             GameError::LocationNotFound => write!(f, "Location not found"),
+//             GameError::InvalidInput(iinput) => write!(f, "Invalid input provided: {iinput}"),
+//         }
+//     }
+// }

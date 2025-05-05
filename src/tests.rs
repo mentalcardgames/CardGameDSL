@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, rc::Rc};
-    use crate::ast::{Card, CardGameModel, Component, LocationRef};
+    use crate::ast::{Card, CardGameModel, LocationRef};
 
     fn init_model() -> CardGameModel {
         let mut cgm = CardGameModel::new("player_test");
@@ -157,19 +157,9 @@ mod tests {
 
     #[test]
     fn test_filter_macro() {
-        use crate::ast::Component;
         let cgm = init_model();
         
-        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
-            .iter()
-            .filter_map(|c| {
-                if let Component::CARD(card) = c {
-                    Some(card.clone()) // Return the cloned card
-                } else {
-                    None // Filter out non-card components
-                }
-            })
-            .collect();
+        let cards: &Vec<Card> = &cgm.gamedata.table.locations["stack"].borrow().contents;
         
         // for c in cards.iter() {
         //     println!("{}", c);
@@ -251,19 +241,9 @@ mod tests {
 
     #[test]
     fn test_combined_filter() {
-        use crate::ast::Component;
         let cgm = init_model();
         
-        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
-            .iter()
-            .filter_map(|c| {
-                if let Component::CARD(card) = c {
-                    Some(card.clone()) // Return the cloned card
-                } else {
-                    None // Filter out non-card components
-                }
-            })
-            .collect();
+        let cards: &Vec<Card> = &cgm.gamedata.table.locations["stack"].borrow().contents;
         
         // Combined filter
         let combined_filter = filter!(
@@ -362,16 +342,7 @@ mod tests {
         //     cgm, "all hearts"
         // );
 
-        let cards: Vec<Card> = cgm.gamedata.table.locations["stack"].borrow().contents
-            .iter()
-            .filter_map(|c| {
-                if let Component::CARD(card) = c {
-                    Some(card.clone()) // Return the cloned card
-                } else {
-                    None // Filter out non-card components
-                }
-            })
-            .collect();
+        let cards: &Vec<Card> = &cgm.gamedata.table.locations["stack"].borrow().contents.clone();
 
         // let filtered_cards = combo_filter(cards.clone());
         // for cards in filtered_cards {
@@ -431,11 +402,32 @@ mod tests {
         let a2 = cardset!(&cgm.gamedata, "stack", "hand");
         print_loc_cards(a2);
 
+        let a3 = cardset!(&cgm.gamedata, "hand" of player: player_ref!(&cgm.gamedata, "Kimmy"));
+        print_loc_cards(a3);
+
+        location_on!(&mut cgm.gamedata, "team_hand", team: "Team1");
+        card_on!(&mut cgm.gamedata, "team_hand", {Team("lol")});
+
+        let a4 = cardset!(&cgm.gamedata, "team_hand" of team: team_ref!(&cgm.gamedata, "Team1"));
+        print_loc_cards(a4);
+
         let b1 = cardset!(&cgm.gamedata, "stack" w (filter!("Suite", "==", "Hearts")));
         print_loc_cards(b1);
         
         let b2 = cardset!(&cgm.gamedata, "stack", "hand" w (filter!("Suite", "==", "Hearts")));
         print_loc_cards(b2);
+
+        let b3 = cardset!(
+            &cgm.gamedata,
+            "hand" of player: player_ref!(&cgm.gamedata, "Kimmy"),
+            w (filter!("Suite", "==", "Hearts")));
+        print_loc_cards(b3);
+
+        let b4 = cardset!(
+            &cgm.gamedata,
+            "team_hand" of team: team_ref!(&cgm.gamedata, "Team1"),
+            w (filter!("Team", "==", "lol")));
+        print_loc_cards(b4);
 
         combo!(&mut cgm.gamedata, "all hearts", filter!(
             "Suite", "==", "Hearts"
@@ -455,7 +447,6 @@ mod tests {
 
         let f = cardset!((cardposition!(&cgm.gamedata, "stack" 1)));
         print_loc_cards(f);
-
     }
 
     #[test]
@@ -753,6 +744,100 @@ mod tests {
             ),
             true
         );
+    }
+
+    #[test]
+    fn test_moveaction() {
+        let mut cgm = CardGameModel::new("test_moveaction");
+
+        player!(&mut cgm.gamedata, "P1", "P2", "P3");
+
+        turn_order!(&mut cgm.gamedata, ("P1", "P2", "P3"));
+
+        location_on!(&mut cgm.gamedata, "hand", players: "P1", "P2", "P3");
+        location_on!(&mut cgm.gamedata, "stack", table);
+        card_on!(
+            &mut cgm.gamedata,
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+        card_on!(
+            &mut cgm.gamedata,
+            "hand",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        );
+
+
+        // moveaction!(
+        //     &cgm.gamedata,
+        //     mv
+        //     (cardset!(&cgm.gamedata, "hand" of player: player_ref!(&cgm.gamedata, "P1")))
+        //     to
+        //     (cardset!(&cgm.gamedata, "hand" of player: player_ref!(&cgm.gamedata, "P2"))));
+
+        // let mv5 = moveaction!(
+        //     &cgm.gamedata,
+        //     mv 5 from 
+        //     (cardset!(&cgm.gamedata, "hand"))
+        //     to 
+        //     (cardset!(&cgm.gamedata, "stack"))
+        // );
+        
+        // mv5(vec![
+        //     ((LocationRef::Own(String::from("hand")), 0),
+        //     (LocationRef::Own(String::from("stack")), 0)),
+        //     ((LocationRef::Own(String::from("hand")), 1),
+        //     (LocationRef::Own(String::from("stack")), 1)),
+        //     ((LocationRef::Own(String::from("hand")), 2),
+        //     (LocationRef::Own(String::from("stack")), 2)),
+        //     ((LocationRef::Own(String::from("hand")), 3),
+        //     (LocationRef::Own(String::from("stack")), 3)),
+        //     ((LocationRef::Own(String::from("hand")), 4),
+        //     (LocationRef::Own(String::from("stack")), 4)),
+        //     ]);
+        
+        // print_cards(cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone());
+
+        let deal2 = moveaction!(
+            &cgm.gamedata,
+            deal 2 from 
+            (cardset!(&cgm.gamedata, "stack"))
+            to 
+            (cardset!(&cgm.gamedata, "hand"))
+        );
+
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
+
+        deal2(
+            vec![
+                (LocationRef::Own(String::from("stack")),
+                LocationRef::Own(String::from("hand"))),
+                (LocationRef::Own(String::from("stack")),
+                LocationRef::Own(String::from("hand"))),
+            ]
+        );
+
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
+
     }
 
 }
