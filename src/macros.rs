@@ -1324,7 +1324,7 @@ macro_rules! int {
     // size’ ’of’ [Collection] 
     (size of $col:expr) => {{
         Box::new(
-            |gd: &GameData| {
+            |_: &GameData| {
                 $col.len()
             }
         )
@@ -1334,7 +1334,7 @@ macro_rules! int {
     (sum of $intcol:expr) => {{
         use crate::ast::GameData;
         Box::new(
-            |gd: &GameData| {
+            |_: &GameData| {
                 let intcol: Vec<i32> = $intcol;
                 intcol.iter().sum::<i32>()
             }
@@ -1556,11 +1556,13 @@ macro_rules! int {
         )
     }};
 
+    // TODO:
+    // Int-Collection maybe vector of type int! so [int!(1), (int!(cardset(...))), ...]
     // (’min’ | ’max’) ’of’ [IntCollection] 
     (min of $intcol:expr) => {{
         use crate::ast::GameData;
         Box::new(
-            |gd: &GameData| {
+            |_: &GameData| {
                 *$intcol.iter().min().expect(&format!("No Minimum found in {:?}", $intcol))
             }
         )
@@ -1569,7 +1571,7 @@ macro_rules! int {
     (max of $intcol:expr) => {{
         use crate::ast::GameData;
         Box::new(
-            |gd: &GameData| {
+            |_: &GameData| {
                 *$intcol.iter().max().expect(&format!("No Maximum found in {:?}", $intcol))
             }
         )
@@ -1586,7 +1588,7 @@ String → ID | [Key] ’of’ CardPosition | [StringCollection] Int |
 macro_rules! string {
     ($id:literal) => {{
         use crate::ast::GameData;
-        Box::new(|gd: &GameData| {
+        Box::new(|_: &GameData| {
                 $id
             }
         )
@@ -1629,12 +1631,12 @@ Bool → String (’==’ | ’!=’) String | Int (’==’ | ’!=’ | ’<�
 */
 macro_rules! bool {
     (string: $string1:expr, $op:literal, $string2:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 match $op {
-                    "==" => $string1(gd) == $string2(gd),
-                    "!=" => $string1(gd) != $string2(gd),
+                    "==" => $string1(&cgm.gamedata) == $string2(&cgm.gamedata),
+                    "!=" => $string1(&cgm.gamedata) != $string2(&cgm.gamedata),
                     _    => {
                                 println!("Unknown Operator!");
                                 false
@@ -1645,16 +1647,16 @@ macro_rules! bool {
     }};
 
     (int: $int1:expr, $op:literal, $int2:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 match $op {
-                    "==" => $int1(gd) == $int2(gd),
-                    "!=" => $int1(gd) != $int2(gd),
-                    "<"  => $int1(gd) <  $int2(gd),
-                    ">"  => $int1(gd) >  $int2(gd),
-                    "<=" => $int1(gd) <= $int2(gd),
-                    ">=" => $int1(gd) >= $int2(gd),
+                    "==" => $int1(&cgm.gamedata) == $int2(&cgm.gamedata),
+                    "!=" => $int1(&cgm.gamedata) != $int2(&cgm.gamedata),
+                    "<"  => $int1(&cgm.gamedata) <  $int2(&cgm.gamedata),
+                    ">"  => $int1(&cgm.gamedata) >  $int2(&cgm.gamedata),
+                    "<=" => $int1(&cgm.gamedata) <= $int2(&cgm.gamedata),
+                    ">=" => $int1(&cgm.gamedata) >= $int2(&cgm.gamedata),
                     _    => {
                                 println!("Unknown Operator!");
                                 false
@@ -1666,9 +1668,9 @@ macro_rules! bool {
 
     // CardSet (’==’ | ’!=’) CardSet
     (cardset: $cs1:expr, $op:literal, $cs2:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 fn eq(
                     cs1: HashMap<LocationRef, Vec<Card>>,
                     cs2: HashMap<LocationRef, Vec<Card>>,
@@ -1681,8 +1683,8 @@ macro_rules! bool {
 
 
                 match $op {
-                    "==" => eq(($cs1)(gd), ($cs2)(gd)),
-                    "!=" => !eq(($cs1)(gd), ($cs2)(gd)),
+                    "==" =>  eq(($cs1)(&cgm.gamedata), ($cs2)(&cgm.gamedata)),
+                    "!=" => !eq(($cs1)(&cgm.gamedata), ($cs2)(&cgm.gamedata)),
                     _    => {
                                 println!("Unknown Operator!");
                                 false
@@ -1694,11 +1696,11 @@ macro_rules! bool {
 
     // CardSet ’is’ (’not’)? ’empty’
     ($cs:expr, is empty) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 let mut isempty = true;
-                for (_, v) in $cs(gd).iter() {
+                for (_, v) in $cs(&cgm.gamedata).iter() {
                     if !v.is_empty() {
                         isempty = false;
                         break;
@@ -1711,11 +1713,11 @@ macro_rules! bool {
     }};
 
     ($cs:expr, is not empty) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 let mut isnotempty = false;
-                for (_, v) in $cs(gd).iter() {
+                for (_, v) in $cs(&cgm.gamedata).iter() {
                     if !v.is_empty() {
                         isnotempty = true;
                         break;
@@ -1729,12 +1731,12 @@ macro_rules! bool {
 
     // Player == Player and Team == Team
     (pt: $ref1:expr, $op:literal, $ref2:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 match $op {
-                    "==" => ($ref1)(gd) == ($ref2)(gd),
-                    "!=" => ($ref1)(gd) != ($ref2)(gd),
+                    "==" => ($ref1)(&cgm.gamedata) == ($ref2)(&cgm.gamedata),
+                    "!=" => ($ref1)(&cgm.gamedata) != ($ref2)(&cgm.gamedata),
                     _    => {
                                 println!("Unknown Operator!");
                                 false
@@ -1746,12 +1748,12 @@ macro_rules! bool {
 
     // ’(’ Bool (’and’ | ’or’) Bool ’)’ 
     ($b1:expr, $op:literal, $b2:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
+            |cgm: &CardGameModel| {
                 match $op {
-                    "and" => $b1(gd) && $b2(gd),
-                    "or"  => $b1(gd) || $b2(gd),
+                    "and" => $b1(cgm) && $b2(cgm),
+                    "or"  => $b1(cgm) || $b2(cgm),
                     _     => {
                                 println!("Unknown Operator!");
                                 false
@@ -1763,10 +1765,10 @@ macro_rules! bool {
 
     // ’not’ ’(’ Bool ’)’
     (not $b:expr) => {{
-        use crate::ast::GameData;
+        use crate::ast::CardGameModel;
         Box::new(
-            |gd: &GameData| {
-                !$b(gd)
+            |cgm: &CardGameModel| {
+                !$b(cgm)
             }
         )
     }};
@@ -1889,120 +1891,9 @@ macro_rules! team_ref {
 
 // ActionRule → FlipAction |ShuffleAction | MoveAction | MemoryAction | CycleAction |
 //              OutAction | EndAction | DemAction
-// macro_rules! actionrule {
-//     () => {
-        
-//     };
-// }
 
 // TODO:
 // Status
-macro_rules! moveaction {
-    // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
-    // move X from <from> to <to>
-    (mv $q:literal from $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::{GameData, TMoveCards};
-        Box::new(|gd: &mut GameData| {
-            gd.move_q_cards($q, ($fromcs)(gd), ($tocs)(gd))  
-        }) as TMoveCards
-    }};
-
-    (mv $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::{GameData, TMoveCardSet};
-        Box::new(|gd: &mut GameData| {
-            gd.move_cardsets(($fromcs)(gd), ($tocs)(gd));
-        }) as TMoveCardSet
-    }};
-    
-    // DealMove → ’deal’ (Quantity (’from’)? )? CardSet Status ’bound’? ’to’ CardSet
-    // (deal $q:literal from $fromcs:tt to $tocs:tt) => {{
-    //     use crate::ast::{GameData, TDealCards};
-
-    //     Box::new(|gd: &mut GameData| {
-    //         gd.deal_q_cards($q.clone(), (*$fromcs)(gd).clone(), (*$tocs)(gd).clone())
-    //     }) as TDealCards
-    // }};
-
-    (deal $q:literal from $fromcs:tt to $tocs:tt) => {
-        {
-            use crate::ast::{GameData, TDealCards};
-            use std::sync::{Arc, Mutex};
-
-            // Capture the literal q.
-            let q_value = $q;
-
-            // Capture the expressions for fromcs and tocs, and wrap them in Arc and Mutex.
-            let fromcs_arc = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
-            let tocs_arc = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
-
-            // Create a boxed closure that takes a mutable GameData.
-            let deal_cards_closure: TDealCards = Box::new(
-                move |gd: &mut GameData| {
-                    // Clone the Arcs to increase the reference count.
-                    let fromcs_arc_clone = Arc::clone(&fromcs_arc);
-                    let tocs_arc_clone = Arc::clone(&tocs_arc);
-
-                    // Evaluate the fromcs and tocs expressions *at the time the
-                    // returned closure is called*, passing in the GameData.
-                    let fromcs_result = fromcs_arc_clone.lock().unwrap();
-                    let tocs_result = tocs_arc_clone.lock().unwrap();
-                    let fromcs_map = fromcs_result(gd);
-                    let tocs_map = tocs_result(gd);
-
-                    // Call the GameData's deal_q_cards method.
-                    gd.deal_q_cards(q_value, fromcs_map, tocs_map)
-                },
-            );
-            deal_cards_closure // Return the boxed closure.
-        }
-    };
-    
-    ($cgm:expr, deal $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::GameData;
-        Box::new(
-            |gd: &mut GameData| {
-                moveaction!($cgm, mv $fromcs to $tocs)(gd);
-            }
-        )
-    }};
-    
-    // TODO:
-    // ExchangeMove → ’exchange’ (Quantity (’from’)?)? CardSet ’with’ CardSet
-    ($cgm:expr, exchange $q:literal from $fromcs:tt with $tocs:tt) => {{
-        
-    }};
-
-    ($cgm:expr, exchange $q:literal $fromcs:tt with $tocs:tt) => {{
-        
-    }};
-
-    ($cgm:expr, exchange $fromcs:tt with $tocs:tt) => {{
-        
-    }};
-
-
-    // I dont know if we need to implement 'bound'.
-    // Because it just makes things more complicated
-    // and i dont know ny game where it is useful.
-    // It is an interesting feature but nothing more.
-    // 
-    // move X from <from> bound to <to>
-    // ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // move X <from> bound to <to> (implicit "from")
-    // ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{ 
-    // }};
-
-    // ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-}
 
 
 // ’until’ Bool ((’and’ | ’or’) Repetitions)? | Repetitions | ’until’ ’end’
@@ -2078,30 +1969,217 @@ macro_rules! condrule {
 
 
 macro_rules! ifrule {
-    (iff $bool:tt? then $rule:tt+) => {
+    (iff $b:tt then $( $rule:expr ),* ) => {{
+        use crate::ast::{IfRule, Condition, Rule, PlayRule, ActionRule};
 
-    }
+        IfRule {
+            condition: Condition { condition: $b },
+            rules: vec![
+                Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+                    actions: vec![$($rule),*],
+                })),
+            ],
+        }
+    }}
 }
 
 macro_rules! oprule {
     (optional: $rule:tt) => {
-
+        // We need to do UI here
+        Box::new(
+            |cgm: &mut CardGameModel| {
+                // TODO:
+                // Input is just a temporary value!
+                // the type needs to change!
+                |input: Bool| {
+                    if input {
+                        $rule(cgm)
+                    }
+                }
+            }
+        )
     }
 }
 
 macro_rules! choicerule {
     (choose: $prule1:tt ($(or: $prule2:tt),*)) => {
+        Box::new(
+            |cgm: &mut CardGameModel| {
+                // TODO:
+                // Input is just a temporary value!
+                // the type needs to change!
+                |input: i32| {
+                    // Vec of rules
+                    let vec = vec![$prule1];
+                    
+                    $(
+                        vec.push($prule2);
+                    )*
 
+                    vec[input](cgm)
+                }
+            }
+        )
 
     }
 }
 
 macro_rules! triggerrule {
     (trigger: $prule:tt) => {
-
+        Box::new(
+            |cgm: &mut CardGameModel| {
+                $prule(cgm)
+            }
+        )
     }
 }
 
+macro_rules! actionrule {
+    // ------------------------------------------------------------------------
+    // MOVEACTION
+    // ==========
+    // TODO:
+    // Status
+    (mv $fromcs:tt to $tocs:tt) => {{
+        use crate::ast::{CardGameModel, GameData, TMoveCardSet, Action, MoveCSAction};
+        use std::sync::{Arc, Mutex};
+        // Capture the expressions.
+        let fromcs_expr = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
+        let tocs_expr = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+
+        // Create a boxed closure.
+        let move_cardset_closure: TMoveCardSet = Box::new(
+            move |cgm: &mut CardGameModel| {
+                // Evaluate the expressions *when the closure is called*.
+                let fromcs_guard = fromcs_expr.lock().unwrap();
+                let tocs_guard = tocs_expr.lock().unwrap();
+                let from_cardset = fromcs_guard(&cgm.gamedata);
+                let to_cardset = tocs_guard(&cgm.gamedata);
+                cgm.gamedata.move_cardset(from_cardset, to_cardset);
+            }
+        );
+
+        Action::MoveCardSet(MoveCSAction { action: move_cardset_closure })
+    }};
+    
+    // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
+    // move X from <from> to <to>
+    (mv $q:literal from $fromcs:tt to $tocs:tt) => {{
+        // use crate::ast::{CardGameModel, GameData, TMoveCards};
+        use crate::ast::{CardGameModel, GameData, TMoveCards, Action, MoveAction};
+        use std::sync::{Arc, Mutex};
+
+        // Capture the literal q.
+        let q_value = $q;
+
+        // Capture the expressions for fromcs and tocs, and wrap them in Arc and Mutex.
+        let fromcs_arc = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
+        let tocs_arc = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+
+        // Create a boxed closure that takes a mutable GameData.
+        let move_cards_closure: TMoveCards = 
+            Box::new(
+                move |cgm: &mut CardGameModel| {
+                    // Clone the Arcs to increase the reference count.
+                    let fromcs_arc_clone = Arc::clone(&fromcs_arc);
+                    let tocs_arc_clone = Arc::clone(&tocs_arc);
+
+                    // Evaluate the fromcs and tocs expressions *at the time the
+                    // returned closure is called*, passing in the GameData.
+                    let fromcs_result = fromcs_arc_clone.lock().unwrap();
+                    let tocs_result = tocs_arc_clone.lock().unwrap();
+                    let fromcs_map = fromcs_result(&cgm.gamedata);
+                    let tocs_map = tocs_result(&cgm.gamedata);
+
+                    // Call the GameData's deal_q_cards method.
+                    cgm.gamedata.move_q_cards(q_value, fromcs_map, tocs_map)
+                }
+        );
+
+        Action::Move(MoveAction { action: move_cards_closure })
+    }};
+
+    (deal $q:literal from $fromcs:tt to $tocs:tt) => {
+        {
+            use crate::ast::{CardGameModel, GameData, TDealCards, Action, DealAction};
+            use std::sync::{Arc, Mutex};
+
+            // Capture the literal q.
+            let q_value = $q;
+
+            // Capture the expressions for fromcs and tocs, and wrap them in Arc and Mutex.
+            let fromcs_arc = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
+            let tocs_arc = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+
+            // Create a boxed closure that takes a mutable GameData.
+            let deal_cards_closure: TDealCards = Box::new(
+                move |cgm: &mut CardGameModel| {
+                    // Clone the Arcs to increase the reference count.
+                    let fromcs_arc_clone = Arc::clone(&fromcs_arc);
+                    let tocs_arc_clone = Arc::clone(&tocs_arc);
+
+                    // Evaluate the fromcs and tocs expressions *at the time the
+                    // returned closure is called*, passing in the GameData.
+                    let fromcs_result = fromcs_arc_clone.lock().unwrap();
+                    let tocs_result = tocs_arc_clone.lock().unwrap();
+                    let fromcs_map = fromcs_result(&cgm.gamedata);
+                    let tocs_map = tocs_result(&cgm.gamedata);
+
+                    // Call the GameData's deal_q_cards method.
+                    cgm.gamedata.deal_q_cards(q_value, fromcs_map, tocs_map)
+                },
+            );
+            Action::Deal(DealAction { action: deal_cards_closure })
+        }
+    };
+    
+    (deal $fromcs:tt to $tocs:tt) => {{
+        use crate::ast::CardGameModel;
+        Box::new(
+            |cgm: &mut CardGameModel| {
+                moveaction!(mv $fromcs to $tocs)(cgm)
+            }
+        )
+    }};
+    
+    // TODO:
+    // ExchangeMove → ’exchange’ (Quantity (’from’)?)? CardSet ’with’ CardSet
+    ($cgm:expr, exchange $q:literal from $fromcs:tt with $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, exchange $q:literal $fromcs:tt with $tocs:tt) => {{
+        
+    }};
+
+    ($cgm:expr, exchange $fromcs:tt with $tocs:tt) => {{
+        
+    }};
+
+
+    // I dont know if we need to implement 'bound'.
+    // Because it just makes things more complicated
+    // and i dont know ny game where it is useful.
+    // It is an interesting feature but nothing more.
+    // 
+    // move X from <from> bound to <to>
+    // ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // move X <from> bound to <to> (implicit "from")
+    // ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+
+    // ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{ 
+    // }};
+
+    // ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
+    // }};
+    // -------------------------------------------------------------------------------
+}
 
 /*
 ScoringRule → ScoreRule | WinnerRule

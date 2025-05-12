@@ -116,7 +116,11 @@ impl CardGameModel {
         // UI-communication (Event making)
         // Protocol-Validation
         for action in actions.actions.iter() {
-            action.play()
+            match action {
+                Action::Deal(deal) => {},
+                Action::Move(mv) => {},
+                Action::MoveCardSet(mvcs) => {},
+            }
         }
 
     }
@@ -131,7 +135,7 @@ impl CardGameModel {
     }
 
     pub fn if_rule(&mut self, ifrule: &IfRule) {
-        if ifrule.cond.evaluate(self) {
+        if ifrule.condition.evaluate(self) {
             self.do_rules(&ifrule.rules);
         }
     }
@@ -310,6 +314,10 @@ impl GameData {
             move |cardsfromto: Vec<((LocationRef, usize), (LocationRef, usize))>| {
                 use std::collections::HashMap;
 
+                if cardsfromto.len() != q {
+                    panic!("Player has to move {} Cards!", q)
+                }
+
                 // Validate all locations exist
                 for ((from_loc, i1), (to_loc, _)) in &cardsfromto {
                     if !fromcs.contains_key(from_loc) {
@@ -343,6 +351,11 @@ impl GameData {
             
                     for index in indices {
                         let card = from_vec.remove(index);
+                        
+                        // remove from the Location
+                        let location = self.get_location(&loc);
+                        location.borrow_mut().remove_card_at_index(index);
+
                         // Find destination info from original list
                         let (_, (to_loc, to_index)) = cardsfromto
                             .iter()
@@ -351,20 +364,12 @@ impl GameData {
                         moved_cards.push((card, to_loc.clone(), *to_index));
                     }
                 }
-
-                if moved_cards.len() != q {
-                    panic!("Player has to move {} Cards!", q)
-                }
-
-                for (_, loc_ref, i) in moved_cards.iter() {
-                    let location = self.get_location(loc_ref);
-                    location.borrow_mut().remove_card_at_index(*i);
-                }
             
                 // Sort by destination index descending and insert
                 moved_cards.sort_by(|a, b| b.2.cmp(&a.2));
                 for (card, to_loc, index) in moved_cards {
                     let location = self.get_location(&to_loc);
+                    println!("{}", location.borrow().name);
                     location.borrow_mut().add_card_index(card, index);
                 }
             }
@@ -378,8 +383,7 @@ impl GameData {
     // pub fn move_q_cards_bound<'a>(&'a self, q: usize, mut fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> impl FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a{
     //        
     // }
-
-    fn move_cardset(&mut self, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) {
+    pub fn move_cardset(&mut self, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) {
         for (from_locref, cards) in fromcs.into_iter() {
             let _: Vec<Card> = cards;
             let from_loc = self.get_location(&from_locref);
@@ -415,7 +419,7 @@ impl GameData {
         )
     }
 
-    pub fn deal_q_cards<'a>(&'a mut self, q: usize, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> Box<(dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a)> {
+    pub fn deal_q_cards<'a>(&'a mut self, q: usize, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a> {
         Box::new(
             move |cards: Vec<(LocationRef, LocationRef)>| {
                 if q > cards.len() {
@@ -935,7 +939,7 @@ impl Clone for Stage {
     }
 }
 // Object-safe trait for cloning boxed functions
-trait CloneableFn: Fn(&CardGameModel) -> bool {
+pub trait CloneableFn: Fn(&CardGameModel) -> bool {
     fn clone_box(&self) -> Box<dyn CloneableFn>;
 }
 
@@ -1049,7 +1053,7 @@ pub struct ConditionalRule {
 
 #[derive(Debug, Clone)]
 pub struct IfRule {
-    pub cond: Condition,
+    pub condition: Condition,
     pub rules: Vec<Rule>,
 }
 
@@ -1064,15 +1068,14 @@ pub struct ChooseRule {
 }
 
 #[derive(Debug, Clone)]
-pub struct ActionRule {
-    pub actions: Vec<Action>,
-}
-
-#[derive(Debug, Clone)]
 pub struct TriggerRule {
     pub rules: Vec<Rule>,
 }
 
+#[derive(Debug, Clone)]
+pub struct ActionRule {
+    pub actions: Vec<Action>,
+}
 
 pub trait CloneActionFn: Fn(&Vec<((LocationRef, usize),(LocationRef, usize))>) + Send + Sync {
     fn clone_box(&self) -> Box<dyn CloneActionFn>;
@@ -1093,62 +1096,111 @@ impl Clone for Box<dyn CloneActionFn> {
     }
 }
 
-pub struct Action {
-    pub action: Box<dyn CloneActionFn>,
+#[derive(Clone)]
+pub enum Action {
+    Move(MoveAction),
+    Deal(DealAction),
+    MoveCardSet(MoveCSAction)
+}
+impl Do for Action {
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        match self {
+            Self::Move(mv) => {mv.play(cgm)},
+            Self::Deal(deal) => {deal.play(cgm)},
+            Self::MoveCardSet(mvcs) => {mvcs.play(cgm)},
+        }
+    }
+}
+impl std::fmt::Debug for Action {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Action::Move(_) => f.write_str("Action::Move(<closure>)"),
+            Action::Deal(_) => f.write_str("Action::Deal(<closure>)"),
+            Action::MoveCardSet(_) => f.write_str("Action::MoveCardSet(<closure>)"),
+        }
+    }
 }
 impl Action {
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&Vec<((LocationRef, usize),(LocationRef, usize))>) + Clone + 'static + Send + Sync,
-    {
-        Self {
-            action: Box::new(f),
+    pub fn runmove<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<((LocationRef, usize), (LocationRef, usize))>) {
+        match self {
+            Self::Move(mv) => mv.run(cgm, input),
+            _ => {}
         }
     }
 
-    pub fn play(&self) {
-        let mut input = String::new();
-
-        io::stdin()
-            .read_line(&mut input)
-            .expect("Failed to read line");
-
-        let input = input.trim();
-
-        let parts: Vec<&str> = input
-            .split('|')
-            .flat_map(|pair| pair.split(','))
-            .collect();
-
-        let ifrom: usize = parts[1].parse().expect("Not a valid value");
-        let ito: usize = parts[3].parse().expect("Not a valid value");
-
-        let card: ((LocationRef, usize), (LocationRef, usize)) = (
-                (
-                    LocationRef::Own(parts[0].to_string()),
-                    ifrom
-                ),
-                (
-                    LocationRef::Own(parts[2].to_string()),
-                    ito
-                ),
-            );
-        (self.action)(&vec![card])
-    }
-}
-
-impl Clone for Action {
-    fn clone(&self) -> Self {
-        Self {
-            action: self.action.clone(),
+    pub fn rundeal<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<(LocationRef, LocationRef)>) {
+        match self {
+            Self::Deal(deal) => deal.run(cgm, input),
+            _ => {}
         }
     }
+
+    pub fn runmovecs<'a>(&self, cgm: &'a mut CardGameModel) {
+        match self {
+            Self::MoveCardSet(mvcs) => mvcs.run(cgm),
+            _ => {}
+        }
+    }
+
+
 }
-impl fmt::Debug for Action {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("<Action>")
+
+pub enum PlayOutput<'a> {
+    Move(Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>),
+    Deal(Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>),
+    MoveCS(()),
+}
+
+pub trait Do {
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a>;
+}
+
+#[derive(Clone)]
+pub struct MoveAction {
+    pub action: TMoveCards,
+}
+impl Do for MoveAction {
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::Move((self.action)(cgm))
     }
 }
+impl MoveAction {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<((LocationRef, usize), (LocationRef, usize))>) {
+        ((self.action)(cgm))(input);
+    }
+}
+
+#[derive(Clone)]
+pub struct DealAction {
+    pub action: TDealCards,
+}
+impl Do for DealAction {
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::Deal((self.action)(cgm))
+    }
+}
+impl DealAction {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<(LocationRef, LocationRef)>) {
+        ((self.action)(cgm))(input);
+    }
+}
+
+
+#[derive(Clone)]
+pub struct MoveCSAction {
+    pub action: TMoveCardSet,
+}
+impl Do for MoveCSAction {
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::MoveCS((self.action)(cgm))
+    }
+}
+impl MoveCSAction {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel) {
+        ((self.action)(cgm));
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum ScoringRule {
@@ -1197,10 +1249,88 @@ impl Play {
 }
 
 // Types for closures
-pub type TMoveCardSet = Box<dyn for<'a>Fn(&'a mut GameData) + Send + Sync>;
-pub type TMoveCards = Box<dyn for<'a>Fn(&'a mut GameData) -> Box<(dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a)> + Send + Sync>;
-pub type TDealCards = Box<dyn for<'a>Fn(&'a mut GameData) -> Box<(dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a)> + Send + Sync>;
-pub type TRefPlayer = Box<dyn Fn(&GameData) -> Player>;
-pub type TRefTeam = Box<dyn Fn(&GameData) -> Team>;
-pub type TCardSet = Box<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>>>;
+// pub type TMoveCardSet = Box<dyn Fn(&mut CardGameModel)>;
+// pub type TMoveCards   = Box<dyn for<'a>Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a> + Send + Sync>;
+// pub type TDealCards   = Box<dyn for<'a>Fn(&'a mut CardGameModel) -> Box<(dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a)> + Send + Sync>;
 
+pub trait CloneableMove: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a> + Send + Sync {
+    fn clone_box(&self) -> Box<dyn CloneableMove>;
+}
+
+impl<T> CloneableMove for T
+where
+    T: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    fn clone_box(&self) -> Box<dyn CloneableMove> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn CloneableMove> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+pub type TMoveCards = Box<dyn CloneableMove>;
+
+
+pub trait CloneableDeal: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a> + Send + Sync {
+    fn clone_box(&self) -> Box<dyn CloneableDeal>;
+}
+
+impl<T> CloneableDeal for T
+where
+    T: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>
+        + Clone
+        + Send
+        + Sync
+        + 'static,
+{
+    fn clone_box(&self) -> Box<dyn CloneableDeal> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn CloneableDeal> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+pub type TDealCards = Box<dyn CloneableDeal>;
+
+
+pub trait CloneableCardSet: Fn(&mut CardGameModel) + Send + Sync {
+    fn clone_box(&self) -> Box<dyn CloneableCardSet>;
+}
+
+impl<T> CloneableCardSet for T
+where
+    T: Fn(&mut CardGameModel) + Clone + Send + Sync + 'static,
+{
+    fn clone_box(&self) -> Box<dyn CloneableCardSet> {
+        Box::new(self.clone())
+    }
+}
+
+impl Clone for Box<dyn CloneableCardSet> {
+    fn clone(&self) -> Self {
+        self.clone_box()
+    }
+}
+
+pub type TMoveCardSet = Box<dyn CloneableCardSet>;
+
+
+// pub type TMoveCards = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>>;
+// pub type TDealCards = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>>>;
+// pub type TMoveCardSet = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, ()>>;
+
+pub type TRefPlayer   = Box<dyn Fn(&GameData) -> Player>;
+pub type TRefTeam     = Box<dyn Fn(&GameData) -> Team>;
+pub type TCardSet     = Box<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>>>;
