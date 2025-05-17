@@ -1,10 +1,11 @@
 use core::fmt;
-use std::io;
 use std::cell::RefCell;
-use std::collections::HashMap;
+use std::collections::{HashMap};
+use std::hash::Hash;
+use std::io::{self, Write};
 use std::ops::Deref;
 use std::rc::Rc;
-
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub struct CardGameModel {
@@ -21,29 +22,13 @@ impl CardGameModel {
         }
     }
 
-    pub fn play(self) {
+    pub fn play(&mut self) {
         // 1. the setup   rules
         // 2. the play    rules
         // 3. the scoring rules
-
     }
 
-    fn game_loop(self) {
-        // stage:
-        /*
-        pub struct Stage {
-            pub name: String,
-            pub endconditions: Vec<Condition>,
-            pub substages: Vec<Stage>,
-            // turncounter is in the GameData for convenience!
-            // If we do the turncounter here we have to propagate the counter through everything.
-            // In my opinion this makes everything more complex than it needs to be.
-            // We could do it so that this turncounter just updates the GameData turncounter.
-            // This would be a nice solution!
-            pub turncounter: i32,
-            pub rules: Vec<Rule>,
-        }
-        */
+    pub fn game_loop(&mut self) {
         // while all endconditions hold:
         // do the rules
         // Rule: PlayRule, ...
@@ -53,28 +38,107 @@ impl CardGameModel {
         // If ConditionalRule -> Check if Condition True and then do the rule
         // If OptionalRule    -> Decide if you want to do that
 
-        for stage in self.ruleset.play.stages {
-            // while stage.endconditions {
-            //     for substage in stage.substages {
-
-            //     }
-            // }
-        }
+        self.do_stage_logic_play();
     }
 
-    fn do_stage_logic(&self, stage: &Stage) {
-        let endconds = self.evaluate_endconditions(&stage.endconditions);
-        while endconds {
-            // either the substages go first or the Rules go first!
-            for sub in stage.substages.iter() {
-                self.do_stage_logic(sub);
+    fn do_stage_logic_play(&mut self) {
+        let lenstages = self.ruleset.play.stages.len().clone();
+        for i in 0..lenstages {
+            let mut endstage = false;
+            let mut endplay = false;
+
+            // initialize the rep counter for this stage (setting 0 for every Player)
+            self.ruleset.play.stages[i].init_reps(self.gamedata.turnorder.clone());
+            
+            let mut current_name = self.gamedata.turnorder[self.gamedata.current].clone();
+            let mut rep = self.ruleset.play.stages[i].get_current(&current_name);
+            let mut endconds = self.evaluate_endconditions(&self.ruleset.play.stages[i].endconditions.clone(), rep);
+
+            while endconds {
+                let mut endturn = false;
+
+                // rules should come after substages because of some special keywards like cycle to ...
+                // TODO: substages
+                // ----------------
+                //
+                // ----------------
+
+                let rules = &self.ruleset.play.stages[i].rules.clone();
+
+                // check what gameflow changed after the set of rules!
+                let mut gfcs = self.do_rules(rules);
+
+                gfcs = gfcs.into_iter().filter(|g| *g != GameFlowChange::None).collect();
+
+                let mut gfcs_set = vec![];
+                for gfc in gfcs {
+                    if !gfcs_set.contains(&gfc) {
+                        gfcs_set.push(gfc);
+                    }
+                }
+
+                // increment a rep for the "done-stage" for the current player
+                self.ruleset.play.stages[i].update_reps();
+
+                // evaluate GameChangeFlow now
+                if gfcs_set.contains(&GameFlowChange::EndPlay) {
+                    endplay = true;
+                    break;
+                }
+                if gfcs_set.contains(&GameFlowChange::EndStage) {
+                    endstage = true;
+                    break;
+                }
+                if gfcs_set.contains(&GameFlowChange::EndTurn) {
+                    let mut cycletoB = false;
+                    for gfc in gfcs_set.iter() {
+                        match gfc {
+                            GameFlowChange::CycleTo(cycleto) => {
+                                cycletoB = true;
+                                // switch to referenced player
+                                // update current (in CardGameModel and Stage)
+                                self.gamedata.current = cycleto.get_pos(self);
+                                current_name = cycleto.get_name(self);
+                            },
+                            _ => {}
+
+                        }
+                    }
+
+                    if !cycletoB {
+                        endturn = true;
+                    }
+                }
+
+                if endturn {
+                    // switch to next player
+                    self.gamedata.current = (self.gamedata.current + 1) % self.gamedata.turnorder.len();
+                    current_name = self.gamedata.turnorder[self.gamedata.current].clone();
+                }
+
+                self.ruleset.play.stages[i].set_current(&current_name);
+                rep = self.ruleset.play.stages[i].get_current(&current_name);
+
+                println!("StageReps: {}", rep);
+
+                let endconditions = &self.ruleset.play.stages[i].endconditions.clone();
+                endconds = self.evaluate_endconditions(endconditions, rep);
+            }
+
+            // all stages in Play are skipped!
+            if endplay {
+                break;
+            }
+            // this stage ends for every player
+            if endstage {
+                continue;
             }
         }
     }
 
-    fn evaluate_endconditions(&self, condition: &Vec<Condition>) -> bool {
+    fn evaluate_endconditions(&mut self, condition: &Vec<EndCondition>, rep: usize) -> bool {
         for cond in condition {
-            if !cond.evaluate(&self) {
+            if cond.evaluate(&self, rep) {
                 return false
             }
         }
@@ -82,24 +146,53 @@ impl CardGameModel {
         return true
     }
 
-    fn do_rules(&mut self, rules: &Vec<Rule>) {
-        for rule in rules.iter() {
-            match rule {
-                Rule::PLAYRULE(play) => self.handle_playrule(play),
-                Rule::SCORINGRULE(scoring) => self.handle_scoringrule(scoring),
-                Rule::SETUPRULE(setup) => self.handle_setuprule(setup),
+    pub fn do_rules(&mut self, rules: &Vec<Rule>) -> Vec<GameFlowChange> {
+        let mut gfc: Vec<GameFlowChange> = vec![];
+        for i in 0..rules.len() {
+            gfc = vec![gfc, self.do_rule(rules[i].clone()).clone()].concat();
+        }
+
+        gfc
+    }
+
+    fn do_rule(&mut self, rule: Rule) -> Vec<GameFlowChange> {
+        match &rule {
+            Rule::PLAYRULE(play) => {
+                self.handle_playrule(&play)
+            },
+            _ => {
+                vec![GameFlowChange::None]
             }
+            // Rule::SCORINGRULE(scoring) => self.handle_scoringrule(&scoring),
+            // Rule::SETUPRULE(setup) => self.handle_setuprule(&setup),
         }
     }
 
-    fn handle_playrule(&mut self, play: &PlayRule) {
+    fn handle_playrule(&mut self, play: &PlayRule) -> Vec<GameFlowChange> {
         match play {
-            PlayRule::ACTIONRULE(actions) => self.handle_action(actions),
-            PlayRule::CHOOSERULE(rules) => {},
-            PlayRule::OPTIONALRULE(rules) => {},
-            PlayRule::CONDITIONALRULE(condcases) => {},
-            PlayRule::IFRULE(ifrule) => {},
-            PlayRule::TRIGGERRULE(trigger) => {},
+            PlayRule::ACTIONRULE(actions) => {
+                self.handle_action(actions)
+            },
+            PlayRule::CHOOSERULE(choose) => {
+                let input = self.get_input(ActionType::ChooseAction);
+                choose.run(self, input)
+            },
+            PlayRule::OPTIONALRULE(optional) => {
+                let input = self.get_input(ActionType::OptionalAction);
+                optional.run(self, input)
+            },
+            PlayRule::CONDITIONALRULE(condcases) => {
+                condcases.run(self, RuleInput::None)
+            },
+            PlayRule::IFRULE(ifrule) => {
+                ifrule.run(self, RuleInput::None)
+            },
+            PlayRule::TRIGGERRULE(trigger) => {
+                trigger.run(self, RuleInput::None)
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            }
         }
     }
 
@@ -111,46 +204,289 @@ impl CardGameModel {
 
     }
 
-    fn handle_action(&mut self, actions: &ActionRule) {
+    fn handle_action(&mut self, action: &ActionRule) -> Vec<GameFlowChange> {
+        match &action.action {
+            Action::Deal(deal) => {{}
+                let input = self.get_input(ActionType::DealAction);
+                deal.run(self, input)
+            },
+            Action::Move(mv) => {
+                let input = self.get_input(ActionType::MoveAction);
+                mv.run(self, input)
+            },
+            Action::MoveCardSet(mvcs) => {
+                let input = self.get_input(ActionType::MoveCardSetAction);
+                mvcs.run(self, input)
+            },
+            Action::EndTurn => {
+                vec![GameFlowChange::EndTurn]
+            },
+            Action::EndStage => {
+                vec![GameFlowChange::EndStage]
+            },
+            Action::EndPlay => {
+                vec![GameFlowChange::EndPlay]
+            },
+            Action::EndGame => {
+                vec![GameFlowChange::EndGame]
+            },
+            Action::CycleAction(cycleto) => {
+                vec![GameFlowChange::CycleTo(cycleto.clone())]
+            },
+        }
+    }
+
+    pub fn display_game_info(&self) {
+        println!("============================================");
+        let current_name = self.gamedata.turnorder[self.gamedata.current].clone();
+        println!("{}'s turn!", &current_name);
+        // TODO:
+        // hard-coded to hand for now
+        let hand_cards = &self.gamedata
+            .get_player(&current_name)
+            .locations
+            .get("hand")
+            .unwrap()
+            .borrow()
+            .contents;
+        for i in 0..hand_cards.len() {
+            println!("Card {}: {}", i, hand_cards[i]);
+        }
+        println!("============================================");
+    }
+
+    pub fn get_input(&self, actype: ActionType) -> RuleInput {
+        self.display_game_info();
         // TODO:
         // UI-communication (Event making)
         // Protocol-Validation
-        for action in actions.actions.iter() {
-            match action {
-                Action::Deal(deal) => {},
-                Action::Move(mv) => {},
-                Action::MoveCardSet(mvcs) => {},
+        match actype {
+            ActionType::ChooseAction => {
+                self.get_choose_action()
+            },
+            ActionType::OptionalAction => {
+                self.get_optional_action()
+            },
+            ActionType::TriggerAction => {
+                self.get_trigger_action()
+            },
+            ActionType::MoveCardSetAction => {
+                self.get_movecs_action()
+            },
+            ActionType::DealAction => {
+                self.get_move_action()
+            },
+            ActionType::MoveAction => {
+                self.get_move_action()
+            },
+            _ => {RuleInput::NoOp},
+        }
+    }
+
+    pub fn get_choose_action(&self) -> RuleInput {
+        loop {
+            print!("Enter your action (as a number): ");
+            // Make sure to flush stdout so the prompt appears
+            io::stdout().flush().unwrap();
+
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_ok() {
+                match input.trim().parse::<usize>() {
+                    Ok(num) => return RuleInput::ChooseInput(num),
+                    Err(_) => {
+                        println!("Invalid input, please enter a number.");
+                        continue;
+                    }
+                }
+            } else {
+                println!("Failed to read input.");
+            }
+        }
+    }
+
+    pub fn get_move_action(&self) -> RuleInput {
+        let mut moves = Vec::new();
+
+        loop {
+            println!("Enter a move in the format:");
+            println!("from_location from_index to_location to_index");
+            println!("Example: Own:hand 0 Table:discard 0");
+            println!("Or type 'done' to finish entering moves.");
+
+            print!("> ");
+            io::stdout().flush().unwrap();
+
+            let mut input = String::new();
+            if io::stdin().read_line(&mut input).is_err() {
+                println!("Failed to read input.");
+                continue;
+            }
+
+            let input = input.trim();
+            if input.eq_ignore_ascii_case("done") {
+                break;
+            }
+
+            let parts: Vec<&str> = input.split_whitespace().collect();
+            if parts.len() != 4 {
+                println!("Invalid format. Please enter exactly four items.");
+                continue;
+            }
+
+            let from_loc = match parse_location_ref(parts[0]) {
+                Some(loc) => loc,
+                None => {
+                    println!("Invalid source location.");
+                    continue;
+                }
+            };
+
+            let from_index = match parts[1].parse::<usize>() {
+                Ok(num) => num,
+                Err(_) => {
+                    println!("Invalid source index.");
+                    continue;
+                }
+            };
+
+            let to_loc = match parse_location_ref(parts[2]) {
+                Some(loc) => loc,
+                None => {
+                    println!("Invalid destination location.");
+                    continue;
+                }
+            };
+
+            let to_index = match parts[3].parse::<usize>() {
+                Ok(num) => num,
+                Err(_) => {
+                    println!("Invalid destination index.");
+                    continue;
+                }
+            };
+
+            moves.push(((from_loc, from_index), (to_loc, to_index)));
+        }
+
+        RuleInput::MoveInput(moves)
+    }
+
+    pub fn get_movecs_action(&self) -> RuleInput {
+        RuleInput::MoveCardSet
+    }
+
+    pub fn get_optional_action(&self) -> RuleInput {
+        let mut rulein = RuleInput::NoOp;
+
+        loop {
+            print!("Do you want to do the action: ");
+            // Make sure to flush stdout so the prompt appears
+            io::stdout().flush().unwrap();
+
+            let input = String::new();
+
+            if &input == "y" {
+                rulein = RuleInput::DoOp;
+                break;
+            } else {
+                println!("Failed to read input.");
+                break;
             }
         }
 
+        rulein
     }
 
-    pub fn cond_rule(&mut self, condrule: &ConditionalRule) {
-        for cr in condrule.condcases.iter() {
-            if cr.condition.evaluate(self) {
-                self.do_rules(&cr.rules);
+    pub fn get_trigger_action(&self) -> RuleInput {
+        RuleInput::Trigger
+    }
+
+    fn handle_gfc(self, gfcs: Vec<GameFlowChange>) {
+        for gfc in gfcs.iter() {
+            match gfc {
+                GameFlowChange::EndTurn  => {
+                    // cycle to the next player in the turnorder
+                },
+                GameFlowChange::EndStage => {
+                    // no player is allowed to play the stage again
+                },
+                GameFlowChange::EndPlay  => {
+                    // no player is allowed to change anything anymore (so just scoring at the end)
+                },
+                GameFlowChange::EndGame  => {
+                    // game ends for everybody
+                },
+                GameFlowChange::CycleTo(cycleto) => {
+                    // remember to cycle to this person after evaluation
+                },
+                _ => {
+
+                },
             }
         }
-
     }
+}
 
-    pub fn if_rule(&mut self, ifrule: &IfRule) {
-        if ifrule.condition.evaluate(self) {
-            self.do_rules(&ifrule.rules);
+fn parse_location_ref(s: &str) -> Option<LocationRef> {
+    let parts: Vec<&str> = s.split(':').collect();
+    match parts.as_slice() {
+        ["Own", loc] => Some(LocationRef::Own(loc.to_string())),
+        ["Table", loc] => Some(LocationRef::Table(loc.to_string())),
+        ["Player", player, loc] => Some(LocationRef::Player(player.to_string(), loc.to_string())),
+        ["Team", team, loc] => Some(LocationRef::Team(team.to_string(), loc.to_string())),
+        _ => None,
+    }
+}
+
+#[derive(Debug, Clone)]
+pub enum GameFlowChange {
+    None,
+    // for current Player
+    EndTurn,
+    EndStage,
+    EndPlay,
+    EndGame,
+    // for ANY Player and Players
+    // TODO:
+    OutOfStage(Vec<String>),
+    OutOfPlay(Vec<String>),
+    OutOfGame(Vec<String>),
+    // cycle to someone else
+    CycleTo(CycleAction),
+}
+impl PartialEq for GameFlowChange {
+    fn eq(&self, other: &Self) -> bool {
+        use GameFlowChange::*;
+
+        match (self, other) {
+            (None, None)
+            | (EndTurn, EndTurn)
+            | (EndStage, EndStage)
+            | (EndPlay, EndPlay)
+            | (EndGame, EndGame) => true,
+
+            (OutOfStage(a), OutOfStage(b))
+            | (OutOfPlay(a), OutOfPlay(b))
+            | (OutOfGame(a), OutOfGame(b)) => a == b,
+
+            (CycleTo(_), CycleTo(_)) => true, // ignore the function, just match variant
+
+            _ => false,
         }
     }
+}
+impl Eq for GameFlowChange {}
 
-    pub fn op_rule(&mut self, oprule: &OptionalRule) {
-        // UI input on do you want to do that or not?
-    }
 
-    pub fn choose_rule(&mut self, chooserule: &ChooseRule) {
-        // UI input on what rule he chose????
-    }
-
-    pub fn trigger_rule(&mut self, triggerrule: &TriggerRule) {
-        self.do_rules(&triggerrule.rules);
-    }
+#[derive(Debug, Clone)]
+pub enum ActionType {
+    EndAction,
+    ChooseAction,
+    MoveAction,
+    DealAction,
+    MoveCardSetAction,
+    TriggerAction,
+    OptionalAction,
 }
 
 #[derive(Debug, Clone)]
@@ -419,14 +755,18 @@ impl GameData {
         )
     }
 
-    pub fn deal_q_cards<'a>(&'a mut self, q: usize, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a> {
+    pub fn deal_q_cards<'a>(&'a mut self, q: usize, fromcs: HashMap<LocationRef, Vec<Card>>, tocs: HashMap<LocationRef, Vec<Card>>) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a> {
         Box::new(
-            move |cards: Vec<(LocationRef, LocationRef)>| {
-                if q > cards.len() {
+            move |cards: Vec<((LocationRef, usize), (LocationRef, usize))>| {
+                let deal_cards: Vec<(LocationRef, LocationRef)> = cards
+                    .iter()
+                    .map(|card| (card.0.0.clone(), card.1.0.clone()))
+                    .collect();
+                if q > deal_cards.len() {
                     panic!("To few cards to deal!");
                 }
                 for _ in 0..q {
-                    self.deal_1_card(fromcs.clone(), tocs.clone())(cards[0].clone());
+                    self.deal_1_card(fromcs.clone(), tocs.clone())(deal_cards[0].clone());
                 }
             }
         )
@@ -542,8 +882,6 @@ impl Player {
         }
     }
 }
-// This can be done better, but it is complicated with the Rc<RefCell<...>>
-// Lets stick to this one and change it if we have time left.
 impl PartialEq for Player {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name && self.score == other.score
@@ -598,7 +936,6 @@ impl PartialEq for Team {
     }
 }
 
-
 #[derive(Debug, Clone)]
 pub struct Table {
     pub locations: HashMap<String, Rc<RefCell<Location>>>,
@@ -629,6 +966,7 @@ impl fmt::Display for LocationRef {
 
 #[derive(Debug, Clone)]
 pub struct Location {
+    // TODO:
     //    AREA(Area),
     //    PILE(Pile),
     pub name: String,
@@ -903,39 +1241,118 @@ impl PointMap {
     }   
 }
 
-// TODO:
-// Simultanous-Stage
-// Stage-struct is SeqStage (for now).
-// Simultanous-Stage needs to have a whole new structure with async-Data!
-// #[derive(Debug, Clone)]
-// pub enum Stage {
-//     SIM(StageS),
-//     SEQ(StageS),
-// }
-
-#[derive(Debug)]
 pub struct Stage {
     pub name: String,
-    pub endconditions: Vec<Condition>,
+    pub endconditions: Vec<EndCondition>,
     pub substages: Vec<Stage>,
-    // turncounter is in the GameData for convenience!
-    // If we do the turncounter here we have to propagate the counter through everything.
-    // In my opinion this makes everything more complex than it needs to be.
-    // We could do it so that this turncounter just updates the GameData turncounter.
-    // This would be a nice solution!
+    // TODO: should be synchronuzed with the gamedata turncounter (self.current)
     pub turncounter: i32,
     pub rules: Vec<Rule>,
+    pub pref: TRefPlayer,
+    pub reps: HashMap<String, usize>,
+    // Name of current Player (Because of some Examples of Games it is necessary)
+    // Example: 
+    // set Player out of stage
+    // cycle to next
+    pub current: String,
 }
 
-impl Clone for Stage {
+impl Stage {
+    pub fn new(name: &str) -> Self {
+        Stage {
+            name: String::from(name),
+            endconditions: vec![],
+            substages: vec![],
+            turncounter: 0,
+            rules: vec![],
+            pref: Arc::new(|gd: &GameData| {
+                gd.get_player_copy(&gd.turnorder[gd.current])
+            }),
+            reps: HashMap::new(),
+            current: String::from(""),
+        }
+    }
+
+    pub fn add_setup_rule(&mut self, setup: Rule) {
+        self.rules.push(setup);
+    }
+
+    pub fn add_play_rule(&mut self, play: Rule) {
+        self.rules.push(play);
+    }
+
+    pub fn add_scoring_rule(&mut self, scoring: Rule) {
+        self.rules.push(scoring);
+    }
+
+    pub fn add_sub_stage<'a>(&'a mut self, sub: Stage) {
+        self.substages.push(sub);
+    }
+
+    pub fn add_end_condition(&mut self, endcond: EndCondition) {
+        self.endconditions.push(endcond);
+    }
+
+    pub fn set_player_reference(&mut self, pref: TRefPlayer) {
+        self.pref = pref;
+    }
+
+    // do this before u start the Stage
+    pub fn init_reps(&mut self, players: Vec<String>) {
+        self.current = players[0].clone();
+
+        for p in players.iter() {
+            self.reps.insert(p.clone(), 0);
+        }
+    }
+
+    pub fn update_reps(&mut self) {
+        self.reps
+            .entry(self.current.clone())
+            .and_modify(|v| *v += 1);
+
+        println!("Current players value: {}", self.reps.get(&self.current).unwrap())
+    }
+
+    pub fn set_current(&mut self, name: &str) {
+        self.current = String::from(name);
+    }
+
+    pub fn get_current(&self, name: &str) -> usize {
+        if let Some(rep) = self.reps.get(name) {
+            return *rep;
+        }
+
+        // TODO:
+        // what if player is not found?
+        return 0
+    }
+}
+impl<'a> Clone for Stage {
     fn clone(&self) -> Self {
         Stage {
             name: self.name.clone(),
-            endconditions: vec![], // or panic!(), or skip, or clone dummy data
+            endconditions: self.endconditions.clone(),
             substages: self.substages.clone(),
             turncounter: self.turncounter,
             rules: self.rules.clone(),
+            pref: Arc::clone(&self.pref),
+            reps: self.reps.clone(),
+            current: self.current.clone(),
         }
+    }
+}
+
+impl fmt::Debug for Stage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Stage")
+            .field("name", &self.name)
+            .field("endconditions", &self.endconditions)
+            .field("substages", &self.substages)
+            .field("turncounter", &self.turncounter)
+            .field("rules", &self.rules)
+            .field("pref", &"<function>") // Custom placeholder for non-Debug field
+            .finish()
     }
 }
 // Object-safe trait for cloning boxed functions
@@ -962,43 +1379,45 @@ impl Clone for Box<dyn CloneableFn> {
 
 // Finally, define the Condition struct
 pub struct Condition {
-    pub condition: Box<dyn CloneableFn>,
+    pub condition: Arc<dyn Fn(&CardGameModel) -> bool>,
 }
-
 impl Condition {
-    pub fn new<F>(f: F) -> Self
-    where
-        F: Fn(&CardGameModel) -> bool + Clone + 'static,
-    {
-        Self {
-            condition: Box::new(f),
-        }
-    }
-
-    pub fn evaluate(&self, model: &CardGameModel) -> bool {
-        (self.condition)(model)
+    pub fn evaluate(&self, cgm: &CardGameModel) -> bool {
+        (*self.condition)(cgm)
     }
 }
-
-// Now implement Clone for Condition
 impl Clone for Condition {
     fn clone(&self) -> Self {
-        Self {
-            condition: self.condition.clone(),
+        Condition {
+            condition: Arc::clone(&self.condition)
         }
     }
 }
-
 impl fmt::Debug for Condition {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str("<Condition>")
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct ConditionalCase {
-    pub condition: Condition,
-    pub rules: Vec<Rule>,
+pub struct EndCondition {
+    pub condition: Arc<dyn Fn(&CardGameModel, usize) -> bool>,
+}
+impl EndCondition {
+    pub fn evaluate(&self, cgm: &CardGameModel, reps: usize) -> bool {
+        (*self.condition)(cgm, reps)
+    }
+}
+impl Clone for EndCondition {
+    fn clone(&self) -> Self {
+        EndCondition {
+            condition: Arc::clone(&self.condition)
+        }
+    }
+}
+impl fmt::Debug for EndCondition {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("<Condition>")
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1011,7 +1430,7 @@ impl RuleSet {
     pub fn new() -> RuleSet {
         RuleSet {
             setup: Setup {setuprules: vec![]},
-            play: Play { endconditions: vec![], stages: vec![]},
+            play: Play { endconditions: vec![], stages: vec![], current: String::from(""), reps: HashMap::new()},
             scoring: Scoring {scoringrules: vec![]}
         }
     }
@@ -1030,11 +1449,115 @@ impl RuleSet {
 }
 
 #[derive(Debug, Clone)]
+pub enum RuleInput {
+    None,
+    DoOp,
+    NoOp,
+    Trigger,
+    ChooseInput(usize),
+    MoveCardSet,
+    MoveInput(Vec<((LocationRef, usize), (LocationRef, usize))>),
+}
+
+#[derive(Debug, Clone)]
 pub enum Rule {
     SETUPRULE(SetupRule),
     SCORINGRULE(ScoringRule),
     PLAYRULE(PlayRule),
 }
+impl Rule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match self {
+            Self::PLAYRULE(play) => {
+                match play {
+                    PlayRule::ACTIONRULE(action) => {
+                        match &action.action {
+                            Action::Move(mv) => {
+                                mv.run(cgm, input)
+                            },
+                            Action::Deal(deal) => {
+                                deal.run(cgm, input)
+                            },
+                            Action::MoveCardSet(mvcs) => {
+                                mvcs.run(cgm, input)
+                            },
+                            Action::CycleAction(cycleto) => {
+                                vec![GameFlowChange::CycleTo(cycleto.clone())]
+                            },
+                            Action::EndTurn => {
+                                vec![GameFlowChange::EndTurn]
+                            },
+                            Action::EndStage => {
+                                vec![GameFlowChange::EndStage]
+                            },
+                            Action::EndPlay => {
+                                vec![GameFlowChange::EndPlay]
+                            },
+                            Action::EndGame => {
+                                vec![GameFlowChange::EndGame]
+                            },
+                        }
+                    },
+                    PlayRule::CHOOSERULE(choose) => {
+                        choose.run(cgm, input)
+                    },
+                    PlayRule::CONDITIONALRULE(conditional) => {
+                        conditional.run(cgm, input)
+                    },
+                    PlayRule::OPTIONALRULE(optional) => {
+                        optional.run(cgm, input)
+                    },
+                    PlayRule::TRIGGERRULE(trigger) => {
+                        trigger.run(cgm, input)
+                    },
+                    PlayRule::IFRULE(ifrule) => {
+                        ifrule.run(cgm, input)
+                    },
+                }
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            },
+        }
+    }
+
+    pub fn get_action_type(&self) -> ActionType {
+        match self {
+            Self::PLAYRULE(play) => {
+                match play {
+                    PlayRule::ACTIONRULE(action) => {
+                        match &action.action {
+                            Action::Move(_) => {ActionType::MoveAction},
+                            Action::Deal(_) => {ActionType::DealAction},
+                            Action::MoveCardSet(_) => {ActionType::MoveCardSetAction},
+                            _ => {ActionType::EndAction}
+                        }
+                    },
+                    PlayRule::CHOOSERULE(_) => {
+                        ActionType::ChooseAction
+                    },
+                    // PlayRule::CONDITIONALRULE(conditional) => {
+                    //     ActionType::ConditionalAction
+                    // },
+                    PlayRule::OPTIONALRULE(_) => {
+                        ActionType::OptionalAction
+                    },
+                    PlayRule::TRIGGERRULE(_) => {
+                        ActionType::TriggerAction
+                    },
+                    // PlayRule::IFRULE(ifrule) => {
+                    //     ActionType::IfAction
+                    // },
+                    // Default return type: Needs to be changed later
+                    _ => {ActionType::OptionalAction}
+                }
+            },
+            // Default return type: Needs to be changed later
+            _ => {ActionType::OptionalAction},
+        }
+    }
+}
+
 
 #[derive(Debug, Clone)]
 pub enum PlayRule {
@@ -1043,12 +1566,35 @@ pub enum PlayRule {
     OPTIONALRULE(OptionalRule),
     CHOOSERULE(ChooseRule),
     IFRULE(IfRule),
-    TRIGGERRULE(TriggerRule)
+    TRIGGERRULE(TriggerRule),
+}
+
+#[derive(Debug, Clone)]
+pub struct ConditionalCase {
+    pub condition: Condition,
+    pub rules: Vec<Rule>,
 }
 
 #[derive(Debug, Clone)]
 pub struct ConditionalRule {
     pub condcases: Vec<ConditionalCase>,
+}
+impl ConditionalRule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
+        let mut gfs = vec![];
+
+        for i in 0..self.condcases.len() {    
+            if self.condcases[i].condition.evaluate(cgm) {
+                for j in 0..self.condcases[i].rules.len() { 
+                    let actype= self.condcases[i].rules[j].get_action_type();
+                    let rulein = cgm.get_input(actype);
+                    gfs = vec![gfs, self.condcases[i].rules[j].run(cgm, rulein).clone()].concat();
+                }
+            }
+        }
+
+        gfs
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -1056,25 +1602,81 @@ pub struct IfRule {
     pub condition: Condition,
     pub rules: Vec<Rule>,
 }
+impl IfRule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
+        let mut gfs = vec![];
+
+        if self.condition.evaluate(cgm) {
+            for i in 0..self.rules.len() { 
+                let actype= self.rules[i].get_action_type();
+                let rulein = cgm.get_input(actype);
+                gfs = vec![gfs, self.rules[i].run(cgm, rulein).clone()].concat();
+            }
+        }
+    
+        gfs
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct OptionalRule {
     pub rules: Vec<Rule>,
+}
+impl OptionalRule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match input {
+            RuleInput::DoOp => {
+                let mut gfs = vec![];
+                for i in 0..self.rules.len() {
+                    let actype= self.rules[i].get_action_type();
+                    let rulein = cgm.get_input(actype);
+                    gfs = vec![gfs, self.rules[i].run(cgm, rulein).clone()].concat();
+                }
+
+                gfs
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            },
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct ChooseRule {
     pub rules: Vec<Rule>,
 }
+impl ChooseRule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match input {
+            RuleInput::ChooseInput(i) => {
+                let actype= self.rules[i].get_action_type();
+                let input = cgm.get_input(actype);
+                self.rules[i].run(cgm, input)
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            },
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct TriggerRule {
     pub rules: Vec<Rule>,
 }
+impl TriggerRule {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
+        let mut gfs = vec![];
 
-#[derive(Debug, Clone)]
-pub struct ActionRule {
-    pub actions: Vec<Action>,
+        for i in 0..self.rules.len() { 
+            let actype= self.rules[i].get_action_type();
+            let rulein = cgm.get_input(actype);
+            gfs = vec![gfs, self.rules[i].run(cgm, rulein).clone()].concat();
+        }
+    
+        gfs
+    }
 }
 
 pub trait CloneActionFn: Fn(&Vec<((LocationRef, usize),(LocationRef, usize))>) + Send + Sync {
@@ -1096,11 +1698,28 @@ impl Clone for Box<dyn CloneActionFn> {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct ActionRule {
+    pub action: Action
+}
+
+#[derive(Debug, Clone)]
+pub enum EndAction {
+    EndTurn,
+    EndStage,
+    EndGame,
+}
+
 #[derive(Clone)]
 pub enum Action {
     Move(MoveAction),
     Deal(DealAction),
-    MoveCardSet(MoveCSAction)
+    MoveCardSet(MoveCSAction),
+    CycleAction(CycleAction),
+    EndTurn,
+    EndStage,
+    EndPlay,
+    EndGame,
 }
 impl Do for Action {
     fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
@@ -1108,6 +1727,7 @@ impl Do for Action {
             Self::Move(mv) => {mv.play(cgm)},
             Self::Deal(deal) => {deal.play(cgm)},
             Self::MoveCardSet(mvcs) => {mvcs.play(cgm)},
+            _ => {PlayOutput::EndAction},
         }
     }
 }
@@ -1117,38 +1737,27 @@ impl std::fmt::Debug for Action {
             Action::Move(_) => f.write_str("Action::Move(<closure>)"),
             Action::Deal(_) => f.write_str("Action::Deal(<closure>)"),
             Action::MoveCardSet(_) => f.write_str("Action::MoveCardSet(<closure>)"),
+            _ => f.write_str("Action::EndAction(<closure>)"),
         }
     }
 }
 impl Action {
-    pub fn runmove<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<((LocationRef, usize), (LocationRef, usize))>) {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match self {
             Self::Move(mv) => mv.run(cgm, input),
-            _ => {}
-        }
-    }
-
-    pub fn rundeal<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<(LocationRef, LocationRef)>) {
-        match self {
             Self::Deal(deal) => deal.run(cgm, input),
-            _ => {}
+            Self::MoveCardSet(mvcs) => mvcs.run(cgm, input),
+            _ => {
+                vec![GameFlowChange::None]
+            }
         }
     }
-
-    pub fn runmovecs<'a>(&self, cgm: &'a mut CardGameModel) {
-        match self {
-            Self::MoveCardSet(mvcs) => mvcs.run(cgm),
-            _ => {}
-        }
-    }
-
-
 }
 
 pub enum PlayOutput<'a> {
     Move(Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>),
-    Deal(Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>),
     MoveCS(()),
+    EndAction,
 }
 
 pub trait Do {
@@ -1165,26 +1774,41 @@ impl Do for MoveAction {
     }
 }
 impl MoveAction {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<((LocationRef, usize), (LocationRef, usize))>) {
-        ((self.action)(cgm))(input);
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match input {
+            RuleInput::MoveInput(mv) => {
+                ((self.action)(cgm))(mv);
+                vec![GameFlowChange::None]
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            }
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct DealAction {
-    pub action: TDealCards,
+    pub action: TMoveCards,
 }
 impl Do for DealAction {
     fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
-        PlayOutput::Deal((self.action)(cgm))
+        PlayOutput::Move((self.action)(cgm))
     }
 }
 impl DealAction {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: Vec<(LocationRef, LocationRef)>) {
-        ((self.action)(cgm))(input);
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match input {
+            RuleInput::MoveInput(mv) => {
+                ((self.action)(cgm))(mv);
+                vec![GameFlowChange::None]
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            }
+        }
     }
 }
-
 
 #[derive(Clone)]
 pub struct MoveCSAction {
@@ -1196,11 +1820,52 @@ impl Do for MoveCSAction {
     }
 }
 impl MoveCSAction {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel) {
-        ((self.action)(cgm));
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+        match input {
+            RuleInput::MoveCardSet => {
+                ((self.action)(cgm));
+                vec![GameFlowChange::None]
+            },
+            _ => {
+                vec![GameFlowChange::None]
+            }
+        }
     }
 }
 
+pub struct CycleAction {
+    pub pref: Arc<dyn for<'a> Fn(&'a CardGameModel) -> &'a Player + 'static>,
+}
+impl CycleAction {
+    pub fn get_name(&self, cgm: &CardGameModel) -> String  {
+        ((self.pref)(cgm)).name.clone()
+    }
+
+    pub fn get_pos(&self, cgm: &CardGameModel) -> usize {
+        let pname = self.get_name(cgm);
+        for i in 0..cgm.gamedata.turnorder.len() {
+            if cgm.gamedata.turnorder[i] == pname {
+                return i;
+            }
+        }
+
+        // TODO:
+        // Default return
+        0
+    }
+}
+impl Clone for CycleAction {
+    fn clone(&self) -> Self {
+        CycleAction {
+            pref: Arc::clone(&self.pref)
+        }
+    }
+}
+impl std::fmt::Debug for CycleAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Action::EndAction(<closure>)")
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum ScoringRule {
@@ -1227,6 +1892,9 @@ pub struct Scoring {
 pub struct Play {
     pub endconditions: Vec<Condition>,
     pub stages: Vec<Stage>,
+    // current player
+    pub current: String,
+    pub reps: HashMap<String, usize>,
 }
 
 impl Clone for Play {
@@ -1234,6 +1902,8 @@ impl Clone for Play {
         Play {
             endconditions: vec![], // or panic!(), or skip, or clone dummy data
             stages: self.stages.clone(),
+            current: self.current.clone(),
+            reps: self.reps.clone(),
         }
     }
 }
@@ -1248,89 +1918,8 @@ impl Play {
     }
 }
 
-// Types for closures
-// pub type TMoveCardSet = Box<dyn Fn(&mut CardGameModel)>;
-// pub type TMoveCards   = Box<dyn for<'a>Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a> + Send + Sync>;
-// pub type TDealCards   = Box<dyn for<'a>Fn(&'a mut CardGameModel) -> Box<(dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a)> + Send + Sync>;
-
-pub trait CloneableMove: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a> + Send + Sync {
-    fn clone_box(&self) -> Box<dyn CloneableMove>;
-}
-
-impl<T> CloneableMove for T
-where
-    T: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
-{
-    fn clone_box(&self) -> Box<dyn CloneableMove> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn CloneableMove> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
-pub type TMoveCards = Box<dyn CloneableMove>;
-
-
-pub trait CloneableDeal: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a> + Send + Sync {
-    fn clone_box(&self) -> Box<dyn CloneableDeal>;
-}
-
-impl<T> CloneableDeal for T
-where
-    T: for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>
-        + Clone
-        + Send
-        + Sync
-        + 'static,
-{
-    fn clone_box(&self) -> Box<dyn CloneableDeal> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn CloneableDeal> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
-pub type TDealCards = Box<dyn CloneableDeal>;
-
-
-pub trait CloneableCardSet: Fn(&mut CardGameModel) + Send + Sync {
-    fn clone_box(&self) -> Box<dyn CloneableCardSet>;
-}
-
-impl<T> CloneableCardSet for T
-where
-    T: Fn(&mut CardGameModel) + Clone + Send + Sync + 'static,
-{
-    fn clone_box(&self) -> Box<dyn CloneableCardSet> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn CloneableCardSet> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
-
-pub type TMoveCardSet = Box<dyn CloneableCardSet>;
-
-
-// pub type TMoveCards = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>>;
-// pub type TDealCards = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, Box<dyn FnOnce(Vec<(LocationRef, LocationRef)>) + 'a>>>;
-// pub type TMoveCardSet = Box<dyn for<'a> ActionCloneableFn<&'a mut CardGameModel, ()>>;
-
-pub type TRefPlayer   = Box<dyn Fn(&GameData) -> Player>;
-pub type TRefTeam     = Box<dyn Fn(&GameData) -> Team>;
-pub type TCardSet     = Box<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>>>;
+pub type TMoveCards   = Arc<dyn for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>;
+pub type TMoveCardSet = Arc<dyn Fn(&mut CardGameModel) + Send + Sync + 'static>;
+pub type TCardSet     = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
+pub type TRefPlayer   = Arc<dyn Fn(&GameData) -> Player>;
+pub type TRefTeam     = Arc<dyn Fn(&GameData) -> Team>;

@@ -1,4 +1,3 @@
-
 // $gd = gamedata
 macro_rules! player {
     ($($n:literal), *) => {
@@ -1051,8 +1050,10 @@ macro_rules! cardposition {
 // location OF table
 macro_rules! cardset {
     ($($locname:literal), *) => {{
-        use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use crate::ast::{GameData, TCardSet, LocationRef, Card};
+        use std::sync::Arc;
+
+        Arc::new(|gd: &GameData| {
             use std::collections::HashMap;
 
             let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1072,7 +1073,9 @@ macro_rules! cardset {
 
     ($($locname:literal), * of player: $pref:expr) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use std::collections::HashMap;
 
             let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1090,7 +1093,9 @@ macro_rules! cardset {
 
     ($($locname:literal), * of team: $tref:expr) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use std::collections::HashMap;
 
             let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1109,7 +1114,9 @@ macro_rules! cardset {
     // w = where
     ($($locname:literal), * w $f:tt) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::{LocationRef, Card};
             use std::collections::HashMap;
 
@@ -1140,7 +1147,9 @@ macro_rules! cardset {
 
     ($($locname:literal), * of player: $pref:expr, w $f:tt) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::LocationRef;
             use std::collections::HashMap;
 
@@ -1162,7 +1171,9 @@ macro_rules! cardset {
 
     ($($locname:literal), * of team: $tref:expr, w $f:tt) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::LocationRef;
             use std::collections::HashMap;
 
@@ -1184,7 +1195,9 @@ macro_rules! cardset {
 
     ($comboname:literal inn $($locname:literal), *) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::LocationRef;
             use std::collections::HashMap;
 
@@ -1208,7 +1221,9 @@ macro_rules! cardset {
 
     (not $comboname:literal inn $($locname:literal), *) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::LocationRef;
             use std::collections::HashMap;
 
@@ -1232,7 +1247,9 @@ macro_rules! cardset {
 
     ($cardpos:tt) => {{
         use crate::ast::{GameData, TCardSet};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::LocationRef;
 
             let cardpos: HashMap<LocationRef, Vec<Card>> = $cardpos(gd); 
@@ -1245,7 +1262,9 @@ macro_rules! cardset {
 macro_rules! combo {
     ($name:literal, $filter:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+        
+        Arc::new(
             |gd: &mut GameData| {
                 use crate::ast::{CardFunction, CardCombination};
 
@@ -1279,6 +1298,8 @@ because it is confusing if we call tehm Int, String, Bool)
 */
 
 
+// TODO:
+// needs to be CardGameModel considering that it needs information from ruleset
 macro_rules! int {
     ($int:literal) => {{
         use crate::ast::GameData;
@@ -1632,7 +1653,9 @@ Bool → String (’==’ | ’!=’) String | Int (’==’ | ’!=’ | ’<�
 macro_rules! bool {
     (string: $string1:expr, $op:literal, $string2:expr) => {{
         use crate::ast::CardGameModel;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |cgm: &CardGameModel| {
                 match $op {
                     "==" => $string1(&cgm.gamedata) == $string2(&cgm.gamedata),
@@ -1786,13 +1809,16 @@ macro_rules! player_ref {
     //      Int | ’owner’ ’of’ (CardPosition | (’highest’ | ’lowest’) [Memory])
     ($pname:literal) => {{
         use crate::ast::{GameData, TRefPlayer};
+        use std::sync::Arc;
 
-        Box::new(|gd: &GameData| gd.get_player_copy($pname)) as TRefPlayer
+        Arc::new(|gd: &GameData| gd.get_player_copy($pname)) as TRefPlayer
     }};
 
     (current) => {{
         use crate::ast::{GameData, TRefPlayer};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             let current = gd.current as usize;
             let pname   = &gd.turnorder[current];
             gd.get_player_copy(pname)
@@ -1801,7 +1827,9 @@ macro_rules! player_ref {
 
     (next) => {{
         use crate::ast::{GameData, TRefPlayer};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             let current = gd.current as i32;
             let next    = ((current + 1) % (gd.turnorder.len() as i32)) as usize;
             let pname   = &gd.turnorder[next];
@@ -1811,7 +1839,9 @@ macro_rules! player_ref {
 
     (previous) => {{
         use crate::ast::{GameData, TRefPlayer};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             let current = gd.current as i32;
             let len = gd.turnorder.len() as i32;
             let previous    = ((current - 1 + len) % len) as usize;
@@ -1829,7 +1859,9 @@ macro_rules! player_ref {
     
     (turnorder $int:expr) => {{
         use crate::ast::{GameData, TRefPlayer};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             let i       = $int(gd) as i32;
             let len = gd.turnorder.len() as i32;
             let index   = ((i - 1 + len) % len) as usize;
@@ -1841,7 +1873,9 @@ macro_rules! player_ref {
     // ’owner’ ’of’ CardPosition
     (owner of $cardpos:expr) => {{
         use crate::ast::{GameData, TRefPlayer};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             let map = $cardpos(gd);
             let i     = gd.current as usize;
             let pname = &gd.turnorder[i];
@@ -1870,15 +1904,18 @@ macro_rules! player_ref {
 macro_rules! team_ref {
     ($tname:literal) => {{
         use crate::ast::{GameData, TRefTeam};
+        use std::sync::Arc;
 
-        Box::new(|gd: &GameData| {
+        Arc::new(|gd: &GameData| {
             gd.get_team_copy($tname)
         }) as TRefTeam
     }};
 
     (team of $pref:expr) => {{
         use crate::ast::{GameData, TRefTeam};
-        Box::new(|gd: &GameData| {
+        use std::sync::Arc;
+        
+        Arc::new(|gd: &GameData| {
             use crate::ast::Player;
             let player: Player = ($pref)(gd);
             let pname: &str = &player.name;
@@ -1898,29 +1935,87 @@ macro_rules! team_ref {
 
 // ’until’ Bool ((’and’ | ’or’) Repetitions)? | Repetitions | ’until’ ’end’
 macro_rules! endcondition {
-    (until $bool:literal) => {
-        use crate::ast::GameData;
-        Box::new(
-            |gd: &GameData| {
-                // I would say until the bool is false
-                $bool(gd)
-            }
-        )
-    };
+    (until $bool:expr) => {{
+        use crate::ast::{CardGameModel, EndCondition};
+        use std::sync::Arc;
+
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, _: usize| {
+                    // I would say until the bool is false
+                    $bool(cgm)
+                }
+            )
+        }
+    }};
 
     // Where do we save the repitions?
-    ($cgm:expr, until $bool:literal and $reps:tt) => {
+    (until $bool:literal and $int:expr, times) => {{
+        use crate::ast::{CardGameModel, EndCondition};
+        use std::sync::Arc;
 
-    };
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    $bool(cgm) && rep == $int(&cgm.gamedata)
+                }
+            )
+        }
+    }};
 
-    // Where do we save the repitions?
-    ($cgm:expr, until $bool:literal or $reps:tt) => {
+    (until $bool:literal or $int:expr, times) => {{
+        use crate::ast::{CardGameModel, EndCondition};
+        use std::sync::Arc;
 
-    };
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    $bool(cgm) || rep == $int(&cgm.gamedata)
+                }
+            )
+        }
+    }};
+
+    (until $bool:expr, and once) => {{
+        use crate::ast::{CardGameModel, EndCondition};
+        use std::sync::Arc;
+
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    $bool(cgm) && rep == 1
+                }
+            )
+        }
+    }};
+
+    (until $bool:expr, or once) => {{
+        use crate::ast::{CardGameModel, EndCondition};
+        use std::sync::Arc;
+
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    $bool(cgm) || rep == 1
+                }
+            )
+        }
+    }};
 
     // Where do i save the repitions?
-    ($reps:expr) => {
-
+    ($int:expr, times) => {
+        EndCondition {
+            condition: Arc::new(
+                |cgm: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    rep == $int(&cgm.gamedata)
+                }
+            )
+        }
     };
 
     (until end) => {
@@ -1931,14 +2026,37 @@ macro_rules! endcondition {
 // seq-stage
 // SeqStage -> ’Stage’ Stage ’for’ [Player] EndCondition ’:’ (’create’ SetupRule | PlayRule |
 //      ScoringRule)+ ’}’
-macro_rules! seqstage {
-    ($ruleset:expr, stage $stage:literal ffor $pref:expr, $endcond:expr,
-        create (($setuprule:expr), * ($playrule:expr), * ($scoringrule:expr) *)*) => {
-        
-    };
+macro_rules! stage {
+    (
+        stage $stage_name:literal $pref:expr, $end_cond:expr,
+        create 
+        setup: ( $( $setup_rule:expr ),* )
+        play: ( $($play_rule:expr ),* )
+        scoring: ( $($scoring_rule:expr ),* )
+        $(,)?
+    ) => {{
+        use crate::ast::Stage;
+        |cgm: &mut CardGameModel| {
+            let mut stage = Stage::new($stage_name);
+            stage.set_player_reference($pref);
+            stage.add_end_condition($end_cond);
+
+            $(
+                stage.add_setup_rule($setup_rule);
+            )*
+
+            $(
+                stage.add_play_rule($play_rule);
+            )*
+
+            $(
+                stage.add_scoring_rule($scoring_rule);
+            )*
+
+            cgm.ruleset.play.add_stage(stage);
+        }
+    }};
 }
-
-
 
 macro_rules! condrule {
     (
@@ -1967,70 +2085,50 @@ macro_rules! condrule {
     }};
 }
 
-
 macro_rules! ifrule {
     (iff $b:tt then $( $rule:expr ),* ) => {{
-        use crate::ast::{IfRule, Condition, Rule, PlayRule, ActionRule};
+        use crate::ast::{IfRule, Condition};
 
         IfRule {
             condition: Condition { condition: $b },
-            rules: vec![
-                Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
-                    actions: vec![$($rule),*],
-                })),
-            ],
+            rules: vec![$($rule),*],
         }
     }}
 }
 
 macro_rules! oprule {
-    (optional: $rule:tt) => {
-        // We need to do UI here
-        Box::new(
-            |cgm: &mut CardGameModel| {
-                // TODO:
-                // Input is just a temporary value!
-                // the type needs to change!
-                |input: Bool| {
-                    if input {
-                        $rule(cgm)
-                    }
-                }
-            }
-        )
-    }
+    (optional: $( $rule:expr ),*) => {{
+        use crate::ast::{OptionalRule};
+
+        OptionalRule {
+            rules: vec![$($rule),*],
+        }
+    }}
 }
 
-macro_rules! choicerule {
-    (choose: $prule1:tt ($(or: $prule2:tt),*)) => {
-        Box::new(
-            |cgm: &mut CardGameModel| {
-                // TODO:
-                // Input is just a temporary value!
-                // the type needs to change!
-                |input: i32| {
-                    // Vec of rules
-                    let vec = vec![$prule1];
-                    
-                    $(
-                        vec.push($prule2);
-                    )*
+macro_rules! chooserule {
+    (choose: $prule1:tt $(or: $prule2:tt)*) => {{
+        use crate::ast::{Rule, PlayRule, ChooseRule};
+        
+        let mut vec = vec![$prule1];
+        $(
+            vec.push($prule2);
+        )*
 
-                    vec[input](cgm)
-                }
+        Rule::PLAYRULE(PlayRule::CHOOSERULE(
+            ChooseRule {
+                rules: vec
             }
-        )
-
-    }
+        ))
+    }}
 }
 
 macro_rules! triggerrule {
-    (trigger: $prule:tt) => {
-        Box::new(
-            |cgm: &mut CardGameModel| {
-                $prule(cgm)
-            }
-        )
+    (trigger: $( $rule:expr ),*) => {
+        use crate::ast::TriggerRule;
+        TriggerRule {
+            rules: vec![$($rule),*],
+        }
     }
 }
 
@@ -2041,105 +2139,71 @@ macro_rules! actionrule {
     // TODO:
     // Status
     (mv $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::{CardGameModel, GameData, TMoveCardSet, Action, MoveCSAction};
-        use std::sync::{Arc, Mutex};
-        // Capture the expressions.
-        let fromcs_expr = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
-        let tocs_expr = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+        use crate::ast::{CardGameModel, TMoveCardSet, Action, MoveCSAction, ActionRule, Rule, PlayRule};
+        use std::sync::Arc;
 
         // Create a boxed closure.
-        let move_cardset_closure: TMoveCardSet = Box::new(
+        let move_cardset_closure: TMoveCardSet = Arc::new(
             move |cgm: &mut CardGameModel| {
-                // Evaluate the expressions *when the closure is called*.
-                let fromcs_guard = fromcs_expr.lock().unwrap();
-                let tocs_guard = tocs_expr.lock().unwrap();
-                let from_cardset = fromcs_guard(&cgm.gamedata);
-                let to_cardset = tocs_guard(&cgm.gamedata);
-                cgm.gamedata.move_cardset(from_cardset, to_cardset);
+
+                let fromcs = $fromcs(&cgm.gamedata);
+                let tocs = $tocs(&cgm.gamedata);
+
+                cgm.gamedata.move_cardset(fromcs, tocs);
+
             }
         );
 
-        Action::MoveCardSet(MoveCSAction { action: move_cardset_closure })
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule { action: Action::MoveCardSet(MoveCSAction { action: move_cardset_closure }) }))
     }};
     
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
     // move X from <from> to <to>
     (mv $q:literal from $fromcs:tt to $tocs:tt) => {{
         // use crate::ast::{CardGameModel, GameData, TMoveCards};
-        use crate::ast::{CardGameModel, GameData, TMoveCards, Action, MoveAction};
-        use std::sync::{Arc, Mutex};
-
-        // Capture the literal q.
-        let q_value = $q;
-
-        // Capture the expressions for fromcs and tocs, and wrap them in Arc and Mutex.
-        let fromcs_arc = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
-        let tocs_arc = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+        use crate::ast::{CardGameModel, TMoveCards, Action, MoveAction, ActionRule, Rule, PlayRule};
+        use std::sync::Arc;
 
         // Create a boxed closure that takes a mutable GameData.
         let move_cards_closure: TMoveCards = 
-            Box::new(
+            Arc::new(
                 move |cgm: &mut CardGameModel| {
-                    // Clone the Arcs to increase the reference count.
-                    let fromcs_arc_clone = Arc::clone(&fromcs_arc);
-                    let tocs_arc_clone = Arc::clone(&tocs_arc);
+                     // Capture the literal q.
+                    let q_value = $q;
 
-                    // Evaluate the fromcs and tocs expressions *at the time the
-                    // returned closure is called*, passing in the GameData.
-                    let fromcs_result = fromcs_arc_clone.lock().unwrap();
-                    let tocs_result = tocs_arc_clone.lock().unwrap();
-                    let fromcs_map = fromcs_result(&cgm.gamedata);
-                    let tocs_map = tocs_result(&cgm.gamedata);
+                    let fromcs = $fromcs(&cgm.gamedata);
+                    let tocs = $tocs(&cgm.gamedata);
 
-                    // Call the GameData's deal_q_cards method.
-                    cgm.gamedata.move_q_cards(q_value, fromcs_map, tocs_map)
+                    cgm.gamedata.move_q_cards(q_value, fromcs, tocs)
                 }
-        );
+            );
 
-        Action::Move(MoveAction { action: move_cards_closure })
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule { action: Action::Move(MoveAction { action: move_cards_closure }) }))
     }};
 
     (deal $q:literal from $fromcs:tt to $tocs:tt) => {
         {
-            use crate::ast::{CardGameModel, GameData, TDealCards, Action, DealAction};
-            use std::sync::{Arc, Mutex};
-
-            // Capture the literal q.
-            let q_value = $q;
-
-            // Capture the expressions for fromcs and tocs, and wrap them in Arc and Mutex.
-            let fromcs_arc = Arc::new(Mutex::new(move |gd: &GameData| $fromcs(gd)));
-            let tocs_arc = Arc::new(Mutex::new(move |gd: &GameData| $tocs(gd)));
+            use crate::ast::{CardGameModel, TMoveCards, Action, DealAction, ActionRule, PlayRule, Rule};
+            use std::sync::Arc;
 
             // Create a boxed closure that takes a mutable GameData.
-            let deal_cards_closure: TDealCards = Box::new(
+            let deal_cards_closure: TMoveCards = Arc::new(
                 move |cgm: &mut CardGameModel| {
-                    // Clone the Arcs to increase the reference count.
-                    let fromcs_arc_clone = Arc::clone(&fromcs_arc);
-                    let tocs_arc_clone = Arc::clone(&tocs_arc);
+                    // Capture the literal q.
+                    let q_value = $q;
 
-                    // Evaluate the fromcs and tocs expressions *at the time the
-                    // returned closure is called*, passing in the GameData.
-                    let fromcs_result = fromcs_arc_clone.lock().unwrap();
-                    let tocs_result = tocs_arc_clone.lock().unwrap();
-                    let fromcs_map = fromcs_result(&cgm.gamedata);
-                    let tocs_map = tocs_result(&cgm.gamedata);
+                    let fromcs = $fromcs(&cgm.gamedata);
+                    let tocs = $tocs(&cgm.gamedata);
 
-                    // Call the GameData's deal_q_cards method.
-                    cgm.gamedata.deal_q_cards(q_value, fromcs_map, tocs_map)
+                    cgm.gamedata.deal_q_cards(q_value, fromcs, tocs)
                 },
             );
-            Action::Deal(DealAction { action: deal_cards_closure })
+            Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule{ action: Action::Deal(DealAction { action: deal_cards_closure }) }))
         }
     };
     
     (deal $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::CardGameModel;
-        Box::new(
-            |cgm: &mut CardGameModel| {
-                moveaction!(mv $fromcs to $tocs)(cgm)
-            }
-        )
+        actionrule!(mv $fromcs to $tocs)
     }};
     
     // TODO:
@@ -2155,31 +2219,72 @@ macro_rules! actionrule {
     ($cgm:expr, exchange $fromcs:tt with $tocs:tt) => {{
         
     }};
-
-
-    // I dont know if we need to implement 'bound'.
-    // Because it just makes things more complicated
-    // and i dont know ny game where it is useful.
-    // It is an interesting feature but nothing more.
-    // 
-    // move X from <from> bound to <to>
-    // ($cgm:expr, mv $q:literal from $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // move X <from> bound to <to> (implicit "from")
-    // ($cgm:expr, mv $q:literal $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // ($cgm:expr, deal $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-
-    // ($cgm:expr, deal $q:literal from $fromcs:tt bound to $tocs:tt) => {{ 
-    // }};
-
-    // ($cgm:expr, mv $fromcs:tt bound to $tocs:tt) => {{
-    // }};
-    // -------------------------------------------------------------------------------
 }
+
+// EndAction → ’end’ (’turn’ | ’stage’ | ’play’ | ’game’ ’with’ ’winner’ ([Player] | PlayerCol-
+// lection))
+macro_rules! endaction {
+    (end turn) => {{
+        use crate::ast::{Rule, PlayRule, Action, ActionRule};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::EndTurn}
+        ))
+    }};
+
+    (end stage) => {{
+        use crate::ast::CardGameModel;
+        use crate::ast::{Rule, PlayRule, Action, ActionRule};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::EndStage}
+        ))
+    }};
+    
+    (end play) => {{
+        use crate::ast::CardGameModel;
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::EndPlay}
+        ))
+    }};
+
+    (end game with winner $pref:expr) => {{
+        use crate::ast::CardGameModel;
+        
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::EndGame}
+        ))
+    }};
+
+    // TODO:
+    // PlayerCollection
+    // (end game with winner $pref:expr) => {{
+    //     use crate::ast::CardGameModel;
+    //     Arc::new(
+    //         |cgm: &CardGameModel| {
+    //             // do something
+    //         }
+    //     )
+    // }};    
+}
+
+macro_rules! cycleaction {
+    (cycle to $pref:expr) => {{
+        use crate::ast::{CycleAction, Rule, PlayRule, ActionRule, Action};    
+    
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+            action: Action::CycleAction(
+                CycleAction {
+                    pref: $pref
+                }
+            )
+        }))
+    
+    
+    }};
+}
+
 
 /*
 ScoringRule → ScoreRule | WinnerRule

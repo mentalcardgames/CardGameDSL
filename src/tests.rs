@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, rc::Rc};
-    use crate::ast::{Card, CardGameModel, LocationRef};
+    use crate::ast::{Card, CardGameModel, ChooseRule, LocationRef, RuleInput};
 
     fn init_model() -> CardGameModel {
         let mut cgm = CardGameModel::new("player_test");
@@ -774,15 +774,17 @@ mod tests {
         )(&mut cgm.gamedata);
 
 
-        (actionrule!(
+        let rule1 = (actionrule!(
             mv
             (cardset!("hand" of player: player_ref!("P2")))
             to
-            (cardset!("hand" of player: player_ref!("P1"))))).runmovecs(&mut cgm);
+            (cardset!("hand" of player: player_ref!("P1")))));
         
+        rule1.run(&mut cgm, RuleInput::MoveCardSet);
+
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
-        let input = vec![
+        let input = RuleInput::MoveInput(vec![
             ((LocationRef::Own(String::from("hand")), 0),
             (LocationRef::Own(String::from("stack")), 0)),
             ((LocationRef::Own(String::from("hand")), 1),
@@ -793,30 +795,35 @@ mod tests {
             (LocationRef::Own(String::from("stack")), 3)),
             ((LocationRef::Own(String::from("hand")), 4),
             (LocationRef::Own(String::from("stack")), 4)),
-            ];
+            ]);
+        
 
-        actionrule!(
+        let rule2 = actionrule!(
             mv 5 from 
             (cardset!("hand"))
             to 
             (cardset!("stack"))
-        ).runmove(&mut cgm, input);
+        );
+
+        rule2.run(&mut cgm, input);
         
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
-        let input = vec![
-            (LocationRef::Own(String::from("stack")),
-            LocationRef::Own(String::from("hand"))),
-            (LocationRef::Own(String::from("stack")),
-            LocationRef::Own(String::from("hand"))),
-        ];
+        let input = RuleInput::MoveInput(vec![
+            ((LocationRef::Own(String::from("stack")), 0),
+            (LocationRef::Own(String::from("hand")), 0)),
+            ((LocationRef::Own(String::from("stack")), 0),
+            (LocationRef::Own(String::from("hand")), 0))
+        ]);
 
-        actionrule!(
+        let rule3 = actionrule!(
             deal 2 from 
             (cardset!("stack"))
             to 
             (cardset!("hand"))
-        ).rundeal(&mut cgm, input);
+        );
+
+        rule3.run(&mut cgm, input);
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
@@ -915,7 +922,7 @@ mod tests {
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
-        let rule1 = ifrule!(
+        let ifrule = ifrule!(
             iff (bool!(
             string:
             string!("Rank" of cardposition!("stack" top)),
@@ -934,52 +941,129 @@ mod tests {
                 to 
                 (cardset!("hand"))
             ))
-            // (actionrule!(
-            // mv
-            // (cardset!("hand" of player: player_ref!("P2")))
-            // to
-            // (cardset!("hand" of player: player_ref!("P1")))))
         );
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
-        let input = (vec![
-            (LocationRef::Own(String::from("stack")),
-            LocationRef::Own(String::from("hand"))),
-            (LocationRef::Own(String::from("stack")),
-            LocationRef::Own(String::from("hand"))),
+        use crate::ast::RuleInput;
+
+        let input = RuleInput::MoveInput(vec![
+            ((LocationRef::Own(String::from("stack")), 0),
+            (LocationRef::Own(String::from("hand")), 0)),
+            ((LocationRef::Own(String::from("stack")), 0),
+            (LocationRef::Own(String::from("hand")), 0))
         ]);
 
-        use crate::ast::{Rule, PlayRule};
-        // .run(&mut cgm, input);
-        match &rule1.rules[0] {
-            Rule::PLAYRULE(p) => {
-                match p {
-                    PlayRule::ACTIONRULE(a) => {
-                        a.actions[0].rundeal(&mut cgm, input.clone());
-                        a.actions[1].rundeal(&mut cgm, input);
-                    },
-                    _ => {}
-                }
-            },
-            _ => {},
-        }
+        // deal first 2 cards
+        ifrule.rules[0].run(&mut cgm, input.clone());
+        // deal second 2 cards
+        ifrule.rules[1].run(&mut cgm, input);
+
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
 
-        // let rule2 = ifrule!(
-        //     iff (bool!(
-        //     int:
-        //     int!(sum of min (cardset!("hand")), using "Rank"),
-        //     "<=",
-        //     int!(200)))
-        //     then
-        //     (actionrule!(
-        //         deal 2 from 
-        //         (cardset!("stack"))
-        //         to 
-        //         (cardset!("hand"))
-        //     ))
-        // );
+        use crate::ast::Rule;
+
+        let chooserule: Rule = chooserule!(
+            choose:
+                (actionrule!(
+                deal 2 from 
+                (cardset!("stack"))
+                to 
+                (cardset!("hand"))
+            ))
+            or:
+            (actionrule!(
+                deal 2 from 
+                (cardset!("stack"))
+                to 
+                (cardset!("hand"))
+            ))
+        );
+
+        // chooserule.run(&mut cgm, RuleInput::ChooseInput(0));
+
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
+    }
+
+    #[test]
+    fn test_stage() {
+        let mut cgm = CardGameModel::new("test_moveaction");
+
+        player!("P1", "P2", "P3")(&mut cgm.gamedata);
+
+        turn_order!(("P1", "P2", "P3"))(&mut cgm.gamedata);
+
+        location_on!("hand", players: "P1", "P2", "P3")(&mut cgm.gamedata);
+        location_on!("stack", table)((&mut cgm.gamedata));
+        card_on!(
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        )(&mut cgm.gamedata);
+
+        card_on!(
+            "hand",
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        )(&mut cgm.gamedata);
+
+        pointmap!(
+            "Rank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "10" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            }
+        )(&mut cgm.gamedata);
+
+        stage!(
+            stage "test" player_ref!(turnorder int!(0)), endcondition!(
+                until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(100)))
+            ),
+            create 
+                setup: ()
+                play: ((actionrule!(
+                    deal
+                    (cardset!("stack"))
+                    to 
+                    (cardset!("hand"))
+                )))
+                scoring: ()
+        )(&mut cgm);
+
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
+
+        cgm.game_loop();
+
+        println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
     }
 }
