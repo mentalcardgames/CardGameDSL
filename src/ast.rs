@@ -46,39 +46,105 @@ impl CardGameModel {
         for i in 0..lenstages {
             let mut endstage = false;
             let mut endplay = false;
+            let mut endconds = true;
+
+            // cloning to not change the original
+            let mut current_stage = self.ruleset.play.stages[i].clone();
 
             // initialize the rep counter for this stage (setting 0 for every Player)
-            self.ruleset.play.stages[i].init_reps(self.gamedata.turnorder.clone());
-            
-            let mut current_name = self.gamedata.turnorder[self.gamedata.current].clone();
-            let mut rep = self.ruleset.play.stages[i].get_current(&current_name);
-            let mut endconds = self.evaluate_endconditions(&self.ruleset.play.stages[i].endconditions.clone(), rep);
+            current_stage.init_reps(self.gamedata.turnorder.clone());
 
-            while endconds {
-                let mut endturn = false;
+            // Loop the stage until the endconditions hold
+            loop {
+                // Build Stage-Logic for current Player 
+                let current_index = self.gamedata.current;
+                // things that change the GameFlow
+                let mut current_name = self.gamedata.turnorder[current_index].clone();
+                let mut rep = current_stage.get_current(&current_name);
+                endconds = self.evaluate_endconditions(&current_stage.endconditions.clone(), rep);
 
-                // rules should come after substages because of some special keywards like cycle to ...
-                // TODO: substages
-                // ----------------
-                //
-                // ----------------
-
-                let rules = &self.ruleset.play.stages[i].rules.clone();
-
-                // check what gameflow changed after the set of rules!
-                let mut gfcs = self.do_rules(rules);
-
-                gfcs = gfcs.into_iter().filter(|g| *g != GameFlowChange::None).collect();
-
-                let mut gfcs_set = vec![];
-                for gfc in gfcs {
-                    if !gfcs_set.contains(&gfc) {
-                        gfcs_set.push(gfc);
+                // Do the stage Logic
+                while endconds {
+                    // rules should come after substages because of some special keywards like cycle to ...
+                    for sub in current_stage.substages.iter() {
+                        self.do_sub_stage_logic(&mut sub.clone());
                     }
+                    let rules = &current_stage.rules.clone();
+
+                    // check what gameflow changed after the set of rules!
+                    let gfcs = self.do_rules(rules);
+                    let gfcs_set = self.to_gfcs_set(gfcs);
+
+                    // evaluate GameChangeFlow now
+                    if gfcs_set.contains(&GameFlowChange::EndPlay) {
+                        endplay = true;
+                        break;
+                    }
+                    if gfcs_set.contains(&GameFlowChange::EndStage) {
+                        endstage = true;
+                        break;
+                    }
+
+                    // change current name if the GameFlow changes
+                    current_name = self.check_for_c2_and_et(&gfcs_set);
+                    // increment a rep for the "done-stage" for the current player
+                    rep = self.update_stage_logic(&mut current_stage, &current_name);
+
+                    // check if the endconditions hold for the next Player
+                    let endconditions = &self.ruleset.play.stages[i].endconditions.clone();
+                    endconds = self.evaluate_endconditions(endconditions, rep);
                 }
 
-                // increment a rep for the "done-stage" for the current player
-                self.ruleset.play.stages[i].update_reps();
+                // break out of stage
+                // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
+                if endplay || endstage || !endconds {
+                    break;
+                }
+            }
+            // all stages in Play are skipped!
+            if endplay {
+                break;
+            }
+
+            // this stage ends for every player if the conditions dont hold anymore
+            // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
+            if endstage || !endconds {
+                continue;
+            }
+        }
+    }
+
+    fn do_sub_stage_logic(&mut self, stage: &mut Stage) {
+        let mut endstage = false;
+        let mut endplay = false;
+        let mut endconds = true;
+
+        // initialize the rep counter for this stage (setting 0 for every Player)
+        stage.init_reps(self.gamedata.turnorder.clone());
+
+        // Loop the stage until the endconditions hold
+        loop {
+            // Build Stage-Logic for current Player 
+            let current_index = self.gamedata.current;
+            // things that change the GameFlow
+            let mut current_name = self.gamedata.turnorder[current_index].clone();
+            let mut rep = stage.get_current(&current_name);
+            endconds = self.evaluate_endconditions(&stage.endconditions.clone(), rep);
+
+            // Do the stage Logic
+            while endconds {
+                // rules should come after substages because of some special keywards like cycle to ...
+                // do the substage-Logic
+                let lenstages = stage.substages.len().clone();
+                for i in 0..lenstages {
+                    self.do_sub_stage_logic(&mut stage.substages[i]);
+                }
+
+                let rules = &stage.rules.clone();
+
+                // check what gameflow changed after the set of rules!
+                let gfcs = self.do_rules(rules);
+                let gfcs_set = self.to_gfcs_set(gfcs);
 
                 // evaluate GameChangeFlow now
                 if gfcs_set.contains(&GameFlowChange::EndPlay) {
@@ -89,49 +155,21 @@ impl CardGameModel {
                     endstage = true;
                     break;
                 }
-                if gfcs_set.contains(&GameFlowChange::EndTurn) {
-                    let mut cycletoB = false;
-                    for gfc in gfcs_set.iter() {
-                        match gfc {
-                            GameFlowChange::CycleTo(cycleto) => {
-                                cycletoB = true;
-                                // switch to referenced player
-                                // update current (in CardGameModel and Stage)
-                                self.gamedata.current = cycleto.get_pos(self);
-                                current_name = cycleto.get_name(self);
-                            },
-                            _ => {}
 
-                        }
-                    }
+                // change current name if the GameFlow changes
+                current_name = self.check_for_c2_and_et(&gfcs_set);
+                // increment a rep for the "done-stage" for the current player
+                rep = self.update_stage_logic(stage, &current_name);
 
-                    if !cycletoB {
-                        endturn = true;
-                    }
-                }
-
-                if endturn {
-                    // switch to next player
-                    self.gamedata.current = (self.gamedata.current + 1) % self.gamedata.turnorder.len();
-                    current_name = self.gamedata.turnorder[self.gamedata.current].clone();
-                }
-
-                self.ruleset.play.stages[i].set_current(&current_name);
-                rep = self.ruleset.play.stages[i].get_current(&current_name);
-
-                println!("StageReps: {}", rep);
-
-                let endconditions = &self.ruleset.play.stages[i].endconditions.clone();
+                // check if the endconditions hold for the next Player
+                let endconditions = &stage.endconditions.clone();
                 endconds = self.evaluate_endconditions(endconditions, rep);
             }
 
-            // all stages in Play are skipped!
-            if endplay {
+            // break out of stage
+            // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
+            if endplay || endstage || !endconds {
                 break;
-            }
-            // this stage ends for every player
-            if endstage {
-                continue;
             }
         }
     }
@@ -160,10 +198,12 @@ impl CardGameModel {
             Rule::PLAYRULE(play) => {
                 self.handle_playrule(&play)
             },
+            Rule::SCORINGRULE(scoring) => {
+                self.handle_scoringrule(&scoring)
+            },
             _ => {
                 vec![GameFlowChange::None]
             }
-            // Rule::SCORINGRULE(scoring) => self.handle_scoringrule(&scoring),
             // Rule::SETUPRULE(setup) => self.handle_setuprule(&setup),
         }
     }
@@ -171,7 +211,10 @@ impl CardGameModel {
     fn handle_playrule(&mut self, play: &PlayRule) -> Vec<GameFlowChange> {
         match play {
             PlayRule::ACTIONRULE(actions) => {
-                self.handle_action(actions)
+                let gfc = self.handle_action(actions);
+                self.display_game_info();
+
+                gfc
             },
             PlayRule::CHOOSERULE(choose) => {
                 let input = self.get_input(ActionType::ChooseAction);
@@ -196,8 +239,18 @@ impl CardGameModel {
         }
     }
 
-    fn handle_scoringrule(&self, scoring: &ScoringRule) {
-
+    fn handle_scoringrule(&mut self, scoring: &ScoringRule) -> Vec<GameFlowChange> {
+        match &scoring {
+            ScoringRule::Score(scorerule) => {
+                scorerule.evaluate(self);
+                println!("Score: {}", self.gamedata.get_current().score);
+                vec![GameFlowChange::None]
+            },
+            ScoringRule::Winner(winnerrule) => {
+                winnerrule.evaluate(self);
+                vec![GameFlowChange::EndGame]
+            }
+        }
     }
 
     fn handle_setuprule(&self, setup: &SetupRule) {
@@ -233,6 +286,10 @@ impl CardGameModel {
             Action::CycleAction(cycleto) => {
                 vec![GameFlowChange::CycleTo(cycleto.clone())]
             },
+            Action::ShuffleAction(shuffle) => {
+                shuffle.clone().shuffle(self);
+                vec![GameFlowChange::None]
+            }
         }
     }
 
@@ -394,6 +451,8 @@ impl CardGameModel {
             }
         }
 
+        self.display_game_info();
+
         rulein
     }
 
@@ -401,29 +460,58 @@ impl CardGameModel {
         RuleInput::Trigger
     }
 
-    fn handle_gfc(self, gfcs: Vec<GameFlowChange>) {
-        for gfc in gfcs.iter() {
-            match gfc {
-                GameFlowChange::EndTurn  => {
-                    // cycle to the next player in the turnorder
-                },
-                GameFlowChange::EndStage => {
-                    // no player is allowed to play the stage again
-                },
-                GameFlowChange::EndPlay  => {
-                    // no player is allowed to change anything anymore (so just scoring at the end)
-                },
-                GameFlowChange::EndGame  => {
-                    // game ends for everybody
-                },
-                GameFlowChange::CycleTo(cycleto) => {
-                    // remember to cycle to this person after evaluation
-                },
-                _ => {
+    fn check_for_c2_and_et(&mut self, gfcs_set: &Vec<GameFlowChange>, ) -> String {
+        
+        let mut endturn = false;
 
-                },
+        if gfcs_set.contains(&GameFlowChange::EndTurn) {
+            let mut cycletoB = false;
+            for gfc in gfcs_set.iter() {
+                match gfc {
+                    GameFlowChange::CycleTo(cycleto) => {
+                        cycletoB = true;
+                        // switch to referenced player
+                        // update current (in CardGameModel and Stage)
+                        self.gamedata.update_current(cycleto.get_pos(self));
+                        return cycleto.get_name(self)
+                    },
+                    _ => {}
+                }
+            }
+
+            if !cycletoB {
+                endturn = true;
             }
         }
+
+        if endturn {
+            // switch to next player
+            self.gamedata.set_next_player();
+            // get current_name because the current Player has switched
+            return self.gamedata.get_current_name()
+        }
+
+        self.gamedata.get_current_name()
+    }
+
+    fn to_gfcs_set(&self, gfcs: Vec<GameFlowChange>) -> Vec<GameFlowChange> {
+        let mut gfcs_set = vec![];
+        for gfc in gfcs {
+            if !gfcs_set.contains(&gfc) {
+                gfcs_set.push(gfc);
+            }
+        }
+
+        gfcs_set
+    }
+
+    fn update_stage_logic(&mut self, stage: &mut Stage, current_name: &str) -> usize {
+        // increment a rep for the "done-stage" for the current player
+        stage.update_reps();
+        stage.set_current(current_name);
+
+        // get_current if nothing changed!
+        stage.get_current(current_name)
     }
 }
 
@@ -545,6 +633,40 @@ impl GameData {
             locname.to_string(),
             Rc::new(RefCell::new(Location::new(locname.to_string())))
         );
+    }
+
+    pub fn get_current(&self) -> &Player {
+        let pname = self.turnorder[self.current].clone();
+        self.get_player(&pname)
+    }
+
+    pub fn get_current_name(&self) -> String {
+        self.turnorder[self.current].clone()
+    }
+
+    pub fn get_next_name(&self) -> String {
+        let index = (self.current + 1) % self.turnorder.len();
+        self.turnorder[index].clone()
+    }
+
+    pub fn update_current(&mut self, i: usize) {
+        self.current = i % self.turnorder.len();
+    }
+
+    pub fn get_player_pos(&self, name: String) -> usize {
+        for i in 0..self.turnorder.len() {
+            if self.turnorder[i] == name {
+                return i
+            }
+        }
+
+        // TODO:
+        // Default
+        return 0
+    }
+
+    pub fn set_next_player(&mut self) {
+        self.current = (self.current + 1) % self.turnorder.len();
     }
 
     fn get_mut_team(&mut self, name: &str) -> &mut Team {
@@ -1310,8 +1432,6 @@ impl Stage {
         self.reps
             .entry(self.current.clone())
             .and_modify(|v| *v += 1);
-
-        println!("Current players value: {}", self.reps.get(&self.current).unwrap())
     }
 
     pub fn set_current(&mut self, name: &str) {
@@ -1496,6 +1616,11 @@ impl Rule {
                             Action::EndGame => {
                                 vec![GameFlowChange::EndGame]
                             },
+                            Action::ShuffleAction(shuffle) => {
+                                shuffle.clone().shuffle(cgm);
+                                vec![GameFlowChange::None]
+                            },
+                            
                         }
                     },
                     PlayRule::CHOOSERULE(choose) => {
@@ -1720,6 +1845,7 @@ pub enum Action {
     EndStage,
     EndPlay,
     EndGame,
+    ShuffleAction(ShuffleAction),
 }
 impl Do for Action {
     fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
@@ -1863,14 +1989,133 @@ impl Clone for CycleAction {
 }
 impl std::fmt::Debug for CycleAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Action::EndAction(<closure>)")
+        f.write_str("Action::CycleAction(<closure>)")
+    }
+}
+
+pub struct ShuffleAction {
+    pub cardset: TCardSet
+}
+impl std::fmt::Debug for ShuffleAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Action::ShuffleAction(<closure>)")
+    }
+}
+impl Clone for ShuffleAction {
+    fn clone(&self) -> Self {
+        ShuffleAction {
+            cardset: Arc::clone(&self.cardset),
+        }
+    }
+}
+impl ShuffleAction {
+    pub fn shuffle(&mut self, cgm: &mut CardGameModel) {
+        use rand::seq::SliceRandom;
+        use rand::thread_rng;
+        use std::collections::HashMap;
+        use std::rc::Rc;
+        use std::cell::RefCell;
+
+        // Get the cardset for this shuffle
+        let cardset: HashMap<LocationRef, Vec<Card>> = (self.cardset)(&cgm.gamedata);
+
+        for (loc_ref, cards_to_shuffle) in cardset.iter() {
+            let location: &Rc<RefCell<Location>> = cgm.gamedata.get_location(loc_ref);
+            let mut loc = location.borrow_mut();
+
+            // Get mutable reference to location contents
+            let contents = &mut loc.contents;
+
+            // Find the indices of the cards to shuffle in the contents list
+            let indices: Vec<usize> = contents
+                .iter()
+                .enumerate()
+                .filter_map(|(i, card)| {
+                    if cards_to_shuffle.contains(card) {
+                        Some(i)
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+
+            // Shuffle the indices logically by shuffling the corresponding cards
+            let mut selected_cards: Vec<Card> = indices.iter().map(|&i| contents[i].clone()).collect();
+
+            // Shuffle the cards randomly (ensure you have a reproducible RNG if needed)
+            let mut rng = thread_rng();
+            selected_cards.shuffle(&mut rng);
+
+            // Put the shuffled cards back into the original indices
+            for (i, &idx) in indices.iter().enumerate() {
+                contents[idx] = selected_cards[i].clone();
+            }
+        }
     }
 }
 
 #[derive(Debug, Clone)]
 pub enum ScoringRule {
-    // not specified in the AST
+    Score(ScoreRule),
+    Winner(WinnerRule)
 }
+
+pub struct ScoreRule {
+    pub set: bool,
+    pub score: Arc<dyn Fn(&GameData) -> i32>,
+    pub pref: TRefPlayer,
+}
+impl std::fmt::Debug for ScoreRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("ScoreRule(<closure>)")
+    }
+}
+impl Clone for ScoreRule {
+    fn clone(&self) -> Self {
+        ScoreRule {
+            set: self.set.clone(),
+            score: Arc::clone(&self.score),
+            pref: Arc::clone(&self.pref)
+        }
+    }
+}
+impl ScoreRule {
+    pub fn evaluate(&self, cgm: &mut CardGameModel) {
+        let score = (self.score)(&cgm.gamedata);
+        let name = (self.pref)(&cgm.gamedata).name;
+
+        let player = cgm.gamedata.get_mut_player(&name);
+        if self.set {
+            player.score = score;
+        } else {
+            player.score += score;
+        }
+    }
+}
+
+pub struct WinnerRule {
+    // evaluates to the winning Player name
+    pub winner: Arc<dyn Fn(&CardGameModel) -> &Player>,
+}
+impl std::fmt::Debug for WinnerRule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("WinnerRule(<closure>)")
+    }
+}
+impl Clone for WinnerRule {
+    fn clone(&self) -> Self {
+        WinnerRule {
+            winner: Arc::clone(&self.winner)
+        }
+    }
+}
+impl WinnerRule {
+    pub fn evaluate(&self, cgm: &CardGameModel) {
+        let winner = (self.winner)(cgm);
+        println!("The Winner is: {}!", winner.name);
+    } 
+}
+
 
 #[derive(Debug, Clone)]
 

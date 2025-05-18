@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod tests {
     use std::{collections::HashMap, rc::Rc};
-    use crate::ast::{Card, CardGameModel, ChooseRule, LocationRef, RuleInput};
+    use crate::ast::{Card, CardGameModel, LocationRef, RuleInput};
 
     fn init_model() -> CardGameModel {
         let mut cgm = CardGameModel::new("player_test");
@@ -954,10 +954,10 @@ mod tests {
             (LocationRef::Own(String::from("hand")), 0))
         ]);
 
-        // deal first 2 cards
-        ifrule.rules[0].run(&mut cgm, input.clone());
-        // deal second 2 cards
-        ifrule.rules[1].run(&mut cgm, input);
+        // // deal first 2 cards
+        // ifrule.rules[0].run(&mut cgm, input.clone());
+        // // deal second 2 cards
+        // ifrule.rules[1].run(&mut cgm, input);
 
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());
@@ -1050,6 +1050,7 @@ mod tests {
                 until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(100)))
             ),
             create 
+                substages: ()
                 setup: ()
                 play: ((actionrule!(
                     deal

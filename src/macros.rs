@@ -1303,7 +1303,9 @@ because it is confusing if we call tehm Int, String, Bool)
 macro_rules! int {
     ($int:literal) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |_: &GameData| {
                 let i: i32 = $int;
                 i
@@ -1313,7 +1315,9 @@ macro_rules! int {
 
     ($int1:expr, $op:literal, $int2:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |gd: &GameData| {
                 let i1: i32 = $int1(gd);
                 let i2: i32 = $int2(gd);
@@ -1334,7 +1338,9 @@ macro_rules! int {
 
     ($intcol:expr, $int:tt) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |gd: &GameData| {
                 let index: usize = $int(gd) as usize;
                 $intcol[index]    
@@ -1344,7 +1350,10 @@ macro_rules! int {
 
     // size’ ’of’ [Collection] 
     (size of $col:expr) => {{
-        Box::new(
+        use crate::ast::GameData;
+        use std::sync::Arc;
+
+        Arc::new(
             |_: &GameData| {
                 $col.len()
             }
@@ -1354,7 +1363,9 @@ macro_rules! int {
     // ’sum’ ’of’ [IntCollection]
     (sum of $intcol:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |_: &GameData| {
                 let intcol: Vec<i32> = $intcol;
                 intcol.iter().sum::<i32>()
@@ -1364,7 +1375,8 @@ macro_rules! int {
 
     (sum of min $cardset:expr, using $pmname:literal) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+        Arc::new(
             |gd: &GameData| {
                 let pmap = &gd.get_pointmap($pmname);
                 
@@ -1395,7 +1407,9 @@ macro_rules! int {
 
     (sum of max $cardset:expr, using $pmname:literal) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |gd: &GameData| {
                 let pmap = &gd.get_pointmap($pmname);
                 
@@ -1428,7 +1442,9 @@ macro_rules! int {
     
     (sum of $cardset:expr, using $pmname:literal gt $int:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |gd: &GameData| {
                 /*
                 [
@@ -1501,7 +1517,9 @@ macro_rules! int {
 
     (sum of $cardset:expr, using $pmname:literal lt $int:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |gd: &GameData| {
                 /*
                 [
@@ -1582,7 +1600,9 @@ macro_rules! int {
     // (’min’ | ’max’) ’of’ [IntCollection] 
     (min of $intcol:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |_: &GameData| {
                 *$intcol.iter().min().expect(&format!("No Minimum found in {:?}", $intcol))
             }
@@ -1591,7 +1611,9 @@ macro_rules! int {
 
     (max of $intcol:expr) => {{
         use crate::ast::GameData;
-        Box::new(
+        use std::sync::Arc;
+
+        Arc::new(
             |_: &GameData| {
                 *$intcol.iter().max().expect(&format!("No Maximum found in {:?}", $intcol))
             }
@@ -1671,7 +1693,8 @@ macro_rules! bool {
 
     (int: $int1:expr, $op:literal, $int2:expr) => {{
         use crate::ast::CardGameModel;
-        Box::new(
+        use std::sync::Arc;
+        Arc::new(
             |cgm: &CardGameModel| {
                 match $op {
                     "==" => $int1(&cgm.gamedata) == $int2(&cgm.gamedata),
@@ -2007,16 +2030,32 @@ macro_rules! endcondition {
     }};
 
     // Where do i save the repitions?
-    ($int:expr, times) => {
+    ($int:expr, times) => {{
+        use crate::ast::{EndCondition};
+        use std::sync::Arc;
         EndCondition {
             condition: Arc::new(
                 |cgm: &CardGameModel, rep: usize| {
                     // I would say until the bool is false
-                    rep == $int(&cgm.gamedata)
+                    rep == ($int(&cgm.gamedata)as usize)
                 }
             )
         }
-    };
+    }};
+
+    // Where do i save the repitions?
+    (once) => {{
+        use crate::ast::{EndCondition};
+        use std::sync::Arc;
+        EndCondition {
+            condition: Arc::new(
+                |_: &CardGameModel, rep: usize| {
+                    // I would say until the bool is false
+                    rep == 1
+                }
+            )
+        }
+    }};
 
     (until end) => {
 
@@ -2030,6 +2069,7 @@ macro_rules! stage {
     (
         stage $stage_name:literal $pref:expr, $end_cond:expr,
         create 
+        substages: ($($stage:expr),* )
         setup: ( $( $setup_rule:expr ),* )
         play: ( $($play_rule:expr ),* )
         scoring: ( $($scoring_rule:expr ),* )
@@ -2040,6 +2080,10 @@ macro_rules! stage {
             let mut stage = Stage::new($stage_name);
             stage.set_player_reference($pref);
             stage.add_end_condition($end_cond);
+
+            $(
+                stage.add_sub_stage($stage);
+            )*
 
             $(
                 stage.add_setup_rule($setup_rule);
@@ -2055,6 +2099,43 @@ macro_rules! stage {
 
             cgm.ruleset.play.add_stage(stage);
         }
+    }};
+}
+
+// substage (Maybe change later if possible)
+macro_rules! substage {
+    (
+        stage $stage_name:literal $pref:expr, $end_cond:expr,
+        create 
+        substages: ($($stage:expr),* )
+        setup: ( $( $setup_rule:expr ),* )
+        play: ( $($play_rule:expr ),* )
+        scoring: ( $($scoring_rule:expr ),* )
+        $(,)?
+    ) => {{
+        use crate::ast::Stage;
+        let mut stage = Stage::new($stage_name);
+        stage.set_player_reference($pref);
+        stage.add_end_condition($end_cond);
+
+        $(
+            let sub = $stage(cgm);
+            stage.add_sub_stage(sub);
+        )*
+
+        $(
+            stage.add_setup_rule($setup_rule);
+        )*
+
+        $(
+            stage.add_play_rule($play_rule);
+        )*
+
+        $(
+            stage.add_scoring_rule($scoring_rule);
+        )*
+
+        stage
     }};
 }
 
@@ -2087,12 +2168,14 @@ macro_rules! condrule {
 
 macro_rules! ifrule {
     (iff $b:tt then $( $rule:expr ),* ) => {{
-        use crate::ast::{IfRule, Condition};
+        use crate::ast::{IfRule, PlayRule, Condition};
 
-        IfRule {
-            condition: Condition { condition: $b },
-            rules: vec![$($rule),*],
-        }
+        Rule::PLAYRULE(PlayRule::IFRULE(
+            IfRule {
+                condition: Condition { condition: $b },
+                rules: vec![$($rule),*],
+            }
+        ))
     }}
 }
 
@@ -2100,9 +2183,11 @@ macro_rules! oprule {
     (optional: $( $rule:expr ),*) => {{
         use crate::ast::{OptionalRule};
 
-        OptionalRule {
-            rules: vec![$($rule),*],
-        }
+        Rule::PLAYRULE(PlayRule::OPTIONALRULE(
+            OptionalRule {
+                rules: vec![$($rule),*],
+            }
+        ))
     }}
 }
 
@@ -2233,7 +2318,6 @@ macro_rules! endaction {
     }};
 
     (end stage) => {{
-        use crate::ast::CardGameModel;
         use crate::ast::{Rule, PlayRule, Action, ActionRule};
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
@@ -2280,11 +2364,23 @@ macro_rules! cycleaction {
                 }
             )
         }))
-    
-    
     }};
 }
 
+macro_rules! shuffleaction {
+    (shuffle $cs:expr) => {{
+        use crate::ast::{Rule, PlayRule, ActionRule, Action, ShuffleAction};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+            action: Action::ShuffleAction(
+                ShuffleAction {
+                    cardset: $cs
+                }
+            )}
+            )
+        )
+    }};
+}
 
 /*
 ScoringRule → ScoreRule | WinnerRule
@@ -2292,5 +2388,120 @@ ScoreRule → ’score’ Int (’to’ [Memory])? ’of’ ([PlayerName] | Play
 WinnerRule → ’winner’ ’is’ ([PlayerName] | PlayerCollection) | (’lowest’ | ’highest’) (’Score’
     | ’Position’ | [Memory])
 */
+macro_rules! scoringrule {
+    // ScoreRule → ’score’ Int ’of’ [Player]
+    (set score $int:expr, of $pref:expr) => {{
+        use crate::ast::{Rule, ScoringRule, ScoreRule};
+
+        Rule::SCORINGRULE(
+            ScoringRule::Score(ScoreRule {
+            set: true,
+            score: $int,
+            pref: $pref,
+        }))
+    }};
+
+    (add score $int:expr, of $pref:expr) => {{
+        use crate::ast::{Rule, ScoringRule, ScoreRule};
+
+        Rule::SCORINGRULE(
+            ScoringRule::Score(ScoreRule {
+            set: false,
+            score: $int,
+            pref: $pref,
+        }))
+    }};
+}
+
+macro_rules! winnerrule {
+    (winner is $pref:expr) => {{
+        use crate::ast::{Rule, ScoringRule, WinnerRule};
+
+        Rule::SCORINGRULE(
+            ScoringRule::Winner(WinnerRule {
+            winner: $pref,
+        }))
+    }};
+
+    (lowest score) => {{
+        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use std::sync::Arc;
+
+        Rule::SCORINGRULE(
+            ScoringRule::Winner(
+                WinnerRule {
+            winner: Arc::new(
+                |cgm: &CardGameModel| {
+                    let mut lowest_scoring_player: Option<(&String, i32)> = None;
+
+                    for p in cgm.gamedata.turnorder.iter() {
+                        let player = cgm.gamedata.get_player(p);
+                        let score = player.score;
+
+                        match lowest_scoring_player {
+                            Some((_, min_score)) if score < min_score => {
+                                lowest_scoring_player = Some((p, score));
+                            }
+                            None => {
+                                lowest_scoring_player = Some((p, score));
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if let Some((player_name, score)) = lowest_scoring_player {
+                        println!("Player with lowest score: {} (score: {})", player_name, score);
+                        cgm.gamedata.get_player(player_name)
+                    } else {
+                        // TODO:
+                        // Default value (if there is no Player with highest score)
+                        cgm.gamedata.get_current()
+                    }
+                }
+            ),
+        }))
+    }};
+
+    (highest score) => {{
+        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use std::sync::Arc;
+
+        Rule::SCORINGRULE(
+            ScoringRule::Winner(
+                WinnerRule {
+            winner: Arc::new(
+                |cgm: &CardGameModel| {
+                    let mut highest_scoring_player: Option<(&String, i32)> = None;
+
+                    for p in cgm.gamedata.turnorder.iter() {
+                        let player = cgm.gamedata.get_player(p);
+                        let score = player.score;
+
+                        match highest_scoring_player {
+                            Some((_, max_score)) if score > max_score => {
+                                highest_scoring_player = Some((p, score));
+                            }
+                            None => {
+                                highest_scoring_player = Some((p, score));
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if let Some((player_name, score)) = highest_scoring_player {
+                        println!("Player with highest score: {} (score: {})", player_name, score);
+                        cgm.gamedata.get_player(player_name)
+                    } else {
+                        // TODO:
+                        // Default value (if there is no Player with highest score)
+                        cgm.gamedata.get_current()
+                    }
+                }
+            ),
+        }))
+    }};
+}
+
+
 
 

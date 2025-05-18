@@ -50,26 +50,46 @@ fn main() {
 
     stage!(
         stage "get-card" player_ref!(current), endcondition!(
-            until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(21))), or once
+            once
         ),
         create 
+            substages: (
+                substage!(stage "deal-cards" player_ref!(current), endcondition!(
+                    until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(21)))
+                ),
+                create 
+                    substages: (
+                        
+                    )
+                    setup: ()
+                    play: (
+                        (shuffleaction!(shuffle (cardset!("stack")))),
+                        (chooserule!(
+                            choose:
+                                (ifrule!(
+                                    iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), "<", int!(21)))
+                                    then (actionrule!(
+                                        deal 1 from
+                                        (cardset!("stack"))
+                                        to 
+                                        (cardset!("hand"))
+                                    )
+                                    )
+                                ))
+                            or:
+                                (endaction!(end turn))
+                        ))
+                    )
+                    scoring: (
+                        scoringrule!(set score (int!(sum of min (cardset!("hand")), using "Rank")), of (player_ref!(current)))
+                    )
+            ))
             setup: ()
-            play: (
-                chooserule!(
-                    choose:
-                        (actionrule!(
-                        deal 1 from
-                        (cardset!("stack"))
-                        to 
-                        (cardset!("hand"))
-                    ))
-                    or:
-                        (endaction!(end turn))
-                ))
-            scoring: ()
+            play: ()
+            scoring: (winnerrule!(
+                highest score
+            ))
     )(&mut cgm);
 
-
     cgm.game_loop();
-
 }
