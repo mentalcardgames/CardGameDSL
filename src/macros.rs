@@ -2383,6 +2383,73 @@ macro_rules! shuffleaction {
 }
 
 /*
+OutAction → ’set’ ([Player] | PlayerCollection) ’out’ ’of’ ( ’stage’ | ’play’ | ’game’ (’suc-
+cessful’ | ’fail’))
+*/
+macro_rules! outaction {
+    // TODO:
+    (set $pref:expr, out of stage) => {{
+        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::OutAction(
+                    OutAction {
+                        pref: $pref,
+                        outof: OutOf::Stage,
+                    }
+                )
+            }
+        ))
+    }};
+
+    // TODO:
+    (set $pref:expr, out of play) => {{
+        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::OutAction(
+                    OutAction {
+                        pref: $pref,
+                        outof: OutOf::Play,
+                    }
+                )
+            }
+        ))
+    }};
+
+    // TODO:
+    (set $pref:expr, out of game successful) => {{
+        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::OutAction(
+                    OutAction {
+                        pref: $pref,
+                        outof: OutOf::GameSuccessful,
+                    }
+                )
+            }
+        ))
+    }};
+
+    // TODO:
+    (set $pref:expr, out of game fail) => {{
+        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(
+            ActionRule { action: Action::OutAction(
+                    OutAction {
+                        pref: $pref
+                        outof: OutOf::GameFail,
+                    }
+                )
+            }
+        ))
+    }};
+}
+
+
+/*
 ScoringRule → ScoreRule | WinnerRule
 ScoreRule → ’score’ Int (’to’ [Memory])? ’of’ ([PlayerName] | PlayerCollection)
 WinnerRule → ’winner’ ’is’ ([PlayerName] | PlayerCollection) | (’lowest’ | ’highest’) (’Score’
@@ -2459,6 +2526,7 @@ macro_rules! winnerrule {
                     }
                 }
             ),
+            str_repr: String::from(""),
         }))
     }};
 
@@ -2498,6 +2566,7 @@ macro_rules! winnerrule {
                     }
                 }
             ),
+            str_repr: String::from(""),
         }))
     }};
 }

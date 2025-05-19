@@ -77,7 +77,7 @@ fn main() {
                                     )
                                 ))
                             or:
-                                (endaction!(end turn))
+                                (outaction!(set player_ref!(current), out of stage))
                         ))
                     )
                     scoring: (

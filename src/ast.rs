@@ -44,133 +44,87 @@ impl CardGameModel {
     fn do_stage_logic_play(&mut self) {
         let lenstages = self.ruleset.play.stages.len().clone();
         for i in 0..lenstages {
-            let mut endstage = false;
-            let mut endplay = false;
-            let mut endconds = true;
-
             // cloning to not change the original
             let mut current_stage = self.ruleset.play.stages[i].clone();
 
-            // initialize the rep counter for this stage (setting 0 for every Player)
-            current_stage.init_reps(self.gamedata.turnorder.clone());
-
-            // Loop the stage until the endconditions hold
-            loop {
-                // Build Stage-Logic for current Player 
-                let current_index = self.gamedata.current;
-                // things that change the GameFlow
-                let mut current_name = self.gamedata.turnorder[current_index].clone();
-                let mut rep = current_stage.get_current(&current_name);
-                endconds = self.evaluate_endconditions(&current_stage.endconditions.clone(), rep);
-
-                // Do the stage Logic
-                while endconds {
-                    // rules should come after substages because of some special keywards like cycle to ...
-                    for sub in current_stage.substages.iter() {
-                        self.do_sub_stage_logic(&mut sub.clone());
-                    }
-                    let rules = &current_stage.rules.clone();
-
-                    // check what gameflow changed after the set of rules!
-                    let gfcs = self.do_rules(rules);
-                    let gfcs_set = self.to_gfcs_set(gfcs);
-
-                    // evaluate GameChangeFlow now
-                    if gfcs_set.contains(&GameFlowChange::EndPlay) {
-                        endplay = true;
-                        break;
-                    }
-                    if gfcs_set.contains(&GameFlowChange::EndStage) {
-                        endstage = true;
-                        break;
-                    }
-
-                    // change current name if the GameFlow changes
-                    current_name = self.check_for_c2_and_et(&gfcs_set);
-                    // increment a rep for the "done-stage" for the current player
-                    rep = self.update_stage_logic(&mut current_stage, &current_name);
-
-                    // check if the endconditions hold for the next Player
-                    let endconditions = &self.ruleset.play.stages[i].endconditions.clone();
-                    endconds = self.evaluate_endconditions(endconditions, rep);
-                }
-
-                // break out of stage
-                // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
-                if endplay || endstage || !endconds {
-                    break;
-                }
-            }
-            // all stages in Play are skipped!
-            if endplay {
-                break;
-            }
-
-            // this stage ends for every player if the conditions dont hold anymore
-            // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
-            if endstage || !endconds {
-                continue;
-            }
+            self.do_stage_logic(&mut current_stage);
         }
     }
 
-    fn do_sub_stage_logic(&mut self, stage: &mut Stage) {
+    fn do_stage_logic(&mut self, stage: &mut Stage) {
         let mut endstage = false;
         let mut endplay = false;
         let mut endconds = true;
 
         // initialize the rep counter for this stage (setting 0 for every Player)
-        stage.init_reps(self.gamedata.turnorder.clone());
+        stage.init_stage_logic(&self.gamedata.turnorder);
 
         // Loop the stage until the endconditions hold
-        loop {
-            // Build Stage-Logic for current Player 
-            let current_index = self.gamedata.current;
-            // things that change the GameFlow
-            let mut current_name = self.gamedata.turnorder[current_index].clone();
-            let mut rep = stage.get_current(&current_name);
-            endconds = self.evaluate_endconditions(&stage.endconditions.clone(), rep);
+        // Build Stage-Logic for current Player 
+        let current_index = self.gamedata.current;
+        // things that change the GameFlow
+        let mut current_name = self.gamedata.turnorder[current_index].clone();
+        let mut rep = stage.get_current_reps(&current_name);
+        endconds = self.evaluate_endconditions(&stage.endconditions.clone(), rep);
 
-            // Do the stage Logic
-            while endconds {
-                // rules should come after substages because of some special keywards like cycle to ...
-                // do the substage-Logic
-                let lenstages = stage.substages.len().clone();
-                for i in 0..lenstages {
-                    self.do_sub_stage_logic(&mut stage.substages[i]);
-                }
-
-                let rules = &stage.rules.clone();
-
-                // check what gameflow changed after the set of rules!
-                let gfcs = self.do_rules(rules);
-                let gfcs_set = self.to_gfcs_set(gfcs);
-
-                // evaluate GameChangeFlow now
-                if gfcs_set.contains(&GameFlowChange::EndPlay) {
-                    endplay = true;
-                    break;
-                }
-                if gfcs_set.contains(&GameFlowChange::EndStage) {
-                    endstage = true;
-                    break;
-                }
-
-                // change current name if the GameFlow changes
-                current_name = self.check_for_c2_and_et(&gfcs_set);
-                // increment a rep for the "done-stage" for the current player
-                rep = self.update_stage_logic(stage, &current_name);
-
-                // check if the endconditions hold for the next Player
-                let endconditions = &stage.endconditions.clone();
-                endconds = self.evaluate_endconditions(endconditions, rep);
+        // Do the stage Logic
+        while endconds {
+            // rules should come after substages because of some special keywards like cycle to ...
+            // do the substage-Logic
+            let lenstages = stage.substages.len().clone();
+            let stage_current = self.gamedata.current.clone();
+            for i in 0..lenstages {
+                self.do_stage_logic(&mut stage.substages[i]);
             }
 
-            // break out of stage
-            // not endconds because the evaluate_endconditions evaluates to true if the endconditions are not fulfilled!
-            if endplay || endstage || !endconds {
+            // this stage has a different sequence of players and starts at the last player that was in this stage!
+            self.gamedata.current = stage_current;
+
+            let rules = &stage.rules.clone();
+
+            // check what gameflow changed after the set of rules!
+            let gfcs = self.do_rules(rules);
+            let gfcs_set = self.to_gfcs_set(gfcs);
+
+            // evaluate GameChangeFlow now
+            if gfcs_set.contains(&GameFlowChange::EndPlay) {
+                endplay = true;
                 break;
             }
+            if gfcs_set.contains(&GameFlowChange::EndStage) {
+                endstage = true;
+                break;
+            }
+
+            // set player out logic in here
+            let someoneout = self.check_for_out_action(stage, &gfcs_set);
+
+            // Update reps of the current player
+            stage.update_reps();
+
+            // ==========================================
+            // NEXT PLAYER:
+            // (meaning current_name is now the next player)
+            // change current name if the GameFlow changes
+            // check_for... returns the next Player's Name
+            current_name = self.check_for_c2_and_et(&gfcs_set);
+            if someoneout {
+                // check if all players are out
+                if self.handle_player_out(&mut current_name, stage) {
+                    // end stage because no Player is in teh Stage anymore (Maybe change later???)
+                    endstage = true;
+                    break
+                }
+                // next player could be out so current_name has to be updated again
+                current_name = self.gamedata.get_current_name();               
+            }
+
+            // get the current reps of the current player
+            rep = stage.get_current_reps(&current_name);
+
+            // check if the endconditions hold for the next Player
+            let endconditions = &stage.endconditions.clone();
+            endconds = self.evaluate_endconditions(endconditions, rep);
         }
     }
 
@@ -290,6 +244,10 @@ impl CardGameModel {
                 shuffle.clone().shuffle(self);
                 vec![GameFlowChange::None]
             }
+            Action::OutAction(out) => {
+                let gfc = out.evaluate(self);
+                gfc
+            },
         }
     }
 
@@ -460,6 +418,7 @@ impl CardGameModel {
         RuleInput::Trigger
     }
 
+    // this return the next player
     fn check_for_c2_and_et(&mut self, gfcs_set: &Vec<GameFlowChange>, ) -> String {
         
         let mut endturn = false;
@@ -494,6 +453,50 @@ impl CardGameModel {
         self.gamedata.get_current_name()
     }
 
+    fn check_for_out_action(&mut self, stage: &mut Stage, gfcs_set: &Vec<GameFlowChange>) -> bool {
+        for gfc in gfcs_set.iter() {
+            match gfc {
+                GameFlowChange::OutOfStage(players) => {
+                    for p in players.iter() {
+                        stage.set_player_out(p);
+                    }
+                    return true
+                },
+                GameFlowChange::OutOfPlay(players) => {
+                    return true
+                },
+                GameFlowChange::OutOfGameSuccessful(players) => {
+                    return true
+                },
+                GameFlowChange::OutOfGameFail(players) => {
+                    return true
+                },
+                _ => {}
+            }
+        }
+
+        false
+    }
+
+    fn handle_player_out(&mut self, current_name: &mut String, current_stage: &mut Stage) -> bool {
+        let mut cname = current_name.clone();
+        for _ in 0..self.gamedata.turnorder.len() {
+            if current_stage.is_player_out(&cname) {
+                // get the next player if current player is out!
+                // no turn changed!
+                // just set the next player as current!
+                self.gamedata.set_next_player();
+                cname = self.gamedata.get_current_name();
+                continue
+            }
+
+            current_stage.set_current(&cname);
+            return false;
+        }
+
+        return true
+    }
+
     fn to_gfcs_set(&self, gfcs: Vec<GameFlowChange>) -> Vec<GameFlowChange> {
         let mut gfcs_set = vec![];
         for gfc in gfcs {
@@ -503,15 +506,6 @@ impl CardGameModel {
         }
 
         gfcs_set
-    }
-
-    fn update_stage_logic(&mut self, stage: &mut Stage, current_name: &str) -> usize {
-        // increment a rep for the "done-stage" for the current player
-        stage.update_reps();
-        stage.set_current(current_name);
-
-        // get_current if nothing changed!
-        stage.get_current(current_name)
     }
 }
 
@@ -538,7 +532,8 @@ pub enum GameFlowChange {
     // TODO:
     OutOfStage(Vec<String>),
     OutOfPlay(Vec<String>),
-    OutOfGame(Vec<String>),
+    OutOfGameSuccessful(Vec<String>),
+    OutOfGameFail(Vec<String>),
     // cycle to someone else
     CycleTo(CycleAction),
 }
@@ -555,7 +550,9 @@ impl PartialEq for GameFlowChange {
 
             (OutOfStage(a), OutOfStage(b))
             | (OutOfPlay(a), OutOfPlay(b))
-            | (OutOfGame(a), OutOfGame(b)) => a == b,
+            | (OutOfGameSuccessful(a), OutOfGameSuccessful(b)) => a == b,
+            | (OutOfGameFail(a), OutOfGameFail(b)) => a == b,
+
 
             (CycleTo(_), CycleTo(_)) => true, // ignore the function, just match variant
 
@@ -1371,7 +1368,11 @@ pub struct Stage {
     pub turncounter: i32,
     pub rules: Vec<Rule>,
     pub pref: TRefPlayer,
+    // Keeping track how often a Player has been in this Stage
     pub reps: HashMap<String, usize>,
+    // Players Out of this Stage:
+    // Are not allowed to play in this stage anymore but the others are still able to participate in the Stage
+    pub playersout: HashMap<String, bool>,
     // Name of current Player (Because of some Examples of Games it is necessary)
     // Example: 
     // set Player out of stage
@@ -1391,6 +1392,7 @@ impl Stage {
                 gd.get_player_copy(&gd.turnorder[gd.current])
             }),
             reps: HashMap::new(),
+            playersout: HashMap::new(),
             current: String::from(""),
         }
     }
@@ -1420,7 +1422,7 @@ impl Stage {
     }
 
     // do this before u start the Stage
-    pub fn init_reps(&mut self, players: Vec<String>) {
+    fn init_reps(&mut self, players: &Vec<String>) {
         self.current = players[0].clone();
 
         for p in players.iter() {
@@ -1428,17 +1430,38 @@ impl Stage {
         }
     }
 
+    fn init_playersout(&mut self, players: &Vec<String>) {
+        self.current = players[0].clone();
+
+        for p in players.iter() {
+            self.playersout.insert(p.clone(), false);
+        }
+    }
+
+    pub fn init_stage_logic(&mut self, players: &Vec<String>) {
+        self.init_reps(players);
+        self.init_playersout(players);
+    }
+
+    // only update if the player is ends his turn (so if something changes in the GameFlow)
     pub fn update_reps(&mut self) {
         self.reps
             .entry(self.current.clone())
             .and_modify(|v| *v += 1);
     }
 
+    // set player out
+    pub fn set_player_out(&mut self, player: &str) {
+        self.playersout
+            .entry(String::from(player))
+            .and_modify(|v| *v = true);
+    }
+
     pub fn set_current(&mut self, name: &str) {
         self.current = String::from(name);
     }
 
-    pub fn get_current(&self, name: &str) -> usize {
+    pub fn get_current_reps(&self, name: &str) -> usize {
         if let Some(rep) = self.reps.get(name) {
             return *rep;
         }
@@ -1446,6 +1469,21 @@ impl Stage {
         // TODO:
         // what if player is not found?
         return 0
+    }
+
+    pub fn is_player_out(&self, name: &str) -> bool {
+        if let Some(b) = self.playersout.get(name) {
+            if *b {
+                return true
+            } else {
+                return false
+            }
+        }
+
+        // TODO:
+        // Default Value
+        // Give a message or crash game if Player is not found!
+        false
     }
 }
 impl<'a> Clone for Stage {
@@ -1458,11 +1496,11 @@ impl<'a> Clone for Stage {
             rules: self.rules.clone(),
             pref: Arc::clone(&self.pref),
             reps: self.reps.clone(),
+            playersout: self.playersout.clone(),
             current: self.current.clone(),
         }
     }
 }
-
 impl fmt::Debug for Stage {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Stage")
@@ -1620,7 +1658,9 @@ impl Rule {
                                 shuffle.clone().shuffle(cgm);
                                 vec![GameFlowChange::None]
                             },
-                            
+                            Action::OutAction(out) => {
+                                out.evaluate(cgm)
+                            }
                         }
                     },
                     PlayRule::CHOOSERULE(choose) => {
@@ -1846,6 +1886,7 @@ pub enum Action {
     EndPlay,
     EndGame,
     ShuffleAction(ShuffleAction),
+    OutAction(OutAction),
 }
 impl Do for Action {
     fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
@@ -2055,6 +2096,56 @@ impl ShuffleAction {
 }
 
 #[derive(Debug, Clone)]
+pub enum OutOf {
+    Stage,
+    Play,
+    GameSuccessful,
+    GameFail,
+}
+
+// Just for Player for now 
+// TODO:
+// Do it for Team
+pub struct OutAction {
+    pub pref: TRefPlayer,
+    pub outof: OutOf,
+}
+impl Clone for OutAction {
+    fn clone(&self) -> Self {
+        OutAction {
+            pref: Arc::clone(&self.pref),
+            outof: self.outof.clone(),
+        }
+    }
+}
+impl std::fmt::Debug for OutAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Action::OutAction(<closure>)")
+    }
+}
+impl OutAction {
+    pub fn evaluate(&self, cgm: &CardGameModel) -> Vec<GameFlowChange> {
+        let pname = vec![(self.pref)(&cgm.gamedata).name];
+
+        match self.outof {
+            OutOf::Stage => {
+                vec![GameFlowChange::OutOfStage(pname)]
+            },
+            OutOf::Play => {
+                vec![GameFlowChange::OutOfPlay(pname)]
+            },
+            OutOf::GameSuccessful => {
+                vec![GameFlowChange::OutOfGameSuccessful(pname)]
+            },
+            OutOf::GameFail => {
+                vec![GameFlowChange::OutOfGameFail(pname)]
+            },
+        }
+    } 
+}
+
+
+#[derive(Debug, Clone)]
 pub enum ScoringRule {
     Score(ScoreRule),
     Winner(WinnerRule)
@@ -2096,6 +2187,7 @@ impl ScoreRule {
 pub struct WinnerRule {
     // evaluates to the winning Player name
     pub winner: Arc<dyn Fn(&CardGameModel) -> &Player>,
+    pub str_repr: String,
 }
 impl std::fmt::Debug for WinnerRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2105,7 +2197,8 @@ impl std::fmt::Debug for WinnerRule {
 impl Clone for WinnerRule {
     fn clone(&self) -> Self {
         WinnerRule {
-            winner: Arc::clone(&self.winner)
+            winner: Arc::clone(&self.winner),
+            str_repr: self.str_repr.clone()
         }
     }
 }
@@ -2141,7 +2234,6 @@ pub struct Play {
     pub current: String,
     pub reps: HashMap<String, usize>,
 }
-
 impl Clone for Play {
     fn clone(&self) -> Self {
         Play {
@@ -2152,7 +2244,6 @@ impl Clone for Play {
         }
     }
 }
-
 impl Play {
     pub fn add_endcondition(&mut self, end_cond: Condition) {
         self.endconditions.push(end_cond);
@@ -2162,6 +2253,12 @@ impl Play {
         self.stages.push(stage);
     }
 }
+
+struct Filter {
+    // pub func: 
+}
+
+
 
 pub type TMoveCards   = Arc<dyn for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>;
 pub type TMoveCardSet = Arc<dyn Fn(&mut CardGameModel) + Send + Sync + 'static>;
