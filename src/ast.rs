@@ -3,7 +3,6 @@ use std::cell::RefCell;
 use std::collections::{HashMap};
 use std::hash::Hash;
 use std::io::{self, Write};
-use std::ops::Deref;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -106,7 +105,7 @@ impl CardGameModel {
             // NEXT PLAYER:
             // (meaning current_name is now the next player)
             // change current name if the GameFlow changes
-            // check_for... returns the next Player's Name
+            // check_for... returns the <NEXT> Player's Name
             current_name = self.check_for_c2_and_et(&gfcs_set);
             if someoneout {
                 // check if all players are out
@@ -936,7 +935,8 @@ impl GameData {
         let cardcombo: &CardCombination = self.get_combo(comboname);
         let cards = cardcombo
             .attributes
-            .deref()(loc
+                .apply_func(self,
+                loc
                 .borrow()
                 .contents
                 .clone());
@@ -1022,14 +1022,14 @@ impl Default for Player {
 
 #[derive(Debug, Clone)]
 pub struct Team {
-    pub teamname: String,
+    pub name: String,
     pub players: Vec<String>,
     pub locations: HashMap<String, Rc<RefCell<Location>>>,
 }
 impl Team {
     pub fn new(name: String, players: Vec<String>) -> Team {
         Team {
-            teamname: name,
+            name: name,
             players: players,
             locations: HashMap::new()
         }
@@ -1044,14 +1044,14 @@ impl Team {
             println!("No Locations!")
         }
         for (k, _) in self.locations.iter() {
-            println!("Player {}: locname={}", self.teamname, k.to_string())
+            println!("Player {}: locname={}", self.name, k.to_string())
         }
     }
 }
 
 impl PartialEq for Team {
     fn eq(&self, other: &Self) -> bool {
-        self.teamname == other.teamname && self.players == other.players
+        self.name == other.name && self.players == other.players
     }
 }
 
@@ -1288,34 +1288,9 @@ impl Precedence {
     }
 }
 
-
-// Wrapper for function to avoid Debug issue
-pub struct CardFunction(Rc<dyn Fn(Vec<Card>) -> Vec<Vec<Card>>>);
-
-impl CardFunction {
-    pub fn new(fun: Rc<dyn Fn(Vec<Card>) -> Vec<Vec<Card>>>) -> Self {
-        Self(fun)
-    }
-}
-
-impl Deref for CardFunction {
-    type Target = dyn Fn(Vec<Card>) -> Vec<Vec<Card>>;
-
-    fn deref(&self) -> &Self::Target {
-        &*self.0 // Dereferences Rc/Arc to get the function
-    }
-}
-
-impl Clone for CardFunction {
-    fn clone(&self) -> Self {
-        Self(Rc::clone(&self.0))
-    }
-}
-
-#[derive(Clone)]
 pub struct CardCombination {
     pub name: String,
-    pub attributes: CardFunction,
+    pub attributes: Filter,
 }
 
 // Manual Debug implementation for CardCombination
@@ -1327,6 +1302,14 @@ impl fmt::Debug for CardCombination {
             self.name,
             // self.attributes
         )
+    }
+}
+impl Clone for CardCombination {
+    fn clone(&self) -> Self {
+        CardCombination { 
+            name: self.name.clone(),
+            attributes: self.attributes.clone(),
+        }
     }
 }
 
@@ -1367,7 +1350,7 @@ pub struct Stage {
     // TODO: should be synchronuzed with the gamedata turncounter (self.current)
     pub turncounter: i32,
     pub rules: Vec<Rule>,
-    pub pref: TRefPlayer,
+    pub pref: RefPlayer,
     // Keeping track how often a Player has been in this Stage
     pub reps: HashMap<String, usize>,
     // Players Out of this Stage:
@@ -1388,9 +1371,11 @@ impl Stage {
             substages: vec![],
             turncounter: 0,
             rules: vec![],
-            pref: Arc::new(|gd: &GameData| {
-                gd.get_player_copy(&gd.turnorder[gd.current])
-            }),
+            pref: RefPlayer { player:
+                Arc::new(|gd: &GameData| {
+                    gd.get_player_copy(&gd.turnorder[gd.current])
+                })
+            },
             reps: HashMap::new(),
             playersout: HashMap::new(),
             current: String::from(""),
@@ -1417,7 +1402,7 @@ impl Stage {
         self.endconditions.push(endcond);
     }
 
-    pub fn set_player_reference(&mut self, pref: TRefPlayer) {
+    pub fn set_player_reference(&mut self, pref: RefPlayer) {
         self.pref = pref;
     }
 
@@ -1473,11 +1458,7 @@ impl Stage {
 
     pub fn is_player_out(&self, name: &str) -> bool {
         if let Some(b) = self.playersout.get(name) {
-            if *b {
-                return true
-            } else {
-                return false
-            }
+            return *b 
         }
 
         // TODO:
@@ -1494,7 +1475,7 @@ impl<'a> Clone for Stage {
             substages: self.substages.clone(),
             turncounter: self.turncounter,
             rules: self.rules.clone(),
-            pref: Arc::clone(&self.pref),
+            pref: self.pref.clone(),
             reps: self.reps.clone(),
             playersout: self.playersout.clone(),
             current: self.current.clone(),
@@ -1513,41 +1494,20 @@ impl fmt::Debug for Stage {
             .finish()
     }
 }
-// Object-safe trait for cloning boxed functions
-pub trait CloneableFn: Fn(&CardGameModel) -> bool {
-    fn clone_box(&self) -> Box<dyn CloneableFn>;
-}
-
-// Implement the object-safe trait for all compatible Fn types
-impl<T> CloneableFn for T
-where
-    T: Fn(&CardGameModel) -> bool + Clone + 'static,
-{
-    fn clone_box(&self) -> Box<dyn CloneableFn> {
-        Box::new(self.clone())
-    }
-}
-
-// Now implement Clone for the boxed trait object
-impl Clone for Box<dyn CloneableFn> {
-    fn clone(&self) -> Self {
-        self.clone_box()
-    }
-}
 
 // Finally, define the Condition struct
 pub struct Condition {
-    pub condition: Arc<dyn Fn(&CardGameModel) -> bool>,
+    pub condition: GBool,
 }
 impl Condition {
     pub fn evaluate(&self, cgm: &CardGameModel) -> bool {
-        (*self.condition)(cgm)
+        self.condition.get_value(cgm)
     }
 }
 impl Clone for Condition {
     fn clone(&self) -> Self {
         Condition {
-            condition: Arc::clone(&self.condition)
+            condition: self.condition.clone()
         }
     }
 }
@@ -1583,13 +1543,16 @@ pub struct RuleSet {
     pub setup: Setup,
     pub play: Play,
     pub scoring: Scoring,
+    // Player Names to keep in track who is still in the game!
+    pub outofgame: HashMap<String, bool>,
 }
 impl RuleSet {
     pub fn new() -> RuleSet {
         RuleSet {
             setup: Setup {setuprules: vec![]},
-            play: Play { endconditions: vec![], stages: vec![], current: String::from(""), reps: HashMap::new()},
-            scoring: Scoring {scoringrules: vec![]}
+            play: Play { endconditions: vec![], stages: vec![], current: String::from(""), reps: HashMap::new(), outofplay: HashMap::new()},
+            scoring: Scoring {scoringrules: vec![]},
+            outofgame: HashMap::new(),
         }
     }
 
@@ -1603,6 +1566,22 @@ impl RuleSet {
 
     pub fn assign_scoring(&mut self, scoring: Scoring) {
         self.scoring = scoring;
+    }
+
+    pub fn out_of_game_init(&mut self, players: &Vec<String>) {
+        for p in players.iter() {
+            self.outofgame.insert(p.clone(), false);
+        }
+    }
+
+    pub fn is_player_out(&self, player: &str) -> bool {
+        if let Some(b) = self.outofgame.get(player) {
+            return *b
+        }
+
+        // TODO:
+        // Default value
+        false
     }
 }
 
@@ -2035,7 +2014,7 @@ impl std::fmt::Debug for CycleAction {
 }
 
 pub struct ShuffleAction {
-    pub cardset: TCardSet
+    pub cardset: CardSet
 }
 impl std::fmt::Debug for ShuffleAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2045,7 +2024,7 @@ impl std::fmt::Debug for ShuffleAction {
 impl Clone for ShuffleAction {
     fn clone(&self) -> Self {
         ShuffleAction {
-            cardset: Arc::clone(&self.cardset),
+            cardset: self.cardset.clone(),
         }
     }
 }
@@ -2058,7 +2037,7 @@ impl ShuffleAction {
         use std::cell::RefCell;
 
         // Get the cardset for this shuffle
-        let cardset: HashMap<LocationRef, Vec<Card>> = (self.cardset)(&cgm.gamedata);
+        let cardset: HashMap<LocationRef, Vec<Card>> = (self.cardset).get_card_set(&cgm.gamedata);
 
         for (loc_ref, cards_to_shuffle) in cardset.iter() {
             let location: &Rc<RefCell<Location>> = cgm.gamedata.get_location(loc_ref);
@@ -2107,13 +2086,13 @@ pub enum OutOf {
 // TODO:
 // Do it for Team
 pub struct OutAction {
-    pub pref: TRefPlayer,
+    pub pref: RefPlayer,
     pub outof: OutOf,
 }
 impl Clone for OutAction {
     fn clone(&self) -> Self {
         OutAction {
-            pref: Arc::clone(&self.pref),
+            pref: self.pref.clone(),
             outof: self.outof.clone(),
         }
     }
@@ -2125,7 +2104,7 @@ impl std::fmt::Debug for OutAction {
 }
 impl OutAction {
     pub fn evaluate(&self, cgm: &CardGameModel) -> Vec<GameFlowChange> {
-        let pname = vec![(self.pref)(&cgm.gamedata).name];
+        let pname = vec![(self.pref).get_ref(&cgm.gamedata).name];
 
         match self.outof {
             OutOf::Stage => {
@@ -2153,8 +2132,8 @@ pub enum ScoringRule {
 
 pub struct ScoreRule {
     pub set: bool,
-    pub score: Arc<dyn Fn(&GameData) -> i32>,
-    pub pref: TRefPlayer,
+    pub score: GInt,
+    pub pref: RefPlayer,
 }
 impl std::fmt::Debug for ScoreRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2165,15 +2144,15 @@ impl Clone for ScoreRule {
     fn clone(&self) -> Self {
         ScoreRule {
             set: self.set.clone(),
-            score: Arc::clone(&self.score),
-            pref: Arc::clone(&self.pref)
+            score: self.score.clone(),
+            pref: self.pref.clone(),
         }
     }
 }
 impl ScoreRule {
     pub fn evaluate(&self, cgm: &mut CardGameModel) {
-        let score = (self.score)(&cgm.gamedata);
-        let name = (self.pref)(&cgm.gamedata).name;
+        let score = (self.score).get_value_i32(&cgm.gamedata);
+        let name = (self.pref).get_ref(&cgm.gamedata).name;
 
         let player = cgm.gamedata.get_mut_player(&name);
         if self.set {
@@ -2233,14 +2212,16 @@ pub struct Play {
     // current player
     pub current: String,
     pub reps: HashMap<String, usize>,
+    pub outofplay: HashMap<String, bool>,
 }
 impl Clone for Play {
     fn clone(&self) -> Self {
         Play {
-            endconditions: vec![], // or panic!(), or skip, or clone dummy data
+            endconditions: self.endconditions.clone(), // or panic!(), or skip, or clone dummy data
             stages: self.stages.clone(),
             current: self.current.clone(),
             reps: self.reps.clone(),
+            outofplay: self.outofplay.clone(),
         }
     }
 }
@@ -2252,16 +2233,164 @@ impl Play {
     pub fn add_stage(&mut self, stage: Stage) {
         self.stages.push(stage);
     }
+
+    pub fn out_of_game_init(&mut self, players: &Vec<String>) {
+        for p in players.iter() {
+            self.outofplay.insert(p.clone(), false);
+        }
+    }
+
+    pub fn is_player_out(&mut self, player: &str) -> bool {
+        if let Some(b) = self.outofplay.get(player) {
+            return *b
+        }
+
+        // TODO:
+        // Default value
+        false
+    }
 }
 
-struct Filter {
-    // pub func: 
+pub struct Filter {
+    pub func: TFilter
+}
+impl Filter {
+    pub fn apply_func(&self, gd: &GameData, cards: Vec<Card>) -> Vec<Vec<Card>> {
+        (self.func)(gd, cards)
+    }
+}
+impl Clone for Filter {
+    fn clone(&self) -> Self {
+        Filter {
+            func: Arc::clone(&self.func)
+        }
+    }
+}
+
+pub struct CardPosition {
+    pub pos: TCardPosition
+}
+impl CardPosition {
+    pub fn get_card_position(&self, gd: &GameData) -> HashMap<LocationRef, Vec<Card>> {
+        (self.pos)(gd)
+    }
+}
+impl Clone for CardPosition {
+    fn clone(&self) -> Self {
+        CardPosition { 
+            pos: Arc::clone(&self.pos)
+        }
+    }
+}
+
+pub struct CardSet {
+    pub set: TCardSet
+}
+impl CardSet {
+    pub fn get_card_set(&self, gd: &GameData) -> HashMap<LocationRef, Vec<Card>> {
+        (self.set)(gd)
+    }
+}
+impl Clone for CardSet {
+    fn clone(&self) -> Self {
+        CardSet { 
+            set: Arc::clone(&self.set)
+        }
+    }
+}
+
+pub struct GInt {
+    pub value: TInt,
+}
+impl GInt {
+    pub fn get_value_i32(&self, gd: &GameData) -> i32 {
+        (self.value)(gd)
+    }
+
+    pub fn get_value_usize(&self, gd: &GameData) -> usize {
+        (self.value)(gd) as usize
+    }
+}
+impl Clone for GInt {
+    fn clone(&self) -> Self {
+        GInt { 
+            value: Arc::clone(&self.value)
+        }
+    }
+}
+
+pub struct GString {
+    pub string: TString
+}
+impl Clone for GString {
+    fn clone(&self) -> Self {
+        GString { 
+            string: Arc::clone(&self.string)
+        }
+    }
+}
+impl GString {
+    pub fn get_string(&self, gd: &GameData) -> String {
+        (self.string)(gd)
+    }
+}
+
+pub struct GBool {
+    pub value: TBool
+}
+impl Clone for GBool {
+    fn clone(&self) -> Self {
+        GBool { 
+            value: Arc::clone(&self.value)
+        }
+    }
+}
+impl GBool {
+    pub fn get_value(&self, cgm: &CardGameModel) -> bool {
+        (self.value)(cgm)
+    }
+}
+
+pub struct RefPlayer {
+    pub player: TRefPlayer
+}
+impl Clone for RefPlayer {
+    fn clone(&self) -> Self {
+        RefPlayer { 
+            player: Arc::clone(&self.player)
+        }
+    }
+}
+impl RefPlayer {
+    pub fn get_ref(&self, gd: &GameData) -> Player {
+        (self.player)(gd)
+    }
+}
+
+pub struct RefTeam {
+    pub team: TRefTeam
+}
+impl Clone for RefTeam {
+    fn clone(&self) -> Self {
+        RefTeam { 
+            team: Arc::clone(&self.team)
+        }
+    }
+}
+impl RefTeam {
+    pub fn get_ref(&self, gd: &GameData) -> Team {
+        (self.team)(gd)
+    }
 }
 
 
-
-pub type TMoveCards   = Arc<dyn for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>;
-pub type TMoveCardSet = Arc<dyn Fn(&mut CardGameModel) + Send + Sync + 'static>;
-pub type TCardSet     = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
-pub type TRefPlayer   = Arc<dyn Fn(&GameData) -> Player>;
-pub type TRefTeam     = Arc<dyn Fn(&GameData) -> Team>;
+pub type TMoveCards    = Arc<dyn for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>;
+pub type TMoveCardSet  = Arc<dyn Fn(&mut CardGameModel) + Send + Sync + 'static>;
+pub type TCardSet      = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
+pub type TRefPlayer    = Arc<dyn Fn(&GameData) -> Player>;
+pub type TRefTeam      = Arc<dyn Fn(&GameData) -> Team>;
+pub type TInt          = Arc<dyn Fn(&GameData) -> i32>;
+pub type TBool         = Arc<dyn Fn(&CardGameModel) -> bool>;
+pub type TString       = Arc<dyn Fn(&GameData) -> String>;
+pub type TFilter       = Arc<dyn Fn(&GameData, Vec<Card>) -> Vec<Vec<Card>>>;
+pub type TCardPosition = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
