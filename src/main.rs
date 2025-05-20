@@ -55,7 +55,7 @@ fn main() {
         create 
             substages: (
                 substage!(stage "deal-cards" player_ref!(current), endcondition!(
-                    until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(21)))
+                    untilend
                 ),
                 create 
                     substages: (
@@ -65,29 +65,32 @@ fn main() {
                     play: (
                         (shuffleaction!(shuffle (cardset!("stack")))),
                         (chooserule!(
-                            choose:
-                                (ifrule!(
-                                    iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), "<", int!(21)))
-                                    then (actionrule!(
-                                        deal 1 from
-                                        (cardset!("stack"))
-                                        to 
-                                        (cardset!("hand"))
-                                    )
-                                    )
-                                ))
+                            choose: 
+                                (actionrule!(
+                                    deal 1 from
+                                    (cardset!("stack"))
+                                    to 
+                                    (cardset!("hand")))
+                                )
                             or:
                                 (outaction!(set player_ref!(current), out of stage))
                         ))
                     )
                     scoring: (
-                        scoringrule!(set score (int!(sum of min (cardset!("hand")), using "Rank")), of (player_ref!(current)))
+                        (ifrule!(iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(21))) then 
+                            (scoringrule!(set score (int!(100)), of (player_ref!(current)))),
+                            // set player out of Stage
+                            (outaction!(set player_ref!(current), out of stage))
+                        )),
+                        (ifrule!(iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), "<=", int!(21))) then 
+                            (scoringrule!(set score (int!(sum of (cardset!("hand")), using "Rank" lt int!(21))), of (player_ref!(current))))
+                        ))
                     )
             ))
             setup: ()
             play: ()
             scoring: (winnerrule!(
-                highest score
+                highest score lt int!(21)
             ))
     )(&mut cgm);
 

@@ -393,7 +393,8 @@ macro_rules! filter {
                             _ => panic!("Invalid logical operator: {}", $logical),
                         }
                     }
-                )
+                ),
+                str_repr: String::from("")
             }
     }};
 
@@ -423,7 +424,8 @@ macro_rules! filter {
                 move |_: &GameData, cards: Vec<Card>| -> Vec<Vec<Card>> {
                     group_by_same(cards, $key)
                 }
-            )
+            ),
+            str_repr: format!("SAME {}", $key)
         }
     }};
 
@@ -565,7 +567,8 @@ macro_rules! filter {
                             .attributes;
                         group_by_adjacent(cards, $key, precedence_map)
                     }
-                )
+                ),
+            str_repr: format!("ADJACENT {} USING {}", $key, $precedence_map)
         }
     }};
 
@@ -606,7 +609,8 @@ macro_rules! filter {
                             _ => panic!("Invalid comparison operator: {}", $comparison),
                         }
                     }
-            )
+                ),
+            str_repr: format!("SIZE {} {}", $comparison, $size)
         }
     }};
 
@@ -624,8 +628,9 @@ macro_rules! filter {
                             _ => panic!("Invalid comparison operator: {}", $comparison),
                         }
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} {} {}", $key, $comparison, $value)
+        }
     }};
 
     ($comboname:literal) => {
@@ -640,8 +645,9 @@ macro_rules! filter {
                         let cardfun: &Filter = &cardcombo.attributes;
                         cardfun.apply_func(gd, cards)
                     }
-                )
-            }
+                ),
+            str_repr: format!("{}", $comboname)
+        }
     };
 
     (not $comboname:literal) => {{
@@ -671,8 +677,9 @@ macro_rules! filter {
                 
                         vec![remaining]
                     }
-                )
-            }
+                ),
+            str_repr: format!("NOT {}", $comboname)
+        }
     }};
 }
 
@@ -700,8 +707,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("IN {} AT POSITION {}", $locname, $int)
+        }
     }};
 
     ($locname:literal of player: $pref:expr, $int:literal) => {{
@@ -727,11 +735,12 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
+                ),
+            str_repr: format!("IN {} OF {} AT POSITION {}", $locname, $pref.str_repr, $int)
         }
     }};
 
-    ($locname:literal of player: $tref:expr, $int:literal) => {{
+    ($locname:literal of team: $tref:expr, $int:literal) => {{
         use crate::ast::{GameData, CardPosition};
         use std::sync::Arc;
 
@@ -754,8 +763,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("IN {} OF {} AT POSITION {}", $locname, $tref.str_repr, $int)
+        }
     }};
 
 
@@ -782,8 +792,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("TOP OF {}", $locname)
+        }
     }};
 
     ($locname:literal of player: $pref:expr, top) => {{
@@ -808,8 +819,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("TOP OF {} OF {}", $locname, $pref.str_repr)
+        }
     }};
 
     ($locname:literal of team: $tref:expr, top) => {{
@@ -835,8 +847,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("TOP OF {} OF {}", $locname, $tref.str_repr)
+        }
     }};
 
     ($locname:literal bottom) => {{
@@ -866,8 +879,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("BOTTOM OF {}", $locname)
+        }
     }};
 
     ($locname:literal of player: $pref:expr, bottom) => {{
@@ -897,11 +911,12 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("BOTTOM OF {} OF {}", $locname, $pref.str_repr)
+        }
     }};
 
-    ($locname:literal of player: $tref:expr, bottom) => {{
+    ($locname:literal of team: $tref:expr, bottom) => {{
         use crate::ast::{GameData, CardPosition};
         use std::sync::Arc;
 
@@ -928,8 +943,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("BOTTOM OF {} OF {}", $locname, $pref.str_repr)
+        }
     }};
 
     (min of $cardset:tt using prec: $precname:literal) => {{
@@ -970,8 +986,9 @@ macro_rules! cardposition {
 
                         result
                     }   
-                )  
-            }
+                ),
+            str_repr: format!("MINIMUM USING PRECEDENCE {} OF {}", $precname, $cardset.str_repr)
+        }
     }};
 
     (max of $cardset:tt using prec: $precname:literal) => {{
@@ -1012,8 +1029,9 @@ macro_rules! cardposition {
 
                         result
                     }
-                )
-            }
+                ),
+            str_repr: format!("MAXIMUM USING PRECEDENCE {} OF {}", $precname, $cardset.str_repr)
+        }
     }};
 
     (min of $cardset:tt using pointmap: $pmname:literal) => {{
@@ -1055,8 +1073,9 @@ macro_rules! cardposition {
 
                         result
                     }
-                )
-            }
+                ),
+            str_repr: format!("MINIMUM USING POINTMAP {} OF {}", $pmname, $cardset.str_repr)
+        }
     }};
 
     (max of $cardset:tt using pointmap: $pmname:literal) => {{
@@ -1098,12 +1117,13 @@ macro_rules! cardposition {
 
                         result
                     }
-                )
-            }
+                ),
+            str_repr: format!("MAXIMUM USING POINTMAP {} OF {}", $pmname, $cardset.str_repr)
+        }
     }};
 
     // location OF player
-    ($locname:literal of $pname:literal $int:literal) => {{
+    ($locname:literal of $pref:expr, $int:literal) => {{
         use crate::ast::{GameData, CardPosition};
         use std::sync::Arc;
 
@@ -1112,6 +1132,8 @@ macro_rules! cardposition {
                 Arc::new(
                     |gd: &GameData| {
                         use crate::ast::LocationRef;
+
+                        let pname = $pref.get_ref(gd).name;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                     
@@ -1120,18 +1142,19 @@ macro_rules! cardposition {
                         let i = $int(gd);
                         
                         let cards = card_map.get($locname).expect(&format!("No Location found with name '{}'", $locname));
-                        let card = cards.get(i).expect(&format!("No card at index '{}' in Location '{}' of Player '{}'", i, $locname, $pname));
-                        loc_card.insert(LocationRef::Player(String::from($pname),
+                        let card = cards.get(i).expect(&format!("No card at index '{}' in Location '{}' of Player '{}'", i, $locname, pname));
+                        loc_card.insert(LocationRef::Player(String::from(pname),
                             String::from($locname)),
                             vec![card.clone()]);
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} OF {} AT ", $locname, $pref.str_repr)
+        }
     }};
 
-    ($gd:expr, $locname:literal of $pname:literal top) => {{
+    ($locname:literal of $pref:expr, top) => {{
         use crate::ast::{GameData, CardPosition};
         use std::sync::Arc;
 
@@ -1140,6 +1163,8 @@ macro_rules! cardposition {
                 Arc::new(
                     |gd: &GameData| {
                         use crate::ast::LocationRef;
+
+                        let pname = $pref.get_ref(gd).name;
 
                         let mut loc_card: HashMap<String, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -1151,11 +1176,12 @@ macro_rules! cardposition {
 
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("TOP OF {} OF {}", $locname, $pref.str_repr)
+        }
     }};
 
-    ($gd:expr, $locname:literal of $pname:literal bottom) => {{
+    ($locname:literal of $pref:expr, bottom) => {{
         use crate::ast::{GameData, CardPosition};
         use std::sync::Arc;
 
@@ -1164,6 +1190,8 @@ macro_rules! cardposition {
                 Arc::new(
                     |gd: &GameData| {
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
+
+                        let pname = $pref.get_ref(gd).name;
                     
                         let card_map = cardset!($locname)(gd);
                         let cards = card_map.get($locname).expect(&format!("No Location found with name '{}'", $locname));
@@ -1175,8 +1203,9 @@ macro_rules! cardposition {
                     
                         loc_card
                     }
-                )
-            }
+                ),
+            str_repr: format!("BOTTOM OF {} OF {}", $locname, $pref.str_repr)
+        }
     }};
 
     // TODO:
@@ -1190,7 +1219,7 @@ macro_rules! cardposition {
 // location OF table
 macro_rules! cardset {
     ($($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet, LocationRef, Card};
+        use crate::ast::{GameData, CardSet, LocationRef, Card, str_repr_locations};
         use std::sync::Arc;
 
         CardSet {
@@ -1209,14 +1238,15 @@ macro_rules! cardset {
                     }
 
                     loc_cards
-                })
+                }),
+            str_repr: format!("{}", str_repr_locations(vec![$($locname), *]))
         }
     }};
 
     ($($locname:literal), * of player: $pref:expr) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                     use std::collections::HashMap;
@@ -1231,14 +1261,15 @@ macro_rules! cardset {
                     }
 
                     loc_cards
-                })
-            }
+                }),
+            str_repr: format!("{} OF {}", str_repr_locations(vec![$($locname), *]), $pref.str_repr)
+        }
     }};
 
     ($($locname:literal), * of team: $tref:expr) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use std::collections::HashMap;
@@ -1253,15 +1284,16 @@ macro_rules! cardset {
                 }
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("{} OF {}", str_repr_locations(vec![$($locname), *]), $tref.str_repr)
         }
     }};
     
     // w = where
     ($($locname:literal), * w $f:tt) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use crate::ast::{LocationRef, Card};
@@ -1289,14 +1321,15 @@ macro_rules! cardset {
                 }
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("{} WITH {}", str_repr_locations(vec![$($locname), *]), $f.str_repr)
         }
     }};
 
     ($($locname:literal), * of player: $pref:expr, w $f:tt) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use crate::ast::LocationRef;
@@ -1315,14 +1348,15 @@ macro_rules! cardset {
                 }
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("{} OF {} WITH {}", str_repr_locations(vec![$($locname), *]), $pref.str_repr, $f.str_repr)
         }
     }};
 
     ($($locname:literal), * of team: $tref:expr, w $f:tt) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use crate::ast::LocationRef;
@@ -1341,14 +1375,15 @@ macro_rules! cardset {
                 }
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("{} OF {} WITH {}", str_repr_locations(vec![$($locname), *]), $tref.str_repr, $f.str_repr)
         }
     }};
 
     ($comboname:literal inn $($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use crate::ast::LocationRef;
@@ -1369,14 +1404,15 @@ macro_rules! cardset {
                 }
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("{} IN {}", $comboname, str_repr_locations(vec![$($locname), *]))
         }
     }};
 
     (not $comboname:literal inn $($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::ast::{GameData, CardSet, str_repr_locations};
         use std::sync::Arc;
-        
+
         CardSet {
             set: Arc::new(|gd: &GameData| {
                 use crate::ast::LocationRef;
@@ -1397,7 +1433,8 @@ macro_rules! cardset {
                 }        
 
                 loc_cards
-            })
+            }),
+            str_repr: format!("NOT {} IN {}", $comboname, str_repr_locations(vec![$($locname), *]))
         }
     }};
 
@@ -1411,7 +1448,8 @@ macro_rules! cardset {
 
                 let cardpos: HashMap<LocationRef, Vec<Card>> = $cardpos.get_card_position(gd); 
                 cardpos
-            })
+            }),
+            str_repr: format!("{}", $cardpos.str_repr)
         }
     }};
 }
@@ -1469,7 +1507,8 @@ macro_rules! int {
                     let i: i32 = $int;
                     i
                 }
-            )
+            ),
+            str_repr: format!("{}", $int)
         }
     }};
 
@@ -1494,7 +1533,8 @@ macro_rules! int {
                             }
                     }
                 }
-            )
+            ),
+            str_repr: format!("{} {} {}", $int1.str_repr, $op, $int2.str_repr)
         }
     }};
 
@@ -1508,7 +1548,10 @@ macro_rules! int {
                     let index: usize = $int.get_value_usize(gd);
                     $intcol[index]    
                 }   
-            ) 
+            ),
+            // TODO:
+            // str_repr: format!("{} AT {}", $intcol, $int)
+            str_repr: format!("INTCOLLECTION AT {}", $int.str_repr)
         }
     }};
 
@@ -1522,7 +1565,8 @@ macro_rules! int {
                 |_: &GameData| {
                     $col.len()
                 }
-            )
+            ),
+            str_repr: format!("SIZE OF {}", $col)
         }
     }};
 
@@ -1537,7 +1581,10 @@ macro_rules! int {
                     let intcol: Vec<i32> = $intcol;
                     intcol.iter().sum::<i32>()
                 }
-            )
+            ),
+            // TODO:
+            // str_repr: format!("SUM OF {}", $intcol)
+            str_repr: format!("SUM OF INTCOLLECTION")
         }
     }};
 
@@ -1572,7 +1619,8 @@ macro_rules! int {
 
                     sum
                 }
-            )
+            ),
+            str_repr: format!("SUM OF MINIMUM OF {} USING {}", $cardset.str_repr, $pmname)
         }
     }};
 
@@ -1608,7 +1656,8 @@ macro_rules! int {
 
                     sum
                 }
-            )
+            ),
+            str_repr: format!("SUM OF MAXIMUM OF {} USING {}", $cardset.str_repr, $pmname)
         }
     }};
 
@@ -1686,7 +1735,8 @@ macro_rules! int {
 
                     min_sum_greater_equal(matrix, target).expect(&format!("Found no Solution for 'min_sum_greater_equal' with value '{}'", target))
                 }
-            )
+            ),
+            str_repr: format!("SUM OF {} USING {} >= {}", $cardset.str_repr, $pmname, $int.str_repr)
         }
     }};
 
@@ -1768,7 +1818,8 @@ macro_rules! int {
 
                     - min_sum_greater_equal(matrix, target).expect(&format!("Found no Solution for 'min_sum_greater_equal' with value '{}'", target))
                 }
-            )
+            ),
+            str_repr: format!("SUM OF {} USING {} <= {}", $cardset.str_repr, $pmname, $int.str_repr)
         }
     }};
 
@@ -1784,7 +1835,10 @@ macro_rules! int {
                 |_: &GameData| {
                     *$intcol.iter().min().expect(&format!("No Minimum found in {:?}", $intcol))
                 }
-            )
+            ),
+            // TODO:
+            // str_repr: format!("MINIMUM OF {}", $intcol)
+            str_repr: format!("MINIMUM OF INTCOLLECTION")
         }
     }};
 
@@ -1797,7 +1851,10 @@ macro_rules! int {
                 |_: &GameData| {
                     *$intcol.iter().max().expect(&format!("No Maximum found in {:?}", $intcol))
                 }
-            )
+            ),
+            // TODO:
+            // str_repr: format!("MAXIMUM OF {}", $intcol)
+            str_repr: format!("MAXIMUM OF INTCOLLECTION")
         }
     }};
 
@@ -1818,7 +1875,8 @@ macro_rules! string {
             string: Arc::new(|_: &GameData| {
                     String::from($id)
                 }
-            )
+            ),
+            str_repr: format!("{}", $id)
         }
     }};
 
@@ -1840,7 +1898,8 @@ macro_rules! string {
                         card.clone().attributes.get($key).expect(&format!("No Attribute found with Key '{}' in Card '{}'", $key, card)).clone()
                     )
                 }
-            )
+            ),
+            str_repr: format!("{} OF {}", $key, $cardpos.str_repr)
         }
     }};
 
@@ -1854,7 +1913,10 @@ macro_rules! string {
                     let index = $int.get_value_usize(gd);
                     String::from($stringcol[index])
                 }
-            )
+            ),
+            // TODO:
+            // str_repr: format!("{} AT {}", $stringcol, $int.str_repr)
+            str_repr: format!("STRINGCOLLECTION AT {}", $int.str_repr)
         }
     }}; 
 }
@@ -1885,7 +1947,8 @@ macro_rules! bool {
                                     }
                         }
                     }
-                )
+                ),
+            str_repr: format!("{} {} {}", $string1.str_repr, $op, $string2.str_repr)
         }
     }};
 
@@ -1910,8 +1973,9 @@ macro_rules! bool {
                                     }
                         }
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} {} {}", $int1.str_repr, $op, $int2.str_repr)
+        }
     }};
 
     // CardSet (’==’ | ’!=’) CardSet
@@ -1943,8 +2007,9 @@ macro_rules! bool {
                                     }
                         }
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} {} {}", $cs1.str_repr, $op, $cs2.str_repr)
+        }
     }};
 
     // CardSet ’is’ (’not’)? ’empty’
@@ -1966,8 +2031,9 @@ macro_rules! bool {
 
                         isempty
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} IS EMPTY", $cs.str_repr)
+        }
     }};
 
     ($cs:expr, is not empty) => {{
@@ -1988,8 +2054,9 @@ macro_rules! bool {
 
                         isnotempty
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} IS NOT EMPTY", $cs.str_repr)
+        }
     }};
 
     // Player == Player and Team == Team
@@ -2010,8 +2077,9 @@ macro_rules! bool {
                                     }
                         }
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} {} {}", $ref1.str_repr, $op, $ref2.str_repr)
+        }
     }};
 
     // ’(’ Bool (’and’ | ’or’) Bool ’)’ 
@@ -2032,8 +2100,9 @@ macro_rules! bool {
                                     }
                         }
                     }
-                )
-            }
+                ),
+            str_repr: format!("{} {} {}", $b1.str_rep, $op, $b2.str_rep)
+        }
     }};
 
     // ’not’ ’(’ Bool ’)’
@@ -2047,7 +2116,8 @@ macro_rules! bool {
                 |cgm: &CardGameModel| {
                     !$b(cgm)
                 }
-            )
+            ),
+            str_repr: format!("NOT {}", $b1.str_rep)
         }
     }};
 
@@ -2067,7 +2137,8 @@ macro_rules! player_ref {
         use std::sync::Arc;
 
         RefPlayer {
-            player: Arc::new(|gd: &GameData| gd.get_player_copy($pname))
+            player: Arc::new(|gd: &GameData| gd.get_player_copy($pname)),
+            str_repr: format!("{}", $pname)
         }
     }};
 
@@ -2081,7 +2152,8 @@ macro_rules! player_ref {
                     let current = gd.current as usize;
                     let pname   = &gd.turnorder[current];
                     gd.get_player_copy(pname)
-                })
+                }),
+            str_repr: format!("CURRENT PLAYER")
         }
     }};
 
@@ -2095,7 +2167,8 @@ macro_rules! player_ref {
                     let next    = ((current + 1) % (gd.turnorder.len() as i32)) as usize;
                     let pname   = &gd.turnorder[next];
                     gd.get_player_copy(pname)
-                })
+                }),
+            str_repr: format!("NEXT PLAYER")
         }
     }};
 
@@ -2110,7 +2183,8 @@ macro_rules! player_ref {
                     let previous    = ((current - 1 + len) % len) as usize;
                     let pname   = &gd.turnorder[previous];
                     gd.get_player_copy(pname)
-                })
+                }),
+            str_repr: format!("PREVIOUS PLAYER")
         }
     }};
 
@@ -2132,7 +2206,8 @@ macro_rules! player_ref {
                     let index   = ((i - 1 + len) % len) as usize;
                     let pname   = &gd.turnorder[index];
                     gd.get_player_copy(pname)
-                })
+                }),
+            str_repr: format!("{}'S PLAYER", $int.str_repr)
         }
     }};
 
@@ -2159,7 +2234,8 @@ macro_rules! player_ref {
                         // LocationRef::Team(tname, _) => $gd.get_player(pname),
                         // LocationRef::Table(pname) => $gd.get_player(pname),
                     }
-                })
+                }),
+            str_repr: format!("OWNER OF {}", $cardpos.str_repr)
         }
     }}
 
@@ -2178,7 +2254,8 @@ macro_rules! team_ref {
             team:
                 Arc::new(|gd: &GameData| {
                     gd.get_team_copy($tname)
-                })
+                }),
+            str_repr: format!("{}", $tname)
         }
     }};
 
@@ -2194,7 +2271,8 @@ macro_rules! team_ref {
                     let pname: &str = &player.name;
                     let tname = gd.playertoteam.get(pname).expect(&format!("No Player with name: {} in 'playertoteam'", pname));
                     gd.get_team_copy(tname)
-                })
+                }),
+            str_repr: format!("TEAM OF {}", $pref.str_repr)
         }
     }};
 }
@@ -2218,7 +2296,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, _: usize| {
                     $b.get_value(cgm)
                 }
-            )
+            ),
+            str_repr: format!("{}", $b.str_repr)
         }
     }};
 
@@ -2231,7 +2310,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, rep: usize| {
                     $b.get_value(cgm) && rep == $int(&cgm.gamedata)
                 }
-            )
+            ),
+            str_repr: format!("UNTIL {} AND {} TIMES", $b.str_repr, $int.str_repr)
         }
     }};
 
@@ -2244,7 +2324,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, rep: usize| {
                     $b.get_value(cgm) || rep == $int(&cgm.gamedata)
                 }
-            )
+            ),
+            str_repr: format!("UNTIL {} OR {} TIMES", $b.str_repr, $int.str_repr)
         }
     }};
 
@@ -2257,7 +2338,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, rep: usize| {
                     $b.get_value(cgm) && rep == 1
                 }
-            )
+            ),
+            str_repr: format!("UNTIL {} AND ONCE", $b.str_repr)
         }
     }};
 
@@ -2270,7 +2352,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, rep: usize| {
                     $b.get_value(cgm) || rep == 1
                 }
-            )
+            ),
+            str_repr: format!("UNTIL {} OR ONCE", $b.str_repr)
         }
     }};
 
@@ -2282,7 +2365,8 @@ macro_rules! endcondition {
                 |cgm: &CardGameModel, rep: usize| {
                     rep == ($int(&cgm.gamedata)as usize)
                 }
-            )
+            ),
+            str_repr: format!("{} TIMES", $int.str_repr)
         }
     }};
 
@@ -2294,13 +2378,24 @@ macro_rules! endcondition {
                 |_: &CardGameModel, rep: usize| {
                     rep == 1
                 }
-            )
+            ),
+            str_repr: format!("ONCE")
         }
     }};
 
-    (until end) => {
+    // Stage is only being ended by other factors, like:
+    // all players are out of stage, winner is declared in Stage, etc...
+    (untilend) => {{
+        use crate::ast::{EndCondition};
+        use std::sync::Arc;
 
-    };
+        EndCondition {
+            condition: Arc::new(|_: &CardGameModel, _: usize| {
+                false
+            }),
+            str_repr: format!("UNTIL END")
+        }
+    }};
 }
 
 // seq-stage
@@ -2384,37 +2479,49 @@ macro_rules! condrule {
     (
         (conditional:
             $(
-                (case: $bool:tt ( $($rule:tt)+ ))
+                (case: $b:tt ( $($rule:tt)+ ))
             )+
         )
     ) => {{
-        use crate::ast::{Condition, Rule, ConditionalRule, ConditionalCase};
+        use crate::ast::{Condition, Rule, ConditionalRule, ConditionalCase, str_repr_rules};
+
+        let mut string_conditional = format!("conditional:\n");
 
         ConditionalRule {
             condcases: vec![
                 $(
+                    let vec = vec![$($rule),+];
+
+                    let repr = format!("case {}:\n{}", $b.str_repr, str_repr_rules(&vec));
+
                     ConditionalCase {
-                        condition: Condition { condition: $bool},
-                        rules: vec![
-                            $(
-                                $rule
-                            ),+
-                        ],
+                        condition: Condition { condition: $b},
+                        str_repr: repr,
+                        rules: vec,
                     }
+
+                    string_conditional = format!("{}{}", string_conditional, repr)
                 ),+
             ],
+            str_repr: string_conditional,
         }
     }};
 }
 
 macro_rules! ifrule {
     (iff $b:tt then $( $rule:expr ),* ) => {{
-        use crate::ast::{IfRule, PlayRule, Condition};
+        use crate::ast::{Rule, IfRule, PlayRule, Condition, str_repr_if_rule};
+
+        let vec = vec![$($rule),*];
 
         Rule::PLAYRULE(PlayRule::IFRULE(
             IfRule {
-                condition: Condition { condition: $b },
-                rules: vec![$($rule),*],
+                condition: Condition {
+                    condition: $b,
+                    str_repr: $b.str_repr
+                },
+                str_repr: str_repr_if_rule(&vec, $b.str_repr),
+                rules: vec,
             }
         ))
     }}
@@ -2422,11 +2529,14 @@ macro_rules! ifrule {
 
 macro_rules! oprule {
     (optional: $( $rule:expr ),*) => {{
-        use crate::ast::{OptionalRule};
+        use crate::ast::{OptionalRule, str_repr_optional_rule};
+
+        let vec = vec![$($rule),*],
 
         Rule::PLAYRULE(PlayRule::OPTIONALRULE(
             OptionalRule {
-                rules: vec![$($rule),*],
+                str_repr: str_repr_optional_rule(&vec),
+                rules: vec,
             }
         ))
     }}
@@ -2434,7 +2544,7 @@ macro_rules! oprule {
 
 macro_rules! chooserule {
     (choose: $prule1:tt $(or: $prule2:tt)*) => {{
-        use crate::ast::{Rule, PlayRule, ChooseRule};
+        use crate::ast::{Rule, PlayRule, ChooseRule, str_repr_choose_rule};
         
         let mut vec = vec![$prule1];
         $(
@@ -2443,7 +2553,8 @@ macro_rules! chooserule {
 
         Rule::PLAYRULE(PlayRule::CHOOSERULE(
             ChooseRule {
-                rules: vec
+                str_repr: str_repr_choose_rule(&vec),
+                rules: vec,
             }
         ))
     }}
@@ -2451,10 +2562,16 @@ macro_rules! chooserule {
 
 macro_rules! triggerrule {
     (trigger: $( $rule:expr ),*) => {
-        use crate::ast::TriggerRule;
-        TriggerRule {
-            rules: vec![$($rule),*],
-        }
+        use crate::ast::{TriggerRule, str_repr_rules};
+
+        let vec = vec![$($rule),*];
+
+        Rule::PLAYRULE(PlayRule::CHOOSERULE(
+            TriggerRule {
+                str_repr: format!("TRIGGER:\n{}", str_repr_rules(&vec)),
+                rules: vec,
+            }
+        ))
     }
 }
 
@@ -2480,7 +2597,10 @@ macro_rules! actionrule {
             }
         );
 
-        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule { action: Action::MoveCardSet(MoveCSAction { action: move_cardset_closure }) }))
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+            action: Action::MoveCardSet(MoveCSAction { action: move_cardset_closure }),
+            str_repr: format!("MOVE {} TO {}", $fromcs.str_repr, $tocs.str_repr)
+        }))
     }};
     
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
@@ -2504,7 +2624,10 @@ macro_rules! actionrule {
                 }
             );
 
-        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule { action: Action::Move(MoveAction { action: move_cards_closure }) }))
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+            action: Action::Move(MoveAction { action: move_cards_closure }),
+            str_repr: format!("MOVE {} CARDS FROM {} TO {}", $q, $fromcs.str_repr, $tocs.str_repr)
+        }))
     }};
 
     (deal $q:literal from $fromcs:tt to $tocs:tt) => {
@@ -2524,12 +2647,33 @@ macro_rules! actionrule {
                     cgm.gamedata.deal_q_cards(q_value, fromcs, tocs)
                 },
             );
-            Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule{ action: Action::Deal(DealAction { action: deal_cards_closure }) }))
+            Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule{
+                action: Action::Deal(DealAction { action: deal_cards_closure }),
+                str_repr: format!("DEAL {} CARDS FROM {} TO {}", $q, $fromcs.str_repr, $tocs.str_repr)
+            }))
         }
     };
     
     (deal $fromcs:tt to $tocs:tt) => {{
-        actionrule!(mv $fromcs to $tocs)
+        use crate::ast::{CardGameModel, TMoveCardSet, Action, MoveCSAction, ActionRule, Rule, PlayRule};
+        use std::sync::Arc;
+
+        // Create a boxed closure.
+        let move_cardset_closure: TMoveCardSet = Arc::new(
+            move |cgm: &mut CardGameModel| {
+
+                let fromcs = $fromcs.get_card_set(&cgm.gamedata);
+                let tocs = $tocs.get_card_set(&cgm.gamedata);
+
+                cgm.gamedata.move_cardset(fromcs, tocs);
+
+            }
+        );
+
+        Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
+            action: Action::MoveCardSet(MoveCSAction { action: move_cardset_closure }),
+            str_repr: format!("DEAL {} TO {}", $fromcs.str_repr, $tocs.str_repr)
+        }))
     }};
     
     // TODO:
@@ -2554,7 +2698,10 @@ macro_rules! endaction {
         use crate::ast::{Rule, PlayRule, Action, ActionRule};
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
-            ActionRule { action: Action::EndTurn}
+            ActionRule { 
+                action: Action::EndTurn,
+                str_repr: format!("END TURN"),
+            }
         ))
     }};
 
@@ -2562,7 +2709,10 @@ macro_rules! endaction {
         use crate::ast::{Rule, PlayRule, Action, ActionRule};
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
-            ActionRule { action: Action::EndStage}
+            ActionRule {
+                action: Action::EndStage,
+                str_repr: format!("END TURN"),
+            }
         ))
     }};
     
@@ -2570,7 +2720,10 @@ macro_rules! endaction {
         use crate::ast::CardGameModel;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
-            ActionRule { action: Action::EndPlay}
+            ActionRule {
+                action: Action::EndPlay
+                str_repr: format!("END TURN"),
+            }
         ))
     }};
 
@@ -2578,7 +2731,10 @@ macro_rules! endaction {
         use crate::ast::CardGameModel;
         
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
-            ActionRule { action: Action::EndGame}
+            ActionRule {
+                action: Action::EndGame
+                str_repr: format!("END TURN"),
+            }
         ))
     }};
 
@@ -2603,7 +2759,8 @@ macro_rules! cycleaction {
                 CycleAction {
                     pref: $pref
                 }
-            )
+            ),
+            str_repr: format!("CYCLE TO {}", $pref.str_repr)
         }))
     }};
 }
@@ -2617,8 +2774,9 @@ macro_rules! shuffleaction {
                 ShuffleAction {
                     cardset: $cs
                 }
-            )}
-            )
+            ),
+            str_repr: format!("SHUFFLE {}", $cs.str_repr)
+            })
         )
     }};
 }
@@ -2638,7 +2796,8 @@ macro_rules! outaction {
                         pref: $pref,
                         outof: OutOf::Stage,
                     }
-                )
+                ),
+                str_repr: format!("SET {} OUT OF STAGE", $pref.str_repr)
             }
         ))
     }};
@@ -2653,7 +2812,8 @@ macro_rules! outaction {
                         pref: $pref,
                         outof: OutOf::Play,
                     }
-                )
+                ),
+                str_repr: format!("SET {} OUT OF PLAY", $pref.str_repr)
             }
         ))
     }};
@@ -2668,7 +2828,8 @@ macro_rules! outaction {
                         pref: $pref,
                         outof: OutOf::GameSuccessful,
                     }
-                )
+                ),
+                str_repr: format!("SET {} OUT OF GAME SUCCESSFUL", $pref.str_repr)
             }
         ))
     }};
@@ -2683,7 +2844,8 @@ macro_rules! outaction {
                         pref: $pref
                         outof: OutOf::GameFail,
                     }
-                )
+                ),
+                str_repr: format!("SET {} OUT OF GAME FAIL", $pref.str_repr)
             }
         ))
     }};
@@ -2706,6 +2868,7 @@ macro_rules! scoringrule {
             set: true,
             score: $int,
             pref: $pref,
+            str_repr: format!("SET SCORE {} OF {}", $int.str_repr, $pref.str_repr)
         }))
     }};
 
@@ -2717,6 +2880,7 @@ macro_rules! scoringrule {
             set: false,
             score: $int,
             pref: $pref,
+            str_repr: format!("ADD SCORE {} OF {}", $int.str_repr, $pref.str_repr)
         }))
     }};
 }
@@ -2728,6 +2892,7 @@ macro_rules! winnerrule {
         Rule::SCORINGRULE(
             ScoringRule::Winner(WinnerRule {
             winner: $pref,
+            str_repr: format!("WINNER IS {}", $pref.str_repr)
         }))
     }};
 
@@ -2768,7 +2933,8 @@ macro_rules! winnerrule {
                 }
             ),
             str_repr: String::from(""),
-        }))
+        })),
+            str_repr: format!("WINNER IS THE PLAYER WITH THE LOWEST SCORE")
     }};
 
     (highest score) => {{
@@ -2807,7 +2973,50 @@ macro_rules! winnerrule {
                     }
                 }
             ),
-            str_repr: String::from(""),
+            str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE")
+        }))
+    }};
+
+    (highest score lt $int:expr) => {{
+        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use std::sync::Arc;
+
+        Rule::SCORINGRULE(
+            ScoringRule::Winner(
+                WinnerRule {
+            winner: Arc::new(
+                |cgm: &CardGameModel| {
+                    let mut highest_scoring_player: Option<(&String, i32)> = None;
+
+                    let boundary = $int.get_value_i32(&cgm.gamedata);
+
+                    for p in cgm.gamedata.turnorder.iter() {
+                        let player = cgm.gamedata.get_player(p);
+                        let score = player.score;
+
+                        match highest_scoring_player {
+                            Some((_, max_score)) if score > max_score && score <= boundary => {
+                                highest_scoring_player = Some((p, score));
+                            }
+                            None if score <= boundary => {
+                                highest_scoring_player = Some((p, score));
+                            }
+                            _ => {}
+                        }
+                    }
+
+                    if let Some((player_name, score)) = highest_scoring_player {
+                        println!("Player with highest score: {} (score: {})", player_name, score);
+                        cgm.gamedata.get_player(player_name)
+                    } else {
+                        println!("NO PLAYER WON!");
+                        // TODO:
+                        // Default value (if there is no Player with highest score)
+                        cgm.gamedata.get_current()
+                    }
+                }
+            ),
+            str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
 }

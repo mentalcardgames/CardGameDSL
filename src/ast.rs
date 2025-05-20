@@ -163,27 +163,34 @@ impl CardGameModel {
 
     fn handle_playrule(&mut self, play: &PlayRule) -> Vec<GameFlowChange> {
         match play {
-            PlayRule::ACTIONRULE(actions) => {
-                let gfc = self.handle_action(actions);
+            PlayRule::ACTIONRULE(action) => {
+                self.display_game_info();
+                println!("{}", action.str_repr);
+                let gfc = self.handle_action(action);
                 self.display_game_info();
 
                 gfc
             },
             PlayRule::CHOOSERULE(choose) => {
+                println!("{}", choose.str_repr);
                 let input = self.get_input(ActionType::ChooseAction);
                 choose.run(self, input)
             },
             PlayRule::OPTIONALRULE(optional) => {
+                println!("{}", optional.str_repr);
                 let input = self.get_input(ActionType::OptionalAction);
                 optional.run(self, input)
             },
             PlayRule::CONDITIONALRULE(condcases) => {
+                println!("{}", condcases.str_repr);
                 condcases.run(self, RuleInput::None)
             },
             PlayRule::IFRULE(ifrule) => {
+                println!("{}", ifrule.str_repr);
                 ifrule.run(self, RuleInput::None)
             },
             PlayRule::TRIGGERRULE(trigger) => {
+                println!("{}", trigger.str_repr);
                 trigger.run(self, RuleInput::None)
             },
             _ => {
@@ -195,12 +202,11 @@ impl CardGameModel {
     fn handle_scoringrule(&mut self, scoring: &ScoringRule) -> Vec<GameFlowChange> {
         match &scoring {
             ScoringRule::Score(scorerule) => {
-                scorerule.evaluate(self);
-                println!("Score: {}", self.gamedata.get_current().score);
+                scorerule.run(self);
                 vec![GameFlowChange::None]
             },
             ScoringRule::Winner(winnerrule) => {
-                winnerrule.evaluate(self);
+                winnerrule.run(self);
                 vec![GameFlowChange::EndGame]
             }
         }
@@ -253,7 +259,7 @@ impl CardGameModel {
     pub fn display_game_info(&self) {
         println!("============================================");
         let current_name = self.gamedata.turnorder[self.gamedata.current].clone();
-        println!("{}'s turn!", &current_name);
+        println!("{}'s Cards:", &current_name);
         // TODO:
         // hard-coded to hand for now
         let hand_cards = &self.gamedata
@@ -266,11 +272,12 @@ impl CardGameModel {
         for i in 0..hand_cards.len() {
             println!("Card {}: {}", i, hand_cards[i]);
         }
+
+        println!("Current Score: {}", self.gamedata.get_current().score);
         println!("============================================");
     }
 
     pub fn get_input(&self, actype: ActionType) -> RuleInput {
-        self.display_game_info();
         // TODO:
         // UI-communication (Event making)
         // Protocol-Validation
@@ -293,7 +300,7 @@ impl CardGameModel {
             ActionType::MoveAction => {
                 self.get_move_action()
             },
-            _ => {RuleInput::NoOp},
+            _ => {RuleInput::None},
         }
     }
 
@@ -322,10 +329,10 @@ impl CardGameModel {
         let mut moves = Vec::new();
 
         loop {
-            println!("Enter a move in the format:");
-            println!("from_location from_index to_location to_index");
-            println!("Example: Own:hand 0 Table:discard 0");
-            println!("Or type 'done' to finish entering moves.");
+            // println!("Enter a move in the format:");
+            // println!("from_location from_index to_location to_index");
+            // println!("Example: Own:hand 0 Own:discard 0");
+            // println!("Type 'done' to finish entering moves.");
 
             print!("> ");
             io::stdout().flush().unwrap();
@@ -407,8 +414,6 @@ impl CardGameModel {
                 break;
             }
         }
-
-        self.display_game_info();
 
         rulein
     }
@@ -511,6 +516,7 @@ impl CardGameModel {
 fn parse_location_ref(s: &str) -> Option<LocationRef> {
     let parts: Vec<&str> = s.split(':').collect();
     match parts.as_slice() {
+        [loc] => Some(LocationRef::Own(loc.to_string())),
         ["Own", loc] => Some(LocationRef::Own(loc.to_string())),
         ["Table", loc] => Some(LocationRef::Table(loc.to_string())),
         ["Player", player, loc] => Some(LocationRef::Player(player.to_string(), loc.to_string())),
@@ -564,6 +570,7 @@ impl Eq for GameFlowChange {}
 
 #[derive(Debug, Clone)]
 pub enum ActionType {
+    None,
     EndAction,
     ChooseAction,
     MoveAction,
@@ -1361,6 +1368,7 @@ pub struct Stage {
     // set Player out of stage
     // cycle to next
     pub current: String,
+    pub str_repr: String,
 }
 
 impl Stage {
@@ -1371,14 +1379,11 @@ impl Stage {
             substages: vec![],
             turncounter: 0,
             rules: vec![],
-            pref: RefPlayer { player:
-                Arc::new(|gd: &GameData| {
-                    gd.get_player_copy(&gd.turnorder[gd.current])
-                })
-            },
+            pref: RefPlayer::default(),
             reps: HashMap::new(),
             playersout: HashMap::new(),
             current: String::from(""),
+            str_repr: String::default(),
         }
     }
 
@@ -1479,6 +1484,7 @@ impl<'a> Clone for Stage {
             reps: self.reps.clone(),
             playersout: self.playersout.clone(),
             current: self.current.clone(),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -1498,6 +1504,7 @@ impl fmt::Debug for Stage {
 // Finally, define the Condition struct
 pub struct Condition {
     pub condition: GBool,
+    pub str_repr: String,
 }
 impl Condition {
     pub fn evaluate(&self, cgm: &CardGameModel) -> bool {
@@ -1507,7 +1514,8 @@ impl Condition {
 impl Clone for Condition {
     fn clone(&self) -> Self {
         Condition {
-            condition: self.condition.clone()
+            condition: self.condition.clone(),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -1519,6 +1527,7 @@ impl fmt::Debug for Condition {
 
 pub struct EndCondition {
     pub condition: Arc<dyn Fn(&CardGameModel, usize) -> bool>,
+    pub str_repr: String,
 }
 impl EndCondition {
     pub fn evaluate(&self, cgm: &CardGameModel, reps: usize) -> bool {
@@ -1528,7 +1537,8 @@ impl EndCondition {
 impl Clone for EndCondition {
     fn clone(&self) -> Self {
         EndCondition {
-            condition: Arc::clone(&self.condition)
+            condition: Arc::clone(&self.condition),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -1545,14 +1555,27 @@ pub struct RuleSet {
     pub scoring: Scoring,
     // Player Names to keep in track who is still in the game!
     pub outofgame: HashMap<String, bool>,
+    pub str_repr: String,
+}
+impl Default for RuleSet {
+    fn default() -> Self {
+        RuleSet {
+            setup: Setup::default(),
+            play: Play::default(),
+            scoring: Scoring::default(),
+            outofgame: HashMap::new(),
+            str_repr: String::default(),
+        }
+    }
 }
 impl RuleSet {
     pub fn new() -> RuleSet {
         RuleSet {
-            setup: Setup {setuprules: vec![]},
-            play: Play { endconditions: vec![], stages: vec![], current: String::from(""), reps: HashMap::new(), outofplay: HashMap::new()},
-            scoring: Scoring {scoringrules: vec![]},
+            setup: Setup::default(),
+            play: Play::default(),
+            scoring: Scoring::default(),
             outofgame: HashMap::new(),
+            str_repr: String::default(),
         }
     }
 
@@ -1659,9 +1682,12 @@ impl Rule {
                     },
                 }
             },
+            Self::SCORINGRULE(scoring) => {
+                scoring.run(cgm, input)
+            },
             _ => {
                 vec![GameFlowChange::None]
-            },
+            }
         }
     }
 
@@ -1693,11 +1719,49 @@ impl Rule {
                     //     ActionType::IfAction
                     // },
                     // Default return type: Needs to be changed later
-                    _ => {ActionType::OptionalAction}
+                    _ => {ActionType::None}
                 }
             },
             // Default return type: Needs to be changed later
-            _ => {ActionType::OptionalAction},
+            _ => {ActionType::None},
+        }
+    }
+
+    pub fn get_str_repr(&self) -> String {
+        match self {
+            Self::PLAYRULE(p) => {
+                match p {
+                    PlayRule::ACTIONRULE(a) => {
+                        a.str_repr.clone()
+                    },
+                    PlayRule::CHOOSERULE(a) => {
+                        a.str_repr.clone()
+                    },
+                    PlayRule::CONDITIONALRULE(a) => {
+                        a.str_repr.clone()
+                    },
+                    PlayRule::IFRULE(a) => {
+                        a.str_repr.clone()
+                    },
+                    PlayRule::TRIGGERRULE(a) => {
+                        a.str_repr.clone()
+                    },
+                    PlayRule::OPTIONALRULE(a) => {
+                        a.str_repr.clone()
+                    },
+                }
+            },
+            Self::SCORINGRULE(s) => {
+                match s {
+                    ScoringRule::Score(s) => {
+                        s.str_repr.clone()
+                    },
+                    ScoringRule::Winner(w) => {
+                        w.str_repr.clone()
+                    },
+                }
+            },
+            _ => {format!("")}
         }
     }
 }
@@ -1717,11 +1781,13 @@ pub enum PlayRule {
 pub struct ConditionalCase {
     pub condition: Condition,
     pub rules: Vec<Rule>,
+    pub str_repr: String,
 }
 
 #[derive(Debug, Clone)]
 pub struct ConditionalRule {
     pub condcases: Vec<ConditionalCase>,
+    pub str_repr: String,
 }
 impl ConditionalRule {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
@@ -1745,10 +1811,11 @@ impl ConditionalRule {
 pub struct IfRule {
     pub condition: Condition,
     pub rules: Vec<Rule>,
+    pub str_repr: String,
 }
 impl IfRule {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
-        let mut gfs = vec![];
+        let mut gfs = vec![GameFlowChange::None];
 
         if self.condition.evaluate(cgm) {
             for i in 0..self.rules.len() { 
@@ -1765,6 +1832,7 @@ impl IfRule {
 #[derive(Debug, Clone)]
 pub struct OptionalRule {
     pub rules: Vec<Rule>,
+    pub str_repr: String,
 }
 impl OptionalRule {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
@@ -1789,6 +1857,7 @@ impl OptionalRule {
 #[derive(Debug, Clone)]
 pub struct ChooseRule {
     pub rules: Vec<Rule>,
+    pub str_repr: String,
 }
 impl ChooseRule {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
@@ -1808,6 +1877,7 @@ impl ChooseRule {
 #[derive(Debug, Clone)]
 pub struct TriggerRule {
     pub rules: Vec<Rule>,
+    pub str_repr: String,
 }
 impl TriggerRule {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
@@ -1844,7 +1914,8 @@ impl Clone for Box<dyn CloneActionFn> {
 
 #[derive(Debug, Clone)]
 pub struct ActionRule {
-    pub action: Action
+    pub action: Action,
+    pub str_repr: String,
 }
 
 #[derive(Debug, Clone)]
@@ -1980,11 +2051,12 @@ impl MoveCSAction {
 }
 
 pub struct CycleAction {
-    pub pref: Arc<dyn for<'a> Fn(&'a CardGameModel) -> &'a Player + 'static>,
+    pub pref: RefPlayer,
+    pub str_repr: String,
 }
 impl CycleAction {
     pub fn get_name(&self, cgm: &CardGameModel) -> String  {
-        ((self.pref)(cgm)).name.clone()
+        ((self.pref).get_ref(&cgm.gamedata)).name.clone()
     }
 
     pub fn get_pos(&self, cgm: &CardGameModel) -> usize {
@@ -2003,7 +2075,8 @@ impl CycleAction {
 impl Clone for CycleAction {
     fn clone(&self) -> Self {
         CycleAction {
-            pref: Arc::clone(&self.pref)
+            pref: self.pref.clone(),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2014,7 +2087,7 @@ impl std::fmt::Debug for CycleAction {
 }
 
 pub struct ShuffleAction {
-    pub cardset: CardSet
+    pub cardset: CardSet,
 }
 impl std::fmt::Debug for ShuffleAction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2129,11 +2202,26 @@ pub enum ScoringRule {
     Score(ScoreRule),
     Winner(WinnerRule)
 }
+impl ScoringRule {
+    pub fn run(&self, cgm: &mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
+        match self {
+            Self::Score(s) => {
+                s.run(cgm);
+            },
+            Self::Winner(w) => {
+                w.run(cgm);
+            },
+        }
+
+        return vec![GameFlowChange::None];
+    }
+}
 
 pub struct ScoreRule {
     pub set: bool,
     pub score: GInt,
     pub pref: RefPlayer,
+    pub str_repr: String,
 }
 impl std::fmt::Debug for ScoreRule {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -2146,11 +2234,12 @@ impl Clone for ScoreRule {
             set: self.set.clone(),
             score: self.score.clone(),
             pref: self.pref.clone(),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
 impl ScoreRule {
-    pub fn evaluate(&self, cgm: &mut CardGameModel) {
+    pub fn run(&self, cgm: &mut CardGameModel) {
         let score = (self.score).get_value_i32(&cgm.gamedata);
         let name = (self.pref).get_ref(&cgm.gamedata).name;
 
@@ -2182,7 +2271,7 @@ impl Clone for WinnerRule {
     }
 }
 impl WinnerRule {
-    pub fn evaluate(&self, cgm: &CardGameModel) {
+    pub fn run(&self, cgm: &CardGameModel) {
         let winner = (self.winner)(cgm);
         println!("The Winner is: {}!", winner.name);
     } 
@@ -2198,11 +2287,29 @@ pub enum SetupRule {
 #[derive(Debug, Clone)]
 pub struct Setup {
     pub setuprules: Vec<Rule>,
+    pub str_repr: String,
+}
+impl Default for Setup {
+    fn default() -> Self {
+        Setup {
+            setuprules: vec![],
+            str_repr: String::from(""),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
 pub struct Scoring {
     pub scoringrules: Vec<Rule>,
+    pub str_repr: String,
+}
+impl Default for Scoring {
+    fn default() -> Self {
+        Scoring {
+            scoringrules: vec![],
+            str_repr: String::from(""),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -2213,6 +2320,19 @@ pub struct Play {
     pub current: String,
     pub reps: HashMap<String, usize>,
     pub outofplay: HashMap<String, bool>,
+    pub str_repr: String,
+}
+impl Default for Play {
+    fn default() -> Self {
+        Play {
+            endconditions: vec![], // or panic!(), or skip, or clone dummy data
+            stages: vec![],
+            current: String::default(),
+            reps: HashMap::new(),
+            outofplay: HashMap::new(),
+            str_repr: String::default(),
+        }
+    }
 }
 impl Clone for Play {
     fn clone(&self) -> Self {
@@ -2222,6 +2342,7 @@ impl Clone for Play {
             current: self.current.clone(),
             reps: self.reps.clone(),
             outofplay: self.outofplay.clone(),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2252,7 +2373,8 @@ impl Play {
 }
 
 pub struct Filter {
-    pub func: TFilter
+    pub func: TFilter,
+    pub str_repr: String,
 }
 impl Filter {
     pub fn apply_func(&self, gd: &GameData, cards: Vec<Card>) -> Vec<Vec<Card>> {
@@ -2262,13 +2384,15 @@ impl Filter {
 impl Clone for Filter {
     fn clone(&self) -> Self {
         Filter {
-            func: Arc::clone(&self.func)
+            func: Arc::clone(&self.func),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
 
 pub struct CardPosition {
-    pub pos: TCardPosition
+    pub pos: TCardPosition,
+    pub str_repr: String,
 }
 impl CardPosition {
     pub fn get_card_position(&self, gd: &GameData) -> HashMap<LocationRef, Vec<Card>> {
@@ -2278,13 +2402,15 @@ impl CardPosition {
 impl Clone for CardPosition {
     fn clone(&self) -> Self {
         CardPosition { 
-            pos: Arc::clone(&self.pos)
+            pos: Arc::clone(&self.pos),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
 
 pub struct CardSet {
-    pub set: TCardSet
+    pub set: TCardSet,
+    pub str_repr: String,
 }
 impl CardSet {
     pub fn get_card_set(&self, gd: &GameData) -> HashMap<LocationRef, Vec<Card>> {
@@ -2294,13 +2420,15 @@ impl CardSet {
 impl Clone for CardSet {
     fn clone(&self) -> Self {
         CardSet { 
-            set: Arc::clone(&self.set)
+            set: Arc::clone(&self.set),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
 
 pub struct GInt {
     pub value: TInt,
+    pub str_repr: String,
 }
 impl GInt {
     pub fn get_value_i32(&self, gd: &GameData) -> i32 {
@@ -2314,18 +2442,21 @@ impl GInt {
 impl Clone for GInt {
     fn clone(&self) -> Self {
         GInt { 
-            value: Arc::clone(&self.value)
+            value: Arc::clone(&self.value),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
 
 pub struct GString {
-    pub string: TString
+    pub string: TString,
+    pub str_repr: String,
 }
 impl Clone for GString {
     fn clone(&self) -> Self {
         GString { 
-            string: Arc::clone(&self.string)
+            string: Arc::clone(&self.string),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2336,12 +2467,14 @@ impl GString {
 }
 
 pub struct GBool {
-    pub value: TBool
+    pub value: TBool,
+    pub str_repr: String,
 }
 impl Clone for GBool {
     fn clone(&self) -> Self {
         GBool { 
-            value: Arc::clone(&self.value)
+            value: Arc::clone(&self.value),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2352,12 +2485,24 @@ impl GBool {
 }
 
 pub struct RefPlayer {
-    pub player: TRefPlayer
+    pub player: TRefPlayer,
+    pub str_repr: String,
+}
+impl Default for RefPlayer {
+    fn default() -> Self {
+        RefPlayer { player:
+            Arc::new(|gd: &GameData| {
+                gd.get_player_copy(&gd.turnorder[gd.current])
+            }),
+            str_repr: String::default()
+        }
+    }
 }
 impl Clone for RefPlayer {
     fn clone(&self) -> Self {
         RefPlayer { 
-            player: Arc::clone(&self.player)
+            player: Arc::clone(&self.player),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2368,12 +2513,14 @@ impl RefPlayer {
 }
 
 pub struct RefTeam {
-    pub team: TRefTeam
+    pub team: TRefTeam,
+    pub str_repr: String,
 }
 impl Clone for RefTeam {
     fn clone(&self) -> Self {
         RefTeam { 
-            team: Arc::clone(&self.team)
+            team: Arc::clone(&self.team),
+            str_repr: self.str_repr.clone(),
         }
     }
 }
@@ -2394,3 +2541,79 @@ pub type TBool         = Arc<dyn Fn(&CardGameModel) -> bool>;
 pub type TString       = Arc<dyn Fn(&GameData) -> String>;
 pub type TFilter       = Arc<dyn Fn(&GameData, Vec<Card>) -> Vec<Vec<Card>>>;
 pub type TCardPosition = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
+
+
+// ===================================================
+// String Representation-Functions
+pub fn str_repr_locations(locs: Vec<&str>) -> String {
+    let locnames: Vec<&str> = locs;
+    let mut str_locs: String = String::from("(");
+
+    for i in 0..locnames.len() {
+        if i != locnames.len() - 1 {
+            str_locs = format!("{}'{}',", str_locs, locnames[i]);
+        } else {
+            str_locs = format!("{}'{}')", str_locs, locnames[i]);
+        }
+    }
+
+    return str_locs
+}
+
+pub fn str_repr_choose_rule(rules: &Vec<Rule>) -> String {
+    let rules: Vec<String> = rules.iter().map(|r| r.get_str_repr()).collect();
+
+    let mut string_rules = String::from("CHOOSE:");
+
+    for i in 0..rules.len() {
+        if i != rules.len() - 1 {
+            string_rules = format!("{}\n{}\nOR:", string_rules, rules[i]);
+        } else {
+            string_rules = format!("{}\n{}\n", string_rules, rules[i]);
+        }
+    }
+
+    return string_rules
+}
+
+pub fn str_repr_optional_rule(rules: &Vec<Rule>) -> String {
+    let rules: Vec<String> = rules.iter().map(|r| r.get_str_repr()).collect();
+
+    let mut string_rules = String::from("OPTIONAL:");
+
+    for i in 0..rules.len() {
+        if i != rules.len() - 1 {
+            string_rules = format!("{}\n{}\nOR:", string_rules, rules[i]);
+        } else {
+            string_rules = format!("{}\n{}\n", string_rules, rules[i]);
+        }
+    }
+
+    return string_rules
+}
+
+pub fn str_repr_if_rule(rules: &Vec<Rule>, b: String) -> String {
+    let rules: Vec<String> = rules.iter().map(|r| r.get_str_repr()).collect();
+
+    let mut string_rules = format!("IF {} THEN (", b);
+
+    for i in 0..rules.len() {
+        string_rules = format!("{}\n{}", string_rules, rules[i]);        
+    }
+    
+    string_rules = format!("{}\n)", string_rules);        
+
+    return string_rules
+}
+
+pub fn str_repr_rules(rules: &Vec<Rule>) -> String {
+    let rules: Vec<String> = rules.iter().map(|r| r.get_str_repr()).collect();
+
+    let mut string_rules = rules[0].clone();
+
+    for i in 1..rules.len() {
+        string_rules = format!("{}\n{}", string_rules, rules[i]);        
+    }
+
+    return string_rules
+}
