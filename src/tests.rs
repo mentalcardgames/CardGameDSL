@@ -1047,16 +1047,13 @@ mod tests {
             stage "test" player_ref!(turnorder int!(0)), endcondition!(
                 until (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(100)))
             ),
-            create 
-                substages: ()
-                setup: ()
-                play: ((actionrule!(
-                    deal
-                    (cardset!("stack"))
-                    to 
-                    (cardset!("hand"))
-                )))
-                scoring: ()
+            substages: ()
+            rules: ((actionrule!(
+                deal
+                (cardset!("stack"))
+                to 
+                (cardset!("hand"))
+            )))
         )(&mut cgm);
 
         println!("{}", cgm.gamedata.players.get("P1").unwrap().locations.get("hand").unwrap().borrow().contents.clone().len());

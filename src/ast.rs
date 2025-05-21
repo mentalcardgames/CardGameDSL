@@ -164,7 +164,7 @@ impl CardGameModel {
     fn handle_playrule(&mut self, play: &PlayRule) -> Vec<GameFlowChange> {
         match play {
             PlayRule::ACTIONRULE(action) => {
-                self.display_game_info();
+                // self.display_game_info();
                 println!("{}", action.str_repr);
                 let gfc = self.handle_action(action);
                 self.display_game_info();
@@ -1397,6 +1397,10 @@ impl Stage {
 
     pub fn add_scoring_rule(&mut self, scoring: Rule) {
         self.rules.push(scoring);
+    }
+
+    pub fn add_rule(&mut self, rule: Rule) {
+        self.rules.push(rule);
     }
 
     pub fn add_sub_stage<'a>(&'a mut self, sub: Stage) {

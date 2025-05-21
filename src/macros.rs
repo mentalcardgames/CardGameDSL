@@ -1477,23 +1477,6 @@ macro_rules! combo {
 }
 
 
-/*
-This is needed for Condition:
-
-Int → INT | ’(’ Int (’+’ | ’-’ | ’*’ | ’//’ | ’mod’) Int ’)’ |
-    [IntCollection] Int | size’ ’of’ [Collection] |
-    ’sum’ ’of’ ([IntCollection] | CardSet ’using’ [PointMap]) |
-    (’min’ | ’max’) ’of’ [IntCollection] |
-    ’stageroundcounter’ | ’playroundcounter’
-
-TODO:
-Implement the Types above!
-(maybe call them IntCond, StringCond, BoolCond or something like that,
-because it is confusing if we call tehm Int, String, Bool)
-
-*/
-
-
 // TODO:
 // needs to be CardGameModel considering that it needs information from ruleset
 macro_rules! int {
@@ -2404,11 +2387,8 @@ macro_rules! endcondition {
 macro_rules! stage {
     (
         stage $stage_name:literal $pref:expr, $end_cond:expr,
-        create 
         substages: ($($stage:expr),* )
-        setup: ( $( $setup_rule:expr ),* )
-        play: ( $($play_rule:expr ),* )
-        scoring: ( $($scoring_rule:expr ),* )
+        rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
         use crate::ast::Stage;
@@ -2421,16 +2401,20 @@ macro_rules! stage {
                 stage.add_sub_stage($stage);
             )*
 
-            $(
-                stage.add_setup_rule($setup_rule);
-            )*
+            // $(
+            //     stage.add_setup_rule($setup_rule);
+            // )*
+
+            // $(
+            //     stage.add_play_rule($play_rule);
+            // )*
+
+            // $(
+            //     stage.add_scoring_rule($scoring_rule);
+            // )*
 
             $(
-                stage.add_play_rule($play_rule);
-            )*
-
-            $(
-                stage.add_scoring_rule($scoring_rule);
+                stage.add_rule($rule);
             )*
 
             cgm.ruleset.play.add_stage(stage);
@@ -2442,11 +2426,8 @@ macro_rules! stage {
 macro_rules! substage {
     (
         stage $stage_name:literal $pref:expr, $end_cond:expr,
-        create 
         substages: ($($stage:expr),* )
-        setup: ( $( $setup_rule:expr ),* )
-        play: ( $($play_rule:expr ),* )
-        scoring: ( $($scoring_rule:expr ),* )
+        rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
         use crate::ast::Stage;
@@ -2459,16 +2440,20 @@ macro_rules! substage {
             stage.add_sub_stage(sub);
         )*
 
-        $(
-            stage.add_setup_rule($setup_rule);
-        )*
+        // $(
+        //     stage.add_setup_rule($setup_rule);
+        // )*
+
+        // $(
+        //     stage.add_play_rule($play_rule);
+        // )*
+
+        // $(
+        //     stage.add_scoring_rule($scoring_rule);
+        // )*
 
         $(
-            stage.add_play_rule($play_rule);
-        )*
-
-        $(
-            stage.add_scoring_rule($scoring_rule);
+            stage.add_rule($rule);
         )*
 
         stage
