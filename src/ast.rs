@@ -42,6 +42,12 @@ impl CardGameModel {
 
     fn do_stage_logic_play(&mut self) {
         let lenstages = self.ruleset.play.stages.len().clone();
+
+        // keep track of who is still in the game
+        self.ruleset.out_of_game_init(&self.gamedata.turnorder);
+        self.ruleset.play.out_of_play_init(&self.gamedata.turnorder);
+
+        // do the play stages
         for i in 0..lenstages {
             // cloning to not change the original
             let mut current_stage = self.ruleset.play.stages[i].clone();
@@ -218,7 +224,7 @@ impl CardGameModel {
 
     fn handle_action(&mut self, action: &ActionRule) -> Vec<GameFlowChange> {
         match &action.action {
-            Action::Deal(deal) => {{}
+            Action::Deal(deal) => {
                 let input = self.get_input(ActionType::DealAction);
                 deal.run(self, input)
             },
@@ -464,15 +470,28 @@ impl CardGameModel {
                     for p in players.iter() {
                         stage.set_player_out(p);
                     }
+
                     return true
                 },
                 GameFlowChange::OutOfPlay(players) => {
+                    for p in players.iter() {
+                        self.ruleset.play.set_player_out(p);
+                    }
+
                     return true
                 },
                 GameFlowChange::OutOfGameSuccessful(players) => {
+                    for p in players.iter() {
+                        self.ruleset.set_player_out_succ(p);
+                    }
+
                     return true
                 },
                 GameFlowChange::OutOfGameFail(players) => {
+                    for p in players.iter() {
+                        self.ruleset.set_player_out_fail(p);
+                    }
+
                     return true
                 },
                 _ => {}
@@ -485,7 +504,9 @@ impl CardGameModel {
     fn handle_player_out(&mut self, current_name: &mut String, current_stage: &mut Stage) -> bool {
         let mut cname = current_name.clone();
         for _ in 0..self.gamedata.turnorder.len() {
-            if current_stage.is_player_out(&cname) {
+            if current_stage.is_player_out(&cname)
+                || self.ruleset.play.is_player_out(&cname)
+                || self.ruleset.is_player_out(&cname) {
                 // get the next player if current player is out!
                 // no turn changed!
                 // just set the next player as current!
@@ -1553,12 +1574,19 @@ impl fmt::Debug for EndCondition {
 }
 
 #[derive(Debug, Clone)]
+pub enum OutOfGame {
+    None,
+    Successful,
+    Fail,
+}
+
+#[derive(Debug, Clone)]
 pub struct RuleSet {
     pub setup: Setup,
     pub play: Play,
     pub scoring: Scoring,
     // Player Names to keep in track who is still in the game!
-    pub outofgame: HashMap<String, bool>,
+    pub outofgame: HashMap<String, OutOfGame>,
     pub str_repr: String,
 }
 impl Default for RuleSet {
@@ -1597,19 +1625,41 @@ impl RuleSet {
 
     pub fn out_of_game_init(&mut self, players: &Vec<String>) {
         for p in players.iter() {
-            self.outofgame.insert(p.clone(), false);
+            self.outofgame.insert(p.clone(), OutOfGame::None);
         }
     }
 
     pub fn is_player_out(&self, player: &str) -> bool {
         if let Some(b) = self.outofgame.get(player) {
-            return *b
+            match b {
+                OutOfGame::Successful => {
+                    return true
+                },
+                OutOfGame::Fail => {
+                    return true
+                },
+                OutOfGame::None => {
+                    return false
+                },
+            }
         }
 
         // TODO:
         // Default value
-        false
+        true
     }
+
+    pub fn set_player_out_succ(&mut self, player: &str) {
+        self.outofgame
+            .entry(String::from(player))
+            .and_modify(|v| *v = OutOfGame::Successful);   
+    }
+
+    pub fn set_player_out_fail(&mut self, player: &str) {
+        self.outofgame
+            .entry(String::from(player))
+            .and_modify(|v| *v = OutOfGame::Fail);   
+    }    
 }
 
 #[derive(Debug, Clone)]
@@ -2359,7 +2409,7 @@ impl Play {
         self.stages.push(stage);
     }
 
-    pub fn out_of_game_init(&mut self, players: &Vec<String>) {
+    pub fn out_of_play_init(&mut self, players: &Vec<String>) {
         for p in players.iter() {
             self.outofplay.insert(p.clone(), false);
         }
@@ -2373,6 +2423,12 @@ impl Play {
         // TODO:
         // Default value
         false
+    }
+
+    pub fn set_player_out(&mut self, player: &str) {
+        self.outofplay
+            .entry(String::from(player))
+            .and_modify(|v| *v = true);   
     }
 }
 

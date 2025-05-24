@@ -73,7 +73,7 @@ fn main() {
                 (ifrule!(iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), ">", int!(21))) then 
                     (scoringrule!(set score (int!(100)), of (player_ref!(current)))),
                     // set player out of Stage
-                    (outaction!(set player_ref!(current), out of stage))
+                    (outaction!(set player_ref!(current), out of play))
                 )),
                 (ifrule!(iff (bool!(int: int!(sum of min (cardset!("hand")), using "Rank"), "<=", int!(21))) then 
                     (scoringrule!(set score (int!(sum of (cardset!("hand")), using "Rank" lt int!(21))), of (player_ref!(current))))

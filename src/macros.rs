@@ -2285,13 +2285,8 @@ macro_rules! team_ref {
 }
 
 
-// ActionRule → FlipAction |ShuffleAction | MoveAction | MemoryAction | CycleAction |
-//              OutAction | EndAction | DemAction
-
 // TODO:
 // Status
-
-
 // ’until’ Bool ((’and’ | ’or’) Repetitions)? | Repetitions | ’until’ ’end’
 macro_rules! endcondition {
     (until $b:expr) => {{
@@ -2850,7 +2845,7 @@ macro_rules! outaction {
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { action: Action::OutAction(
                     OutAction {
-                        pref: $pref
+                        pref: $pref,
                         outof: OutOf::GameFail,
                     }
                 ),
@@ -3028,8 +3023,6 @@ macro_rules! winnerrule {
             str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
+
+
 }
-
-
-
-
