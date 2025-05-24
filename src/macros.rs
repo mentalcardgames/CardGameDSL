@@ -1529,12 +1529,12 @@ macro_rules! int {
             value: Arc::new(
                 |gd: &GameData| {
                     let index: usize = $int.get_value_usize(gd);
-                    $intcol[index]    
+                    $intcol.get_i32_at(gd, index)
                 }   
             ),
             // TODO:
             // str_repr: format!("{} AT {}", $intcol, $int)
-            str_repr: format!("INTCOLLECTION AT {}", $int.str_repr)
+            str_repr: format!("{} AT {}", $intcol.str_repr,$int.str_repr)
         }
     }};
 
@@ -1560,14 +1560,13 @@ macro_rules! int {
 
         GInt {
             value: Arc::new(
-            |_: &GameData| {
-                    let intcol: Vec<i32> = $intcol;
-                    intcol.iter().sum::<i32>()
+            |gd: &GameData| {
+                    $intcol.get_sum(gd)
                 }
             ),
             // TODO:
             // str_repr: format!("SUM OF {}", $intcol)
-            str_repr: format!("SUM OF INTCOLLECTION")
+            str_repr: format!("SUM OF {}", $intcol.str_repr)
         }
     }};
 
@@ -1815,13 +1814,13 @@ macro_rules! int {
 
         GInt {
             value: Arc::new(
-                |_: &GameData| {
-                    *$intcol.iter().min().expect(&format!("No Minimum found in {:?}", $intcol))
+                |gd: &GameData| {
+                    $intcol.get_min(gd)
                 }
             ),
             // TODO:
             // str_repr: format!("MINIMUM OF {}", $intcol)
-            str_repr: format!("MINIMUM OF INTCOLLECTION")
+            str_repr: format!("MINIMUM OF {}", $intcol.str_repr)
         }
     }};
 
@@ -1831,18 +1830,30 @@ macro_rules! int {
 
         GInt {
             value: Arc::new(
-                |_: &GameData| {
-                    *$intcol.iter().max().expect(&format!("No Maximum found in {:?}", $intcol))
+                |gd: &GameData| {
+                    $intcol.get_max(gd)
                 }
             ),
             // TODO:
             // str_repr: format!("MAXIMUM OF {}", $intcol)
-            str_repr: format!("MAXIMUM OF INTCOLLECTION")
+            str_repr: format!("MAXIMUM OF {}", $intcol.str_repr)
         }
     }};
 
     // TODO: 
     // ’stageroundcounter’ | ’playroundcounter’
+}
+
+macro_rules! intcollection {
+    ($($int:expr), *) => {{
+        use crate::ast::{IntCollection, str_repr_intcollection};
+        let ints = vec![$($int), *];
+
+        IntCollection {
+            str_repr: str_repr_intcollection(&ints),
+            ints: ints,
+        }
+    }};
 }
 
 /*
@@ -1894,15 +1905,28 @@ macro_rules! string {
             string: Arc::new(
                 |gd: &GameData| {
                     let index = $int.get_value_usize(gd);
-                    String::from($stringcol[index])
+                    $stringcol.get_value_at(gd, index)
                 }
             ),
             // TODO:
             // str_repr: format!("{} AT {}", $stringcol, $int.str_repr)
-            str_repr: format!("STRINGCOLLECTION AT {}", $int.str_repr)
+            str_repr: format!("{} AT {}", $stringcol.str_repr, $int.str_repr)
         }
     }}; 
 }
+
+macro_rules! stringcollection {
+    ($($string:expr), *) => {{
+        use crate::ast::{StringCollection, str_repr_stringcollection};
+        let strings = vec![$($string), *];
+
+        StringCollection {
+            str_repr: str_repr_stringcollection(&strings),
+            strings: strings,
+        }
+    }};
+}
+
 
 /*
 // Bool == Condition (kind of)

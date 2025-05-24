@@ -521,13 +521,13 @@ mod tests {
 
         assert_eq!(
             int!(
-                vec![1, 2, 3, 4],
+                intcollection!(int!(1), int!(2), int!(3), int!(4)),
                 (int!(int!(int!(5), "mod", int!(3)), "-", int!(1)))
             ).get_value_i32(&cgm.gamedata),
             2
         );
 
-        assert_eq!(int!(sum of vec![1, 2, 3, 4]).get_value_i32(&cgm.gamedata), 10);
+        assert_eq!(int!(sum of intcollection!(int!(1), int!(2), int!(3), int!(4))).get_value_i32(&cgm.gamedata), 10);
         
         pointmap!(
             "Rank",
@@ -576,9 +576,9 @@ mod tests {
 
         assert_eq!(int!(sum of (cardset!("hand")), using "Rank" lt int!(15)).get_value_i32(&cgm.gamedata), 11);
 
-        assert_eq!(int!(max of vec![1, 2, 3, 4]).get_value_i32(&cgm.gamedata), 4);
+        assert_eq!(int!(max of intcollection!(int!(1), int!(2), int!(3), int!(4))).get_value_i32(&cgm.gamedata), 4);
 
-        assert_eq!(int!(min of vec![1, 2, 3, 4]).get_value_i32(&cgm.gamedata), 1);
+        assert_eq!(int!(min of intcollection!(int!(1), int!(2), int!(3), int!(4))).get_value_i32(&cgm.gamedata), 1);
     }
 
     #[test]
@@ -589,7 +589,7 @@ mod tests {
 
         assert_eq!(string!("Rank" of cardposition!("stack" top)).get_string(&cgm.gamedata), "2");
 
-        assert_eq!(string!(vec!["a", "b", "c", "d"], int!(1)).get_string(&cgm.gamedata), "b");
+        assert_eq!(string!(stringcollection!(string!("a"), string!("b"), string!("c"), string!("d")), int!(1)).get_string(&cgm.gamedata), "b");
     }
 
     #[test]

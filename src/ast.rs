@@ -2534,7 +2534,62 @@ impl RefTeam {
     }
 }
 
+pub struct IntCollection {
+    pub ints: Vec<GInt>,
+    pub str_repr: String,
+}
+impl IntCollection {
+    pub fn eval_ints(&self, gd: &GameData) -> Vec<i32> {
+        self.ints.iter().map(|tint| tint.get_value_i32(gd)).collect()
+    }
 
+    pub fn get_i32_at(&self, gd: &GameData, index: usize) -> i32 {
+        self.ints[index].get_value_i32(gd)
+    }
+
+    pub fn get_usize_at(&self, gd: &GameData, index: usize) -> usize {
+        self.ints[index].get_value_usize(gd)
+    }
+
+    pub fn get_at(&self, index: usize) -> GInt {
+        self.ints[index].clone()
+    }
+
+    pub fn get_min(&self, gd: &GameData) -> i32 {
+        let ints = self.eval_ints(gd);
+        *ints.iter().min().expect(&format!("No Minimum found in {}!", self.str_repr))
+    }
+
+    pub fn get_max(&self, gd: &GameData) -> i32 {
+        let ints = self.eval_ints(gd);
+        *ints.iter().max().expect(&format!("No Minimum found in {}!", self.str_repr))
+    }
+
+    pub fn get_sum(&self, gd: &GameData) -> i32 {
+        let ints = self.eval_ints(gd);
+        ints.iter().sum::<i32>()
+    }    
+}
+
+pub struct StringCollection {
+    pub strings: Vec<GString>,
+    pub str_repr: String,
+}
+impl StringCollection {
+    pub fn eval_strings(&self, gd: &GameData) -> Vec<String> {
+        self.strings.iter().map(|tint| tint.get_string(gd)).collect()
+    }
+
+    pub fn get_value_at(&self, gd: &GameData, index: usize) -> String {
+        self.strings[index].get_string(gd)
+    }
+
+    pub fn get_at(&self, index: usize) -> GString {
+        self.strings[index].clone()
+    }
+}
+
+// Higher Order Types
 pub type TMoveCards    = Arc<dyn for<'a> Fn(&'a mut CardGameModel) -> Box<dyn FnOnce(Vec<((LocationRef, usize), (LocationRef, usize))>) + 'a>>;
 pub type TMoveCardSet  = Arc<dyn Fn(&mut CardGameModel) + Send + Sync + 'static>;
 pub type TCardSet      = Arc<dyn Fn(&GameData) -> HashMap<LocationRef, Vec<Card>> + Send + Sync + 'static>;
@@ -2620,4 +2675,32 @@ pub fn str_repr_rules(rules: &Vec<Rule>) -> String {
     }
 
     return string_rules
+}
+
+pub fn str_repr_intcollection(ints: &Vec<GInt>) -> String {
+    let vec_str_ints: Vec<String> = ints.iter().map(|gint| gint.str_repr.clone()).collect();
+
+    let mut string_ints = vec_str_ints[0].clone();
+
+    for i in 1..vec_str_ints.len() {
+        string_ints = format!("{}, {}", string_ints, vec_str_ints[i]);        
+    }
+
+    string_ints = format!("{})", string_ints);
+
+    return string_ints
+}
+
+pub fn str_repr_stringcollection(strings: &Vec<GString>) -> String {
+    let vec_str_strings: Vec<String> = strings.iter().map(|gstring| gstring.str_repr.clone()).collect();
+
+    let mut string_strings = vec_str_strings[0].clone();
+
+    for i in 1..vec_str_strings.len() {
+        string_strings = format!("{}, {}", string_strings, vec_str_strings[i]);        
+    }
+
+    string_strings = format!("{})", string_strings);
+
+    return string_strings
 }
