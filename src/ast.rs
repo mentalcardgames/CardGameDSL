@@ -113,6 +113,7 @@ impl CardGameModel {
             // change current name if the GameFlow changes
             // check_for... returns the <NEXT> Player's Name
             current_name = self.check_for_c2_and_et(&gfcs_set);
+
             if someoneout {
                 // check if all players are out
                 if self.handle_player_out(&mut current_name, stage) {
@@ -123,6 +124,8 @@ impl CardGameModel {
                 // next player could be out so current_name has to be updated again
                 current_name = self.gamedata.get_current_name();               
             }
+
+            stage.set_current(&current_name);
 
             // get the current reps of the current player
             rep = stage.get_current_reps(&current_name);
@@ -237,6 +240,8 @@ impl CardGameModel {
                 mvcs.run(self, input)
             },
             Action::EndTurn => {
+                // TODO:
+                // should increment the stagecounter!
                 vec![GameFlowChange::EndTurn]
             },
             Action::EndStage => {
@@ -249,7 +254,7 @@ impl CardGameModel {
                 vec![GameFlowChange::EndGame]
             },
             Action::CycleAction(cycleto) => {
-                vec![GameFlowChange::CycleTo(cycleto.clone())]
+                vec![GameFlowChange::CycleTo(cycleto.clone()), GameFlowChange::EndTurn]
             },
             Action::ShuffleAction(shuffle) => {
                 shuffle.clone().shuffle(self);
@@ -433,6 +438,8 @@ impl CardGameModel {
         
         let mut endturn = false;
 
+        // TODO:
+        // should increment the stagecounter!
         if gfcs_set.contains(&GameFlowChange::EndTurn) {
             let mut cycletoB = false;
             for gfc in gfcs_set.iter() {
@@ -441,8 +448,9 @@ impl CardGameModel {
                         cycletoB = true;
                         // switch to referenced player
                         // update current (in CardGameModel and Stage)
+                        let name = cycleto.get_name(self);
                         self.gamedata.update_current(cycleto.get_pos(self));
-                        return cycleto.get_name(self)
+                        return name
                     },
                     _ => {}
                 }
@@ -1696,9 +1704,12 @@ impl Rule {
                                 mvcs.run(cgm, input)
                             },
                             Action::CycleAction(cycleto) => {
-                                vec![GameFlowChange::CycleTo(cycleto.clone())]
+                                // I think you should end the turn if you cycle to someone new
+                                vec![GameFlowChange::CycleTo(cycleto.clone()), GameFlowChange::EndTurn]
                             },
                             Action::EndTurn => {
+                                // TODO:
+                                // should increment the stagecounter!
                                 vec![GameFlowChange::EndTurn]
                             },
                             Action::EndStage => {
@@ -2106,7 +2117,6 @@ impl MoveCSAction {
 
 pub struct CycleAction {
     pub pref: RefPlayer,
-    pub str_repr: String,
 }
 impl CycleAction {
     pub fn get_name(&self, cgm: &CardGameModel) -> String  {
@@ -2130,7 +2140,6 @@ impl Clone for CycleAction {
     fn clone(&self) -> Self {
         CycleAction {
             pref: self.pref.clone(),
-            str_repr: self.str_repr.clone(),
         }
     }
 }
