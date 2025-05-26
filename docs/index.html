@@ -114,19 +114,101 @@
 
         <div class="section" id="library">
             <h2>How to use the library</h2>
+            <p>
+                You start with creating a mutable CardGameModel variable:
+            </p>
+            <pre><code class="language-rust">
+        let mut cgm = CardGameModel::new("MyCardGame");
+            </code></pre>
+            <p>
+                !!! TODO: If the Language-Design is done (edit this how it should look like) !!!
+                To add Players to the Model (at the moment) you need to give the Model the Player-Names.
+                It looks like this: 
+            </p>
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Adding (and Initializing) Players to the Model
+        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+            </code></pre>
+            <p>
+                The Macros players!(...) is a Closure which takes a &mut GameData and adds the Players to the GameData.
+                (This structure with Clousres is used for 'almost' every Macros).
+            </p>
         
+            <p>
+                Let's say we need Teams in our Game.
+                And let's also say that nobody likes "Kimmy".
+                This can be done like this:
+            </p>
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Adding (and Initializing) Players to the Model
+        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
+        
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                Now we have our Players and Teams. BUT WHERE ARE THE CARDS?
+                Do we have a Card-Stack? Where are the Players-Cards located?
+                We first should declare some Locations where Cards can be placed!
+            </p>
+
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Adding (and Initializing) Players to the Model
+        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
+        
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+
+        // add Location 'hand' to each Player
+        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+
+        // Add a Stack to the Table
+        location_on!("stack", table)(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                Now we have almost everything Set-Up for a Card Game!
+                But ... where are the Cards?
+                What kind of Cards do we need?
+                What is a Card?
+
+                A Card in our Game-Context:
+                // TODO: Add Definition of our Card
+            </p>
+
+
             <p>
                 <strong>players!</strong> — Initializes players:
             </p>
             <pre><code class="language-rust">
-        players!(cgm: &mut CardGameModel, playername1: String, playername2: String);
+        players!((playername: &str), *)(gd: &mut GameData);
             </code></pre>
+
+            <p>
+
+            </p>
         
             <p>
                 <strong>team!</strong> — Initializes a team:
             </p>
             <pre><code class="language-rust">
-        team!(cgm: &mut CardGameModel, teamname: String, (player1: String, player2: String));
+        team!(teamname: &str, ((playername: &str), *))(gd: &mut GameData);
             </code></pre>
         
             <p>
