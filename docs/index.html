@@ -40,6 +40,11 @@
             padding-bottom: 10px;
         }
 
+        .section h3 {
+            color: #2c3e50;
+            border-bottom: 2px solid #ecf0f1;
+            padding-bottom: 5px;
+        }
         .section p {
             line-height: 1.6;
         }
@@ -120,6 +125,7 @@
             <pre><code class="language-rust">
         let mut cgm = CardGameModel::new("MyCardGame");
             </code></pre>
+            <h3> Player </h3>
             <p>
                 !!! TODO: If the Language-Design is done (edit this how it should look like) !!! <br>
                 To add Players to the Model (at the moment) you need to give the Model the Player-Names.<br>
@@ -133,14 +139,16 @@
         players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
             </code></pre>
             <p>
-                The Macros players!(...) is a Closure which takes a &mut GameData and adds the Players to the GameData.
-                (This structure with Clousres is used for 'almost' every Macros).
+                The Macros players!(...) is a Closure which takes a &mut GameData and adds the Players to the GameData.<br>
+                (This structure with Clousres is used for 'almost' every Macros).<br>
             </p>
         
+            <h3> Team </h3>
+
             <p>
-                Let's say we need Teams in our Game.
-                And let's also say that nobody likes "Kimmy".
-                This can be done like this:
+                Let's say we need Teams in our Game.<br>
+                And let's also say that nobody likes "Kimmy".<br>
+                This can be done like this:<br>
             </p>
             <pre><code class="language-rust">
         // Initializing the Model
@@ -156,10 +164,12 @@
         team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
             </code></pre>
 
+            <h3> Location </h3>
+
             <p>
-                Now we have our Players and Teams. BUT WHERE ARE THE CARDS?
-                Do we have a Card-Stack? Where are the Players-Cards located?
-                We first should declare some Locations where Cards can be placed!
+                Now we have our Players and Teams. BUT WHERE ARE THE CARDS?<br>
+                Do we have a Card-Stack? Where are the Players-Cards located?<br>
+                We first should declare some Locations where Cards can be placed!<br>
             </p>
 
             <pre><code class="language-rust">
@@ -182,27 +192,29 @@
         location_on!("stack", table)(&mut cgm.gamedata);
             </code></pre>
 
+            <h3> Card </h3>
+
             <p>
-                Now we have almost everything Set-Up for a Card Game!
-                But ... where are the Cards?
-                What kind of Cards do we need?
-                What is a Card?
+                Now we have almost everything Set-Up for a Card Game!<br>
+                But ... where are the Cards?<br>
+                What kind of Cards do we need?<br>
+                What is a Card?<br>
 
-                A Card in our Game-Context:
-                // TODO: Add Definition of our Card
-                - has Attributes:
-                    > For Example:
-                        - Rank:  (2, 3, 4, 5, 6, 7, ...)
-                        - Suite: (Clubs, Spades, Hearts, Diamonds)
-                    > Example for a Card:
-                        - CardExample:
-                            Rank  = 6
-                            Suite = Clubs
-                
-                These Atrributes can be completely arbitrary!
-
-                Now where do we need Cards for the Set-Up of the Game?
-                Let's say we have all our Cards in the Stack on the Table:
+                A Card in our Game-Context:<br>
+                // TODO: Add Definition of our Card<br>
+                - has Attributes:<br>
+                    > For Example:<br>
+                        - Rank:  (2, 3, 4, 5, 6, 7, ...)<br>
+                        - Suite: (Clubs, Spades, Hearts, Diamonds)<br>
+                    > Example for a Card:<br>
+                        - CardExample:<br>
+                            Rank  = 6<br>
+                            Suite = Clubs<br>
+                <br>
+                These Atrributes can be completely arbitrary!<br>
+                <br>
+                Now where do we need Cards for the Set-Up of the Game?<br>
+                Let's say we have all our Cards in the Stack on the Table:<br>
             </p>
             <pre><code class="language-rust">
         // Initializing the Model
@@ -240,14 +252,67 @@
             </code></pre>
 
             <p>
-                card_on!(locname: String, { (key((value: String), *)), *}) computes the Cross-Product of the inside of '{''}'.
-                In the Example we declare Cards with the Color 'Black' and 'Red' seperately, because of the Cross-Product!
+                card_on!(locname: String, { (key((value: String), *)), *}) computes the Cross-Product of the inside of '{''}'.<br>
+                In the Example we declare Cards with the Color 'Black' and 'Red' seperately, because of the Cross-Product!<br>
             </p>
 
+            <h3> Precedence </h3>
+
             <p>
-                Now we have Cards!
-                For lots Games (e.g. Trick-Taking-Games) the importance of a Card-Precedence is very important.
-                What we mean with Card-Precedence is: Which Card is higher, lower or the same to another Card? 
+                Now we have Cards!<br>
+                For lots Games (e.g. Trick-Taking-Games) the importance of a Card-Precedence is very important.<br>
+                What we mean with Card-Precedence is: Which Card is higher, lower or the same to another Card? <br>
+            </p>
+        
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Adding (and Initializing) Players to the Model
+        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
+        
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+
+        // add Location 'hand' to each Player
+        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+
+        // Add a Stack to the Table
+        location_on!("stack", table)(&mut cgm.gamedata);
+
+        // Create Cards on the Location 'stack'
+        card_on!(
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        )(&mut cgm.gamedata);
+
+        // Creating a Precedence on the Attribute 'Rank'
+        precedence!("Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"))(&mut cgm.gamedata);
+            </code></pre>
+        
+            <p>
+                The lowest Precedence is Rank=2 and the highest is Rank=A.
+            </p>
+
+            <h3> PointMap </h3>
+
+            <p>
+                However, we might want to give arbitrary values and maybe multiple values!<br>
+                For this we use a PointMap!<br>
+                A PointMap assigns a Vector of Values to an Attribute.<br>
+                In 'Black Jack' the Ace can have 1 or 11 as a Value!<br> 
             </p>
 
             <pre><code class="language-rust">
@@ -351,184 +416,184 @@
 
 
             <p>
-                Another use of PointMap would be to declare a Special Point-Distribution (e.g. in a Trick).
-                In the German Game 'Skat', we have a distribution like this:
-                7, 8, 9 => [0]
-                J => [2]
-                Q => [3]
-                K => [4]
-                T => [10]
-                A => [11]
-
+                Another use of PointMap would be to declare a Special Point-Distribution (e.g. in a Trick).<br>
+                In the German Game 'Skat', we have a distribution like this:<br>
+                7, 8, 9 => [0]<br>
+                J => [2]<br>
+                Q => [3]<br>
+                K => [4]<br>
+                T => [10]<br>
+                A => [11]<br>
+                <br>
                 This assigning of Points is not Possible with Precedence!
             </p>
 
+            <h3> Card-Combination </h3>
+            
+            <p>
+                In some Card-Games you have to look at multiple Cards to identify a Card-Combination.<br>
+                In Poker (Texas hold'em) there is a 'Flush'.<br>
+                Out of the 7 Cards we check if at least 5 Cards have the same 'Suite'.<br>
+                We can declare a Combination for our model:
+            </p>
+
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        ...
+
+        combo!("Flush", (
+            filter!(
+                (same "Suite"),
+                ("and"),
+                (size ">=" 5))
+            )
+        )(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                We can 'save' this Combo in our GameData and the call it by the name "Flush" when we need it!<br>
+                What is this 'filter!(...)' and how can we declare it?<br>  
+            </p>
             <p>
                 // TODO: Memory and other missing things in Set-Up
             </p>
             <p>
-                ------------------------------------------------------------------------
-                OLD STUFF:
+                The filter!(...) is a Macros that takes a Vector of Cards (and also a GameData, because that is where the Cards are in the Game) and <br>
+                applies the filter!(...) on the Cards. If the filter!(...) cannot find a fitting subset of the Cards that satisfy it, then it will be empty.<br>
+                (For further information on how the filter!(...)-Macros works look in the code. There is a detailed description on how it works.)
             </p>
+            <pre><code class="language-rust">
+        // same Attribute
+        filter!(same (attr_name: &str));
 
-            <p>
-                <strong>players!</strong> — Initializes players:
-            </p>
-            <pre><code class="language-rust">
-        players!((playername: &str), *)(gd: &mut GameData);
-            </code></pre>
+        // Example:
+        filter!(same "Rank");
 
-            <p>
+        // adjacent Attribute using Precedence
+        filter!(adjacent (attr_name: &str) using (prec_name: &str));
 
-            </p>
-        
-            <p>
-                <strong>team!</strong> — Initializes a team:
-            </p>
-            <pre><code class="language-rust">
-        team!(teamname: &str, ((playername: &str), *))(gd: &mut GameData);
-            </code></pre>
-        
-            <p>
-                <strong>location_on!</strong> — Initializes locations:
-            </p>
-            <pre><code class="language-rust">
-        location_on!(locationname: String, players: Vec<Rc<RefCell<Player>>>);
-        location_on!(locationname: String, team: &Team);
-        location_on!(locationname: String, table: &Table);
-            </code></pre>
-        
-            <p>
-                <strong>card_on!</strong> — Sets cards on a location:
-            </p>
-            <pre><code class="language-rust">
-        card_on!(cgm: &mut CardGameModel, location: String, ...);
-            </code></pre>
-        
-            <p>
-                <strong>precedence!</strong> — Sets precedence for key:
-            </p>
-            <pre><code class="language-rust">
-        precedence!(cgm: &mut CardGameModel, (Key: String, (v1: String, v2: String, ...)));
-            </code></pre>
-        
-            <p>
-                <strong>pointmap!</strong> — Define nested pointmap:
-            </p>
-            <pre><code class="language-rust">
-        pointmap!(cgm: &mut CardGameModel, nested: 
-            (keyname,
-                (
-                valname1 => [i32],
-                valname2 => [i32],
-                ...
-                )
-            )
+        // Example
+        precedence!("RankPrecedence", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"))(&mut cgm.gamedata);
+        filter!(adjacent "Rank" using "RankPrecedence");
+
+        // size comparison value
+        filter!(size (comparison: &str) value);
+
+        // Example
+        filter!(size ">" 3);
+
+        // Attribute "==" Attribute-Value
+        filter!((attr_key: &str) "==" (attr_value: &str));
+
+        // Example
+        filter!("Rank" "==" "A");
+
+        // Attribute "!=" Attribute-Value
+        filter!((attr_key: &str) "!=" (attr_value: &str));
+
+        // Example
+        filter!("Rank" "!=" "A");
+
+        // combo
+        filter!((comboname: &str));
+
+        // Example
+        filter!("MyCombo");
+
+        // not combo
+        filter!(not (comboname: &str));
+
+        // Example
+        filter!(not "MyCombo");
+
+        // Combined filter with 'and'
+        // Example:
+        filter!(
+            (same "Suite"),
+            ("and"),
+            (size ">=" 5)
+        );
+
+        // Combined filter with 'or'
+        // Example:
+        filter!(
+            (same "Suite"),
+            ("or"),
+            (size ">=" 5)
         );
             </code></pre>
         
             <p>
-                <strong>pointmap!</strong> — Define flat pointmap:
+                This wraps up the Set-Up for our Card Game.
             </p>
-            <pre><code class="language-rust">
-        pointmap!(cgm: &mut CardGameModel, list: 
-            (
-                (keyname1, valname1) => [i32],
-                (keyname2, valname2) => [i32],
-                ...
-            )
-        );
-            </code></pre>
-        
+
+            <h3> RuleSet </h3>
+
             <p>
-                <strong>turnorder!</strong> — Set turn order:
+                We now know how to Set-Up a Card Game!<br>
+                Let's get to the core of any Card Game:<br>
+                The Rules!
             </p>
-            <pre><code class="language-rust">
-        turnorder!(cgm: &mut CardGameModel, players: Vec<Rc<RefCell<Player>>>);
-        turnorder!(cgm: &mut CardGameModel, players: Vec<Rc<RefCell<Player>>>, random);
-            </code></pre>
-        
+
             <p>
-                <strong>filter!</strong> — See documentation in code.
+                We can define a rough structure of Rules with 'Stages'.<br>
+                A 'Stage' is an useful tool for decalring the Rules.<br>
+                We can declare different Rules and Game-Cycles with it which makes creating a Game more flexible.<br>
+                <br>
+                However, we first need to understand the Rules and the tools that we are working with.  
             </p>
+
+            <h3> Rules </h3>
+
+            <p>
+                Conditional-Rule:<br>
+                    case (b: bool):<br>
+                        'Rule'<br>
+                    case (b: bool):<br>
+                        'Rule'<br>
+                    case (b: bool):<br>
+                        'Rule'<br>
+                    ...<br>
+            </p>
+
+            <p>
+                If-Rule:<br>
+                    if (b: bool) then<br>
+                        'Rule'<br>
+            </p>
+
+            <p>
+                Optional-Rule:<br>
+                    'Rule'<br>
+            </p>
+
+            <p>
+                Choose-Rule:<br>
+                        'Rule'<br>
+                    OR:<br>
+                        'Rule'<br>
+                    OR:<br>
+                        'Rule'<br>
+                    OR:<br>
+                    ...<br>
+            </p>
+
+            <p>
+                Trigger-Rule:<br>
+                    'Rule'<br>
+            </p>
+
+            <p>
+                Action-Rule:<br>
+                    'Action'<br>
+            </p>
+
+
+            
+            
         </div>
-        
-        <div class="section" id="installation">
-            <h2>Installation Guide</h2>
-            <p>Provide clear instructions on how to install the project and its dependencies. Example:</p>
-            <div class="code-block">
-                <pre>
-# Clone the repository
-git clone https://github.com/yourusername/project-name.git
-
-# Navigate to the project directory
-cd project-name
-
-# Install dependencies
-npm install
-                </pre>
-            </div>
-        </div>
-
-        <div class="section" id="usage">
-            <h2>Usage</h2>
-            <p>Explain how to use your project once it's set up. Provide examples with command line input, or if applicable, screenshots of the user interface.</p>
-            <div class="code-block">
-                <pre>
-# Run the project
-npm start
-                </pre>
-            </div>
-        </div>
-
-        <div class="section" id="code">
-            <h2>Code Structure</h2>
-            <p>Provide an overview of how your code is organized. This section should outline key directories and files. You can also mention important classes or functions.</p>
-            <h3>File Structure:</h3>
-            <div class="code-block">
-                <pre>
-project-name/
-├── src/
-│   ├── index.js
-│   └── app.js
-├── package.json
-├── README.md
-                </pre>
-            </div>
-            <p>Explain the key files and what each one does. For example:</p>
-            <ul>
-                <li><strong>index.js:</strong> The entry point for the application.</li>
-                <li><strong>app.js:</strong> Contains the main app logic and routes.</li>
-                <li><strong>README.md:</strong> This documentation file.</li>
-            </ul>
-        </div>
-
-        <div class="section" id="contributing">
-            <h2>Contributing</h2>
-            <p>If you'd like others to contribute to your project, explain how they can do so. Provide steps for setting up a development environment, submitting pull requests, or reporting issues.</p>
-            <div class="code-block">
-                <pre>
-# Fork the repository
-git clone https://github.com/yourusername/project-name.git
-
-# Create a new branch for your feature
-git checkout -b feature-name
-
-# Commit your changes
-git commit -m "Description of changes"
-
-# Push to your fork
-git push origin feature-name
-
-# Create a pull request
-                </pre>
-            </div>
-        </div>
-    </div>
-
-    <footer>
-        <p>Made with ❤️ by <a href="https://github.com/yourusername" target="_blank">Your Name</a></p>
-    </footer>
-</body>
+    </body>
 
 </html>

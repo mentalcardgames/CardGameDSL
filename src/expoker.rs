@@ -121,19 +121,52 @@ pub fn run() {
                         (cardset!("river")))
                     )
                 )
-            )
+            ),
             // TODO:
             // Betting!
             // !!! INSERT FIRST BETTING ACTION HERE !!!
-            // ----------------------------------------
-            // Now Show-Down. However there is no combo-precedence!
-            // That should be implemented! Get the highest combo using combo-precedence on cardset (or smth like that).
-            // Evaluate winner with looking at ("hand", "flop", "turn", "river")-Locations and get the HIGHEST 5-card-combo 
+            // Maybe need a combo precedence
+            substage!(stage "evaluate-hands" player_ref!(current), endcondition!(
+                once
+            ),
+            substages: ()
+            rules: (
+                    // check for flush
+                    (ifrule!(iff (bool!((cardset!(
+                        "hand", "flop", "turn", "river"
+                        w (filter!(
+                            (same "Suite"),
+                            ("and"),
+                            (size ">=" 5)))
+                        )),
+                        is not empty)) then 
+                        (scoringrule!(add score (int!(10)), of (player_ref!(current))))
+                    )),
+                    // check for straight
+                    (ifrule!(iff (bool!((cardset!(
+                        "hand", "flop", "turn", "river"
+                        w (filter!(adjacent "Rank" using "Rank")))),
+                        is not empty)) then 
+                        (scoringrule!(add score (int!(5)), of (player_ref!(current))))
+                    )),
+                    // check for pair
+                    (ifrule!(iff (bool!((cardset!(
+                        "hand", "flop", "turn", "river"
+                        w (filter!(
+                            (same "Rank"),
+                            ("and"),
+                            (size ">=" 2)))
+                        )),
+                        is not empty)) then 
+                        (scoringrule!(add score (int!(1)), of (player_ref!(current))))
+                    ))
+                )
+            )
         )
         rules: (
-        // winnerrule!(
-        //     highest score lt int!(21)
-        // )
+            winnerrule!(
+                highest score
+            )
         )
     )(&mut cgm);
 
