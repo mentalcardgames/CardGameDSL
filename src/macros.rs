@@ -348,7 +348,7 @@ macro_rules! filter {
 
     // Combine filters with "and" or "or" for Vec<Vec<Card>> results
     (($($filter1:tt)+), ($logical:literal), ($($filter2:tt)+)) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::ast::{Filter, GameData, Card};
         use std::sync::Arc;
 
         Filter {
@@ -431,7 +431,7 @@ macro_rules! filter {
 
     // Group by "adjacent"
     (adjacent $key:literal using $precedence_map:literal) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::ast::{Filter, GameData, Card};
         use std::sync::Arc;
         
         use std::collections::HashMap;
@@ -2420,18 +2420,6 @@ macro_rules! stage {
                 stage.add_sub_stage($stage);
             )*
 
-            // $(
-            //     stage.add_setup_rule($setup_rule);
-            // )*
-
-            // $(
-            //     stage.add_play_rule($play_rule);
-            // )*
-
-            // $(
-            //     stage.add_scoring_rule($scoring_rule);
-            // )*
-
             $(
                 stage.add_rule($rule);
             )*
@@ -2458,18 +2446,6 @@ macro_rules! substage {
             let sub = $stage(cgm);
             stage.add_sub_stage(sub);
         )*
-
-        // $(
-        //     stage.add_setup_rule($setup_rule);
-        // )*
-
-        // $(
-        //     stage.add_play_rule($play_rule);
-        // )*
-
-        // $(
-        //     stage.add_scoring_rule($scoring_rule);
-        // )*
 
         $(
             stage.add_rule($rule);

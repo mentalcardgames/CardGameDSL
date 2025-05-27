@@ -2706,11 +2706,7 @@ pub fn str_repr_optional_rule(rules: &Vec<Rule>) -> String {
     let mut string_rules = String::from("OPTIONAL:");
 
     for i in 0..rules.len() {
-        if i != rules.len() - 1 {
-            string_rules = format!("{}\n{}\nOR:", string_rules, rules[i]);
-        } else {
-            string_rules = format!("{}\n{}\n", string_rules, rules[i]);
-        }
+        string_rules = format!("{}\n{}\n", string_rules, rules[i]);
     }
 
     return string_rules
