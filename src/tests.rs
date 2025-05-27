@@ -80,7 +80,7 @@ mod tests {
     fn test_precedence_macro() {
         let mut cgm = CardGameModel::new("precedence_test");
 
-        precedence!("rank", ("2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"))(&mut cgm.gamedata);
+        precedence!("rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"))(&mut cgm.gamedata);
         precedence!("suite", ("Clubs", "Diamonds", "Hearts", "Spades"))(&mut cgm.gamedata);
 
         // Test rank precedence
