@@ -5,4 +5,4 @@
 !!! DOCUMENTATION IS NOT UP TO DATE !!!
 
 Template documentation:
-[View Documentation](https://mentalcardgames.github.io/CardGameDSL/docs/index.html)
+[View Documentation](https://mentalcardgames.github.io/CardGameDSL/index.html)
