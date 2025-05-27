@@ -190,8 +190,182 @@
 
                 A Card in our Game-Context:
                 // TODO: Add Definition of our Card
+                - has Attributes:
+                    > For Example:
+                        - Rank:  (2, 3, 4, 5, 6, 7, ...)
+                        - Suite: (Clubs, Spades, Hearts, Diamonds)
+                    > Example for a Card:
+                        - CardExample:
+                            Rank  = 6
+                            Suite = Clubs
+                
+                These Atrributes can be completely arbitrary!
+
+                Now where do we need Cards for the Set-Up of the Game?
+                Let's say we have all our Cards in the Stack on the Table:
+            </p>
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Adding (and Initializing) Players to the Model
+        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
+        
+        // Adding (and Initializing) 'a' Team to the Model
+        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+
+        // add Location 'hand' to each Player
+        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+
+        // Add a Stack to the Table
+        location_on!("stack", table)(&mut cgm.gamedata);
+
+        // Create Cards on the Location 'stack'
+        card_on!(
+            "stack",
+            {
+                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                Suite("Diamond", "Hearts"),
+                Color("Red")
+            },
+            {
+                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                Suite("Spades", "Clubs"),
+                Color("Black")
+            }
+        )(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                card_on!(locname: String, { (key((value: String), *)), *}) computes the Cross-Product of the inside of '{''}'.
+                In the Example we declare Cards with the Color 'Black' and 'Red' seperately, because of the Cross-Product!
             </p>
 
+            <p>
+                Now we have Cards!
+                For lots Games (e.g. Trick-Taking-Games) the importance of a Card-Precedence is very important.
+                What we mean with Card-Precedence is: Which Card is higher, lower or the same to another Card? 
+            </p>
+
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        ...
+
+        // We create a PointMap (for the Special case 'Black Jack')
+        pointmap!(
+            "BlackJackRank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "T" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            },
+        )(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                There is also another way to declare this PointMap:  
+            </p>
+
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        ...
+
+        // We create a PointMap (for the Special case 'Black Jack')
+        pointmap!(
+            "BlackJackRank",
+            list: {  
+                ("Rank", "2") => [2],
+                ("Rank", "3") => [3],
+                ("Rank", "4") => [4],
+                ("Rank", "5") => [5],
+                ("Rank", "6") => [6],
+                ("Rank", "7") => [7],
+                ("Rank", "8") => [8],
+                ("Rank", "9") => [9],
+                ("Rank", "T") => [10],
+                ("Rank", "J") => [10],
+                ("Rank", "Q") => [10],
+                ("Rank", "K") => [10],
+                ("Rank", "A") => [1, 11],
+            },
+        )(&mut cgm.gamedata);
+            </code></pre>
+
+            <p>
+                You can also combine these two:
+            </p>
+
+            <pre><code class="language-rust">
+        // Initializing the Model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        ...
+
+        // We create a PointMap (for the Special case 'Black Jack')
+        pointmap!(
+            "BlackJackRank",
+            nested: {  
+                "Rank", (
+                "2" => [2],
+                "3" => [3],
+                "4" => [4],
+                "5" => [5],
+                "6" => [6],
+                "7" => [7],
+                "8" => [8],
+                "9" => [9],
+                "T" => [10],
+                "J" => [10],
+                "Q" => [10],
+                "K" => [10],
+                "A" => [11, 1]
+                )
+            },
+            list: {  
+                ("Suite", "Clubs")    => [10],
+                ("Suite", "Spades")   => [1],
+                ("Suite", "Hearts")   => [1],
+                ("Suite", "Diamonds") => [1],
+            },
+        )(&mut cgm.gamedata);
+            </code></pre>
+
+
+            <p>
+                Another use of PointMap would be to declare a Special Point-Distribution (e.g. in a Trick).
+                In the German Game 'Skat', we have a distribution like this:
+                7, 8, 9 => [0]
+                J => [2]
+                Q => [3]
+                K => [4]
+                T => [10]
+                A => [11]
+
+                This assigning of Points is not Possible with Precedence!
+            </p>
+
+            <p>
+                // TODO: Memory and other missing things in Set-Up
+            </p>
             <p>
                 ------------------------------------------------------------------------
                 OLD STUFF:
