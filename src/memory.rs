@@ -1,9 +1,18 @@
 use std::any::Any;
 use std::collections::HashMap;
 
+/// Memory Owner
+#[derive(Eq, Hash, PartialEq)]
+pub enum MemoryOwner {
+    TABLE,
+    PLAYER(String),
+    TEAM(String),
+    NONE
+}
+
 /// Manages Memory for Mental Card Games
 pub struct Memory {
-    value_map:HashMap<String, Box<dyn Any>>,
+    value_map:HashMap<(String, MemoryOwner), Box<dyn Any>>,
 }
 
 impl Memory {
@@ -29,22 +38,50 @@ impl Memory {
     /// 
     /// Else returns None
     pub fn insert<V: Any>(&mut self, key: String, value: V) -> Option<V> {
+        self.insert_with_owner(key, MemoryOwner::NONE, value)
+    }
+    
+    /// Inserts value into map with declared ownership
+    ///
+    /// If for the `key` there already was a value present return value
+    ///
+    /// Else returns None
+    pub fn insert_with_owner<V: Any>(&mut self, key: String, owner: MemoryOwner, value: V) -> Option<V> {
         let boxed = self.value_map
-            .insert(key.clone(), Box::new(value))?
+            .insert((key.clone(), owner), Box::new(value))?
             .downcast::<V>()
             .ok()?;
-        
+
         Some(*boxed)
     }
     
-    /// Gets a reference to a value for a given key
+    /// Gets a reference to a value for a given key and owner
     /// 
     /// If `key` is not present return None
     /// 
     /// If `V` given doesn't match value return None
-    pub fn get<V: Any>(&self, key: String) -> Option<&V> {
-        self.value_map.get(&key.clone())?
+    pub fn get_with_owner<V: Any>(&self, key: String, owner: MemoryOwner) -> Option<&V> {
+        self.value_map.get(&(key.clone(), owner))?
             .downcast_ref::<V>()
+    }
+
+    /// Gets a reference to a value for a given key
+    ///
+    /// If `key` is not present return None
+    ///
+    /// If `V` given doesn't match value return None
+    pub fn get<V: Any>(&self, key: String) -> Option<&V> {
+        self.get_with_owner(key, MemoryOwner::NONE)
+    }
+
+    /// Gets a mutable reference to a value for a given key and owner
+    ///
+    /// If `key` is not present return None
+    ///
+    /// If `V` doesn't match value return None
+    pub fn get_mut_with_owner<V: Any>(&mut self, key: String, owner: MemoryOwner) -> Option<&mut V> {
+        self.value_map.get_mut(&(key.clone(), owner))?
+            .downcast_mut::<V>()
     }
     
     /// Gets a mutable reference to a value for a given key.
@@ -53,17 +90,21 @@ impl Memory {
     /// 
     /// If `V` doesn't match value return None
     pub fn get_mut<V: Any>(&mut self, key: String) -> Option<&mut V> {
-        self.value_map.get_mut(&key.clone())?
-            .downcast_mut::<V>()
+        self.get_mut_with_owner(key, MemoryOwner::NONE)
     }
     
-    /// Removes value from map for given key
-    pub fn remove<V: Any>(&mut self, key: String) -> Option<V> {
-        let boxed = self.value_map.remove(&key.clone())?
+    /// Removes value from map for given key and owner
+    pub fn remove_with_owner<V: Any>(&mut self, key: String, owner: MemoryOwner) -> Option<V>{
+        let boxed = self.value_map.remove(&(key.clone(), owner))?
             .downcast::<V>()
             .ok()?;
         
         Some(*boxed)
+    }
+    
+    /// Removes value from map for given key
+    pub fn remove<V: Any>(&mut self, key: String) -> Option<V> {
+        self.remove_with_owner(key, MemoryOwner::NONE)
     }
     
     pub fn clear(&mut self) {
