@@ -1,4 +1,5 @@
-use crate::ast::CardGameModel;
+use crate::model::card_game_model::CardGameModel;
+use crate::*;
 
 pub fn run() {
     let mut cgm = CardGameModel::new("BlackJack");

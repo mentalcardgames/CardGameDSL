@@ -6,7 +6,7 @@ use std::io::{self, Write};
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CardGameModel {
     pub name: String,
     pub gamedata: GameData,
@@ -609,7 +609,7 @@ pub enum ActionType {
     OptionalAction,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct GameData {
     pub table: Table,
     pub teams: HashMap<String, Team>,
@@ -1958,25 +1958,6 @@ impl TriggerRule {
     }
 }
 
-pub trait CloneActionFn: Fn(&Vec<((LocationRef, usize),(LocationRef, usize))>) + Send + Sync {
-    fn clone_box(&self) -> Box<dyn CloneActionFn>;
-}
-
-impl<T> CloneActionFn for T
-where
-    T: Fn(&Vec<((LocationRef, usize),(LocationRef, usize))>) + Clone + 'static + Send + Sync,
-{
-    fn clone_box(&self) -> Box<dyn CloneActionFn> {
-        Box::new(self.clone())
-    }
-}
-
-impl Clone for Box<dyn CloneActionFn> {
-    fn clone(&self) -> Box<dyn CloneActionFn> {
-        self.clone_box()
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct ActionRule {
     pub action: Action,
@@ -2003,16 +1984,7 @@ pub enum Action {
     ShuffleAction(ShuffleAction),
     OutAction(OutAction),
 }
-impl Do for Action {
-    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
-        match self {
-            Self::Move(mv) => {mv.play(cgm)},
-            Self::Deal(deal) => {deal.play(cgm)},
-            Self::MoveCardSet(mvcs) => {mvcs.play(cgm)},
-            _ => {PlayOutput::EndAction},
-        }
-    }
-}
+
 impl std::fmt::Debug for Action {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -2034,6 +2006,15 @@ impl Action {
             }
         }
     }
+
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        match self {
+            Self::Move(mv) => {mv.play(cgm)},
+            Self::Deal(deal) => {deal.play(cgm)},
+            Self::MoveCardSet(mvcs) => {mvcs.play(cgm)},
+            _ => {PlayOutput::EndAction},
+        }
+    }
 }
 
 pub enum PlayOutput<'a> {
@@ -2042,19 +2023,11 @@ pub enum PlayOutput<'a> {
     EndAction,
 }
 
-pub trait Do {
-    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a>;
-}
-
 #[derive(Clone)]
 pub struct MoveAction {
     pub action: TMoveCards,
 }
-impl Do for MoveAction {
-    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
-        PlayOutput::Move((self.action)(cgm))
-    }
-}
+
 impl MoveAction {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match input {
@@ -2067,17 +2040,17 @@ impl MoveAction {
             }
         }
     }
+
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::Move((self.action)(cgm))
+    }
 }
 
 #[derive(Clone)]
 pub struct DealAction {
     pub action: TMoveCards,
 }
-impl Do for DealAction {
-    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
-        PlayOutput::Move((self.action)(cgm))
-    }
-}
+
 impl DealAction {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match input {
@@ -2090,17 +2063,17 @@ impl DealAction {
             }
         }
     }
+
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::Move((self.action)(cgm))
+    }
 }
 
 #[derive(Clone)]
 pub struct MoveCSAction {
     pub action: TMoveCardSet,
 }
-impl Do for MoveCSAction {
-    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
-        PlayOutput::MoveCS((self.action)(cgm))
-    }
-}
+
 impl MoveCSAction {
     pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match input {
@@ -2112,6 +2085,10 @@ impl MoveCSAction {
                 vec![GameFlowChange::None]
             }
         }
+    }
+
+    fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
+        PlayOutput::MoveCS((self.action)(cgm))
     }
 }
 
