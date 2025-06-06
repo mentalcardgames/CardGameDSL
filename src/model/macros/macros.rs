@@ -1,8 +1,9 @@
 // $gd = gamedata
+#[macro_export]
 macro_rules! player {
     ($($n:literal), *) => {
         {
-            use crate::ast::GameData;
+            use crate::model::gamedata::game_data::GameData;
             Box::new(
                 |gd: &mut GameData| {
                     gd.add_players(vec![$($n), *])
@@ -12,10 +13,12 @@ macro_rules! player {
     }
 }
 
+#[macro_export]
 macro_rules! team {
     ($n:expr, ($($p:expr), *)) => {
         {
-            use crate::ast::GameData;
+            use crate::model::gamedata::game_data::GameData;
+            
             Box::new(
                 |gd: &mut GameData| {
                     gd.add_team($n, vec![$($p), *]);
@@ -36,10 +39,12 @@ In what way can you get a location object?
 //     };
 // }
 
+#[macro_export]
 macro_rules! location_on {
     ($location:literal, players: $($p:expr), *) => {
         {
-            use crate::ast::GameData;
+            use crate::model::gamedata::game_data::GameData;
+            
             Box::new(
                 |gd: &mut GameData| {
                     for p in vec![$($p),*] {
@@ -52,7 +57,8 @@ macro_rules! location_on {
 
     ($location:literal, team: $team:expr) => {
         {
-            use crate::ast::GameData;
+            use crate::model::gamedata::game_data::GameData;
+            
             Box::new(
                 |gd: &mut GameData| {
                     gd.add_loc_team($location, $team);
@@ -62,7 +68,8 @@ macro_rules! location_on {
     };
     ($location:literal, table) => {
         {
-            use crate::ast::GameData;
+            use crate::model::gamedata::game_data::GameData;
+
             Box::new(
                 |gd: &mut GameData| {
                     gd.add_loc_table($location);
@@ -72,6 +79,7 @@ macro_rules! location_on {
     };
 }
 
+#[macro_export]
 macro_rules! card_on {
     (
         $location:expr,
@@ -84,11 +92,12 @@ macro_rules! card_on {
         ),* $(,)?
     ) => {
         {
-        use crate::ast::Card;
+        use crate::model::card::card::Card;
         use std::collections::HashMap;
         use std::collections::BTreeSet;
 
-        use crate::ast::GameData;
+        use crate::model::gamedata::game_data::GameData;
+        
         Box::new(
             |gd: &mut GameData| {
                 let mut keys_set: BTreeSet<String> = BTreeSet::new();
@@ -166,15 +175,17 @@ macro_rules! card_on {
     }};
 }
 
+#[macro_export]
 macro_rules! precedence {
     (
         $name:expr, // Name of the attribute for context
         ($($value:expr),* $(,)?)
         // TODO: add [key, value] Precedence!
     ) => {{
-        use crate::ast::Precedence;
+        use crate::model::gamedata::precedence::Precedence;
         use std::collections::HashMap;
-        use crate::ast::GameData;
+        use crate::model::gamedata::game_data::GameData;
+
 
         Box::new(
             |gd: &mut GameData| {
@@ -192,6 +203,7 @@ macro_rules! precedence {
     }};
 }
 
+#[macro_export]
 macro_rules! pointmap {
     (
         $pmapname:expr,
@@ -216,9 +228,9 @@ macro_rules! pointmap {
 
     ) => {{
         use std::collections::HashMap;
-        use crate::ast::PointMap;
+        use crate::model::gamedata::point_map::PointMap;
+        use crate::model::gamedata::game_data::GameData;
 
-        use crate::ast::GameData;
         Box::new(
             |gd: &mut GameData| {
             
@@ -255,12 +267,14 @@ macro_rules! pointmap {
     }};
 }
 
+#[macro_export]
 macro_rules! turn_order {
 
     (random) => {{
         use rand::seq::SliceRandom;
 
-        use crate::ast::GameData;
+        use crate::model::gamedata::game_data::GameData;
+
         Box::new(
             |gd: &mut GameData| {
                 let mut turn_order: Vec<String> = gd.players.keys().cloned().collect();
@@ -272,7 +286,8 @@ macro_rules! turn_order {
     }};
 
     (($($pname:expr),*)) => {{
-        use crate::ast::GameData;
+        use crate::model::gamedata::game_data::GameData;
+        
         Box::new(
             |gd: &mut GameData| {
                 gd.set_turnorder(vec![$(String::from($pname)),*]);
@@ -282,6 +297,7 @@ macro_rules! turn_order {
 
 }
 
+#[macro_export]
 macro_rules! filter {
     /*
     How it works:
@@ -348,7 +364,10 @@ macro_rules! filter {
 
     // Combine filters with "and" or "or" for Vec<Vec<Card>> results
     (($($filter1:tt)+), ($logical:literal), ($($filter2:tt)+)) => {{
-        use crate::ast::{Filter, GameData, Card};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+        use crate::model::card::card::Card;
+
         use std::sync::Arc;
 
         Filter {
@@ -400,7 +419,9 @@ macro_rules! filter {
 
     // Group by "same"
     (same $key:expr) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+
         use std::sync::Arc;
 
         fn group_by_same(cards: Vec<Card>, key: &str) -> Vec<Vec<Card>> {
@@ -431,7 +452,10 @@ macro_rules! filter {
 
     // Group by "adjacent"
     (adjacent $key:literal using $precedence_map:literal) => {{
-        use crate::ast::{Filter, GameData, Card};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+        use crate::model::card::card::Card;
+        
         use std::sync::Arc;
         
         use std::collections::HashMap;
@@ -574,7 +598,9 @@ macro_rules! filter {
 
 
     (size $comparison:literal $size:expr) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+        
         use std::sync::Arc;
 
         Filter {
@@ -615,7 +641,9 @@ macro_rules! filter {
     }};
 
     ($key:literal $comparison:literal $value:literal) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+        
         use std::sync::Arc;
 
         Filter {
@@ -634,7 +662,9 @@ macro_rules! filter {
     }};
 
     ($comboname:literal) => {
-        use crate::ast::{Filter, GameData};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+
         use std::sync::Arc;
 
         Filter {
@@ -651,7 +681,9 @@ macro_rules! filter {
     };
 
     (not $comboname:literal) => {{
-        use crate::ast::{Filter, GameData};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::filter::Filter;
+
         use std::sync::Arc;
 
         Filter {
@@ -683,16 +715,19 @@ macro_rules! filter {
     }};
 }
 
+#[macro_export]
 macro_rules! cardposition {
     ($locname:literal $int:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+        
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname).get_card_set(gd);
@@ -713,14 +748,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of player: $pref:expr, $int:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -741,14 +778,14 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of team: $tref:expr, $int:literal) => {{
-        use crate::ast::{GameData, CardPosition};
-        use std::sync::Arc;
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -771,14 +808,16 @@ macro_rules! cardposition {
 
 
     ($locname:literal top) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname).get_card_set(gd);
@@ -798,14 +837,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of player: $pref:expr, top) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -825,7 +866,9 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of team: $tref:expr, top) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
@@ -833,7 +876,7 @@ macro_rules! cardposition {
                 Arc::new(
                     |gd: &GameData| {
 
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -853,14 +896,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal bottom) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname).get_card_set(gd);
@@ -885,14 +930,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of player: $pref:expr, bottom) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($gd, $locname);
@@ -917,14 +964,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of team: $tref:expr, bottom) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let mut loc_card: HashMap<LocationRef, Vec<Card>> = HashMap::new();
                         let card_map = cardset!($locname)(gd);
@@ -949,14 +998,16 @@ macro_rules! cardposition {
     }};
 
     (min of $cardset:tt using prec: $precname:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let prec = gd.get_precedence($precname);
                         // First, collect all cards with their location and score
@@ -992,14 +1043,16 @@ macro_rules! cardposition {
     }};
 
     (max of $cardset:tt using prec: $precname:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let prec = gd.get_precedence($precname);
                         // Step 1: Gather all cards with their location and score
@@ -1035,14 +1088,16 @@ macro_rules! cardposition {
     }};
 
     (min of $cardset:tt using pointmap: $pmname:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let pointmap = gd.get_pointmap($pmname);
                         // First, collect all cards with their location and score
@@ -1079,14 +1134,16 @@ macro_rules! cardposition {
     }};
 
     (max of $cardset:tt using pointmap: $pmname:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let pointmap = gd.get_pointmap($pmname);
                         // Step 1: Gather all cards with their location and score
@@ -1124,14 +1181,16 @@ macro_rules! cardposition {
 
     // location OF player
     ($locname:literal of $pref:expr, $int:literal) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let pname = $pref.get_ref(gd).name;
 
@@ -1155,14 +1214,16 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of $pref:expr, top) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
             pos:
                 Arc::new(
                     |gd: &GameData| {
-                        use crate::ast::LocationRef;
+                        use crate::model::location::location_ref::LocationRef;
 
                         let pname = $pref.get_ref(gd).name;
 
@@ -1182,7 +1243,9 @@ macro_rules! cardposition {
     }};
 
     ($locname:literal of $pref:expr, bottom) => {{
-        use crate::ast::{GameData, CardPosition};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_position::CardPosition;
+
         use std::sync::Arc;
 
         CardPosition {
@@ -1217,9 +1280,16 @@ macro_rules! cardposition {
 // location OF player
 // location OF team
 // location OF table
+#[macro_export]
 macro_rules! cardset {
     ($($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet, LocationRef, Card, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helper::str_repr_locations;
+
+
         use std::sync::Arc;
 
         CardSet {
@@ -1244,7 +1314,11 @@ macro_rules! cardset {
     }};
 
     ($($locname:literal), * of player: $pref:expr) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
@@ -1267,7 +1341,11 @@ macro_rules! cardset {
     }};
 
     ($($locname:literal), * of team: $tref:expr) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
@@ -1291,12 +1369,15 @@ macro_rules! cardset {
     
     // w = where
     ($($locname:literal), * w $f:tt) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::{LocationRef, Card};
                 use std::collections::HashMap;
 
                 let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1327,12 +1408,15 @@ macro_rules! cardset {
     }};
 
     ($($locname:literal), * of player: $pref:expr, w $f:tt) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::LocationRef;
                 use std::collections::HashMap;
 
                 let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1354,12 +1438,15 @@ macro_rules! cardset {
     }};
 
     ($($locname:literal), * of team: $tref:expr, w $f:tt) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::LocationRef;
                 use std::collections::HashMap;
 
                 let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1381,12 +1468,15 @@ macro_rules! cardset {
     }};
 
     ($comboname:literal inn $($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::LocationRef;
                 use std::collections::HashMap;
 
                 let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1410,12 +1500,15 @@ macro_rules! cardset {
     }};
 
     (not $comboname:literal inn $($locname:literal), *) => {{
-        use crate::ast::{GameData, CardSet, str_repr_locations};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
 
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::LocationRef;
                 use std::collections::HashMap;
 
                 let mut loc_cards: HashMap<LocationRef, Vec<Card>> = HashMap::new();
@@ -1439,13 +1532,15 @@ macro_rules! cardset {
     }};
 
     ($cardpos:tt) => {{
-        use crate::ast::{GameData, CardSet};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_set::CardSet;
+        use crate::model::card::card::Card;
+        use crate::model::location::location_ref::LocationRef;
+        use crate::model::string_representation_helpers::str_repr_locations;
         use std::sync::Arc;
         
         CardSet {
             set: Arc::new(|gd: &GameData| {
-                use crate::ast::LocationRef;
-
                 let cardpos: HashMap<LocationRef, Vec<Card>> = $cardpos.get_card_position(gd); 
                 cardpos
             }),
@@ -1454,16 +1549,15 @@ macro_rules! cardset {
     }};
 }
 
-
+#[macro_export]
 macro_rules! combo {
     ($name:literal, $filter:expr) => {{
-        use crate::ast::GameData;
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card::card_combination::CardCombination;
         use std::sync::Arc;
         
         Arc::new(
             |gd: &mut GameData| {
-                use crate::ast::{CardCombination};
-
                 gd.add_cardcombination(
                     $name,
                     CardCombination {
@@ -1479,9 +1573,12 @@ macro_rules! combo {
 
 // TODO:
 // needs to be CardGameModel considering that it needs information from ruleset
+#[macro_export]
 macro_rules! int {
     ($int:literal) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1496,7 +1593,9 @@ macro_rules! int {
     }};
 
     ($int1:expr, $op:literal, $int2:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1522,7 +1621,9 @@ macro_rules! int {
     }};
 
     ($intcol:expr, $int:tt) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1540,7 +1641,9 @@ macro_rules! int {
 
     // size’ ’of’ [Collection] 
     (size of $col:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1555,7 +1658,9 @@ macro_rules! int {
 
     // ’sum’ ’of’ [IntCollection]
     (sum of $intcol:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1571,7 +1676,9 @@ macro_rules! int {
     }};
 
     (sum of min $cardset:expr, using $pmname:literal) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1607,7 +1714,9 @@ macro_rules! int {
     }};
 
     (sum of max $cardset:expr, using $pmname:literal) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1645,7 +1754,9 @@ macro_rules! int {
 
     
     (sum of $cardset:expr, using $pmname:literal gt $int:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1723,7 +1834,9 @@ macro_rules! int {
     }};
 
     (sum of $cardset:expr, using $pmname:literal lt $int:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1809,7 +1922,9 @@ macro_rules! int {
     // Int-Collection maybe vector of type int! so [int!(1), (int!(cardset(...))), ...]
     // (’min’ | ’max’) ’of’ [IntCollection] 
     (min of $intcol:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1825,7 +1940,9 @@ macro_rules! int {
     }};
 
     (max of $intcol:expr) => {{
-        use crate::ast::{GameData, GInt};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_int::GInt;
+
         use std::sync::Arc;
 
         GInt {
@@ -1844,9 +1961,12 @@ macro_rules! int {
     // ’stageroundcounter’ | ’playroundcounter’
 }
 
+#[macro_export]
 macro_rules! intcollection {
     ($($int:expr), *) => {{
-        use crate::ast::{IntCollection, str_repr_intcollection};
+        use crate::model::collections::IntCollection;
+        use crate::model::string_representation_helpers::str_repr_intcollection;
+
         let ints = vec![$($int), *];
 
         IntCollection {
@@ -1860,9 +1980,12 @@ macro_rules! intcollection {
 String → ID | [Key] ’of’ CardPosition | [StringCollection] Int |
     [Key] ’of’ CardPosition
 */
+#[macro_export]
 macro_rules! string {
     ($id:literal) => {{
-        use crate::ast::{GameData, GString};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_string::GString;
+
         use std::sync::Arc;
 
         GString {
@@ -1879,7 +2002,9 @@ macro_rules! string {
     // so it is not always one card (but should be maybe)
     // let map: HashMap<LocationRef, Vec<Card>> = $cardpos;
     ($key:literal of $cardpos:expr) => {{
-        use crate::ast::{GameData, GString};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_string::GString;
+
         use std::sync::Arc;
 
         GString {
@@ -1898,7 +2023,9 @@ macro_rules! string {
     }};
 
     ($stringcol:expr, $int:expr) => {{
-        use crate::ast::{GameData, GString};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_string::GString;
+
         use std::sync::Arc;
 
         GString {
@@ -1915,9 +2042,13 @@ macro_rules! string {
     }}; 
 }
 
+#[macro_export]
 macro_rules! stringcollection {
     ($($string:expr), *) => {{
-        use crate::ast::{StringCollection, str_repr_stringcollection};
+        use crate::model::collections::string_collection::StringCollection;
+        use crate::model::string_representation_helpers::str_repr_stringcollection;
+
+
         let strings = vec![$($string), *];
 
         StringCollection {
@@ -1936,9 +2067,12 @@ Bool → String (’==’ | ’!=’) String | Int (’==’ | ’!=’ | ’<�
     ’(’ Bool (’and’ | ’or’) Bool ’)’ | ’not’ ’(’ Bool ’)’ |
     ([Player] | PlayerCollection) ’out’ ’of’ ([Stage] | ’stage’ | ’play’ | ’game’)
 */
+#[macro_export]
 macro_rules! bool {
     (string: $string1:expr, $op:literal, $string2:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -1960,7 +2094,9 @@ macro_rules! bool {
     }};
 
     (int: $int1:expr, $op:literal, $int2:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -1987,7 +2123,9 @@ macro_rules! bool {
 
     // CardSet (’==’ | ’!=’) CardSet
     (cardset: $cs1:expr, $op:literal, $cs2:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2021,7 +2159,9 @@ macro_rules! bool {
 
     // CardSet ’is’ (’not’)? ’empty’
     ($cs:expr, is empty) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2044,7 +2184,9 @@ macro_rules! bool {
     }};
 
     ($cs:expr, is not empty) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2068,7 +2210,9 @@ macro_rules! bool {
 
     // Player == Player and Team == Team
     (pt: $ref1:expr, $op:literal, $ref2:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2091,7 +2235,9 @@ macro_rules! bool {
 
     // ’(’ Bool (’and’ | ’or’) Bool ’)’ 
     ($b1:expr, $op:literal, $b2:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2114,7 +2260,9 @@ macro_rules! bool {
 
     // ’not’ ’(’ Bool ’)’
     (not $b:expr) => {{
-        use crate::ast::{CardGameModel, GBool};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::g_bool::GBool;
+
         use std::sync::Arc;
 
         GBool {
@@ -2136,11 +2284,14 @@ macro_rules! bool {
     // }};
 }
 
+#[macro_export]
 macro_rules! player_ref {
     // Player → PlayerName | ’current’ | ’next’ | ’previous’ | ’competitor’ | ’Turnorder’
     //      Int | ’owner’ ’of’ (CardPosition | (’highest’ | ’lowest’) [Memory])
     ($pname:literal) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2150,7 +2301,9 @@ macro_rules! player_ref {
     }};
 
     (current) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2165,7 +2318,9 @@ macro_rules! player_ref {
     }};
 
     (next) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2180,7 +2335,9 @@ macro_rules! player_ref {
     }};
 
     (previous) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2203,7 +2360,9 @@ macro_rules! player_ref {
     // }};
     
     (turnorder $int:expr) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2220,7 +2379,9 @@ macro_rules! player_ref {
 
     // ’owner’ ’of’ CardPosition
     (owner of $cardpos:expr) => {{
-        use crate::ast::{GameData, RefPlayer};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+
         use std::sync::Arc;
 
         RefPlayer {
@@ -2252,9 +2413,12 @@ macro_rules! player_ref {
 }
 
 // Team → TeamName | ’team’ ’of’ [Player]
+#[macro_export]
 macro_rules! team_ref {
     ($tname:literal) => {{
-        use crate::ast::{GameData, RefTeam};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_team::RefTeam;
+
         use std::sync::Arc;
 
         RefTeam {
@@ -2267,13 +2431,15 @@ macro_rules! team_ref {
     }};
 
     (team of $pref:expr) => {{
-        use crate::ast::{GameData, RefTeam};
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_team::RefTeam;
+        use crate::model::owners::player::Player;
+
         use std::sync::Arc;
 
         RefTeam {
             team:
                 Arc::new(|gd: &GameData| {
-                    use crate::ast::Player;
                     let player: Player = ($pref).get_ref(gd);
                     let pname: &str = &player.name;
                     let tname = gd.playertoteam.get(pname).expect(&format!("No Player with name: {} in 'playertoteam'", pname));
@@ -2288,9 +2454,12 @@ macro_rules! team_ref {
 // TODO:
 // Status
 // ’until’ Bool ((’and’ | ’or’) Repetitions)? | Repetitions | ’until’ ’end’
+#[macro_export]
 macro_rules! endcondition {
     (until $b:expr) => {{
-        use crate::ast::{CardGameModel, EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2304,7 +2473,9 @@ macro_rules! endcondition {
     }};
 
     (until $b:literal and $int:expr, times) => {{
-        use crate::ast::{CardGameModel, EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2318,7 +2489,9 @@ macro_rules! endcondition {
     }};
 
     (until $b:literal or $int:expr, times) => {{
-        use crate::ast::{CardGameModel, EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2332,7 +2505,9 @@ macro_rules! endcondition {
     }};
 
     (until $b:expr, and once) => {{
-        use crate::ast::{CardGameModel, EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2346,7 +2521,9 @@ macro_rules! endcondition {
     }};
 
     (until $b:expr, or once) => {{
-        use crate::ast::{CardGameModel, EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2360,7 +2537,9 @@ macro_rules! endcondition {
     }};
 
     ($int:expr, times) => {{
-        use crate::ast::{EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
         EndCondition {
             condition: Arc::new(
@@ -2373,7 +2552,9 @@ macro_rules! endcondition {
     }};
 
     (once) => {{
-        use crate::ast::{EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
         EndCondition {
             condition: Arc::new(
@@ -2388,7 +2569,9 @@ macro_rules! endcondition {
     // Stage is only being ended by other factors, like:
     // all players are out of stage, winner is declared in Stage, etc...
     (untilend) => {{
-        use crate::ast::{EndCondition};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::end_condition::EndCondition;
+
         use std::sync::Arc;
 
         EndCondition {
@@ -2403,6 +2586,7 @@ macro_rules! endcondition {
 // seq-stage
 // SeqStage -> ’Stage’ Stage ’for’ [Player] EndCondition ’:’ (’create’ SetupRule | PlayRule |
 //      ScoringRule)+ ’}’
+#[macro_export]
 macro_rules! stage {
     (
         stage $stage_name:literal $pref:expr, $end_cond:expr,
@@ -2410,7 +2594,9 @@ macro_rules! stage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::ast::Stage;
+        use crate::model::stage::Stage;
+        use crate::model::card_game_model::CardGameModel;
+
         |cgm: &mut CardGameModel| {
             let mut stage = Stage::new($stage_name);
             stage.set_player_reference($pref);
@@ -2430,6 +2616,7 @@ macro_rules! stage {
 }
 
 // substage (Maybe change later if possible)
+#[macro_export]
 macro_rules! substage {
     (
         stage $stage_name:literal $pref:expr, $end_cond:expr,
@@ -2437,7 +2624,9 @@ macro_rules! substage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::ast::Stage;
+        use crate::model::stage::Stage;
+        use crate::model::card_game_model::CardGameModel;
+        
         let mut stage = Stage::new($stage_name);
         stage.set_player_reference($pref);
         stage.add_end_condition($end_cond);
@@ -2455,6 +2644,7 @@ macro_rules! substage {
     }};
 }
 
+#[macro_export]
 macro_rules! condrule {
     (
         (conditional:
@@ -2463,7 +2653,11 @@ macro_rules! condrule {
             )+
         )
     ) => {{
-        use crate::ast::{Condition, Rule, ConditionalRule, ConditionalCase, str_repr_rules};
+        use crate::model::rules::condition::Condition;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::conditional_rule::ConditionalRule;
+        use crate::model::rules::conditional_case::ConditionalCase;
+        use crate::model::string_representation_helpers::str_repr_rules;
 
         let mut string_conditional = format!("conditional:\n");
 
@@ -2488,9 +2682,15 @@ macro_rules! condrule {
     }};
 }
 
+#[macro_export]
 macro_rules! ifrule {
     (iff $b:tt then $( $rule:expr ),* ) => {{
-        use crate::ast::{Rule, IfRule, PlayRule, Condition, str_repr_if_rule};
+        use crate::model::rules::condition::Condition;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::if_rule::IfRule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::string_representation_helper::str_repr_if_rule;
+
 
         let vec = vec![$($rule),*];
 
@@ -2507,9 +2707,14 @@ macro_rules! ifrule {
     }}
 }
 
+#[macro_export]
 macro_rules! oprule {
     (optional: $( $rule:expr ),*) => {{
-        use crate::ast::{OptionalRule, str_repr_optional_rule};
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::optional_rule::OptionalRule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::string_representation_helpers::str_repr_optional_rule;
+
 
         let vec = vec![$($rule),*],
 
@@ -2522,10 +2727,14 @@ macro_rules! oprule {
     }}
 }
 
+#[macro_export]
 macro_rules! chooserule {
     (choose: $prule1:tt $(or: $prule2:tt)*) => {{
-        use crate::ast::{Rule, PlayRule, ChooseRule, str_repr_choose_rule};
-        
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::choose_rule::ChooseRule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::string_representation_helper::str_repr_choose_rule;
+
         let mut vec = vec![$prule1];
         $(
             vec.push($prule2);
@@ -2540,13 +2749,17 @@ macro_rules! chooserule {
     }}
 }
 
+#[macro_export]
 macro_rules! triggerrule {
     (trigger: $( $rule:expr ),*) => {
-        use crate::ast::{TriggerRule, str_repr_rules};
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::trigger_rule::TriggerRule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::string_representation_helpers::str_repr_trigger_rule;
 
         let vec = vec![$($rule),*];
 
-        Rule::PLAYRULE(PlayRule::CHOOSERULE(
+        Rule::PLAYRULE(PlayRule::TRIGGER(
             TriggerRule {
                 str_repr: format!("TRIGGER:\n{}", str_repr_rules(&vec)),
                 rules: vec,
@@ -2555,6 +2768,7 @@ macro_rules! triggerrule {
     }
 }
 
+#[macro_export]
 macro_rules! actionrule {
     // ------------------------------------------------------------------------
     // MOVEACTION
@@ -2562,7 +2776,14 @@ macro_rules! actionrule {
     // TODO:
     // Status
     (mv $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::{CardGameModel, TMoveCardSet, Action, MoveCSAction, ActionRule, Rule, PlayRule};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::function_types::TMoveCardSet;
+        use crate::model::action::action::Action;
+        use crate::model::action::move_cardset_action::MoveCSAction;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+
         use std::sync::Arc;
 
         // Create a boxed closure.
@@ -2586,8 +2807,14 @@ macro_rules! actionrule {
     // ClassicMove → ’move’ (Quantity (’from’)?)? CardSet Status (’bound’)? ’to’ CardSet
     // move X from <from> to <to>
     (mv $q:literal from $fromcs:tt to $tocs:tt) => {{
-        // use crate::ast::{CardGameModel, GameData, TMoveCards};
-        use crate::ast::{CardGameModel, TMoveCards, Action, MoveAction, ActionRule, Rule, PlayRule};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::function_types::TMoveCards;
+        use crate::model::action::action::Action;
+        use crate::model::action::move_action::MoveAction;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+
         use std::sync::Arc;
 
         // Create a boxed closure that takes a mutable GameData.
@@ -2612,7 +2839,14 @@ macro_rules! actionrule {
 
     (deal $q:literal from $fromcs:tt to $tocs:tt) => {
         {
-            use crate::ast::{CardGameModel, TMoveCards, Action, DealAction, ActionRule, PlayRule, Rule};
+            use crate::model::card_game_model::CardGameModel;
+            use crate::model::function_types::TMoveCards;
+            use crate::model::action::action::Action;
+            use crate::model::action::deal_action::DealAction;
+            use crate::model::rules::action_rule::ActionRule;
+            use crate::model::rules::rule::Rule;
+            use crate::model::rules::play_rule::PlayRule;
+
             use std::sync::Arc;
 
             // Create a boxed closure that takes a mutable GameData.
@@ -2635,7 +2869,14 @@ macro_rules! actionrule {
     };
     
     (deal $fromcs:tt to $tocs:tt) => {{
-        use crate::ast::{CardGameModel, TMoveCardSet, Action, MoveCSAction, ActionRule, Rule, PlayRule};
+        use crate::model::card_game_model::CardGameModel;
+        use crate::model::function_types::TMoveCardSet;
+        use crate::model::action::action::Action;
+        use crate::model::action::move_cardset_action::MoveCSAction;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+
         use std::sync::Arc;
 
         // Create a boxed closure.
@@ -2673,9 +2914,13 @@ macro_rules! actionrule {
 
 // EndAction → ’end’ (’turn’ | ’stage’ | ’play’ | ’game’ ’with’ ’winner’ ([Player] | PlayerCol-
 // lection))
+#[macro_export]
 macro_rules! endaction {
     (end turn) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule};
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { 
@@ -2686,7 +2931,10 @@ macro_rules! endaction {
     }};
 
     (end stage) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule};
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule {
@@ -2697,7 +2945,10 @@ macro_rules! endaction {
     }};
     
     (end play) => {{
-        use crate::ast::CardGameModel;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule {
@@ -2708,8 +2959,11 @@ macro_rules! endaction {
     }};
 
     (end game with winner $pref:expr) => {{
-        use crate::ast::CardGameModel;
-        
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule {
                 action: Action::EndGame
@@ -2721,7 +2975,7 @@ macro_rules! endaction {
     // TODO:
     // PlayerCollection
     // (end game with winner $pref:expr) => {{
-    //     use crate::ast::CardGameModel;
+    //     use crate::model::card_game_model::CardGameModel;
     //     Arc::new(
     //         |cgm: &CardGameModel| {
     //             // do something
@@ -2730,10 +2984,16 @@ macro_rules! endaction {
     // }};    
 }
 
+#[macro_export]
 macro_rules! cycleaction {
     (cycle to $pref:expr) => {{
-        use crate::ast::{CycleAction, Rule, PlayRule, ActionRule, Action};    
-    
+        use crate::model::action::cycle_action::CycleAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+
+
         Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
             action: Action::CycleAction(
                 CycleAction {
@@ -2745,9 +3005,15 @@ macro_rules! cycleaction {
     }};
 }
 
+#[macro_export]
 macro_rules! shuffleaction {
     (shuffle $cs:expr) => {{
-        use crate::ast::{Rule, PlayRule, ActionRule, Action, ShuffleAction};
+        use crate::model::action::shuffle_action::ShuffleAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(ActionRule {
             action: Action::ShuffleAction(
@@ -2765,10 +3031,17 @@ macro_rules! shuffleaction {
 OutAction → ’set’ ([Player] | PlayerCollection) ’out’ ’of’ ( ’stage’ | ’play’ | ’game’ (’suc-
 cessful’ | ’fail’))
 */
+#[macro_export]
 macro_rules! outaction {
     // TODO:
     (set $pref:expr, out of stage) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+        use crate::model::action::out_action::OutAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::enums::out_of::OutOf;
+
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { action: Action::OutAction(
@@ -2784,7 +3057,12 @@ macro_rules! outaction {
 
     // TODO:
     (set $pref:expr, out of play) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+        use crate::model::action::out_action::OutAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::enums::out_of::OutOf;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { action: Action::OutAction(
@@ -2800,7 +3078,12 @@ macro_rules! outaction {
 
     // TODO:
     (set $pref:expr, out of game successful) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+        use crate::model::action::out_action::OutAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::enums::out_of::OutOf;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { action: Action::OutAction(
@@ -2816,7 +3099,12 @@ macro_rules! outaction {
 
     // TODO:
     (set $pref:expr, out of game fail) => {{
-        use crate::ast::{Rule, PlayRule, Action, ActionRule, OutAction, OutOf};
+        use crate::model::action::out_action::OutAction;
+        use crate::model::rules::rule::Rule;
+        use crate::model::rules::play_rule::PlayRule;
+        use crate::model::action::action::Action;
+        use crate::model::rules::action_rule::ActionRule;
+        use crate::model::enums::out_of::OutOf;
 
         Rule::PLAYRULE(PlayRule::ACTIONRULE(
             ActionRule { action: Action::OutAction(
@@ -2838,10 +3126,13 @@ ScoreRule → ’score’ Int (’to’ [Memory])? ’of’ ([PlayerName] | Play
 WinnerRule → ’winner’ ’is’ ([PlayerName] | PlayerCollection) | (’lowest’ | ’highest’) (’Score’
     | ’Position’ | [Memory])
 */
+#[macro_export]
 macro_rules! scoringrule {
     // ScoreRule → ’score’ Int ’of’ [Player]
     (set score $int:expr, of $pref:expr) => {{
-        use crate::ast::{Rule, ScoringRule, ScoreRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::rule::Rule;
 
         Rule::SCORINGRULE(
             ScoringRule::Score(ScoreRule {
@@ -2853,7 +3144,9 @@ macro_rules! scoringrule {
     }};
 
     (add score $int:expr, of $pref:expr) => {{
-        use crate::ast::{Rule, ScoringRule, ScoreRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::rule::Rule;
 
         Rule::SCORINGRULE(
             ScoringRule::Score(ScoreRule {
@@ -2865,9 +3158,13 @@ macro_rules! scoringrule {
     }};
 }
 
+#[macro_export]
 macro_rules! winnerrule {
     (winner is $pref:expr) => {{
-        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::winner_rule::WinnerRule;
+        use crate::model::rules::rule::Rule;
 
         Rule::SCORINGRULE(
             ScoringRule::Winner(WinnerRule {
@@ -2877,7 +3174,11 @@ macro_rules! winnerrule {
     }};
 
     (lowest score) => {{
-        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::winner_rule::WinnerRule;
+        use crate::model::rules::rule::Rule;
+
         use std::sync::Arc;
 
         Rule::SCORINGRULE(
@@ -2918,7 +3219,11 @@ macro_rules! winnerrule {
     }};
 
     (highest score) => {{
-        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::winner_rule::WinnerRule;
+        use crate::model::rules::rule::Rule;
+
         use std::sync::Arc;
 
         Rule::SCORINGRULE(
@@ -2958,7 +3263,11 @@ macro_rules! winnerrule {
     }};
 
     (highest score lt $int:expr) => {{
-        use crate::ast::{Rule, ScoringRule, WinnerRule};
+        use crate::model::rules::scoring_rule::ScoringRule;
+        use crate::model::rules::score_rule::ScoreRule;
+        use crate::model::rules::winner_rule::WinnerRule;
+        use crate::model::rules::rule::Rule;
+
         use std::sync::Arc;
 
         Rule::SCORINGRULE(
@@ -2999,81 +3308,6 @@ macro_rules! winnerrule {
             str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
-}
 
-// TODO: only allowes one call pre type rigth now
-macro_rules! setup {
-    (
-        players: $($player_names:expr),*,
 
-        teams: $team_name:expr, ($($p:expr),*),
-
-        turnorder: $($player_order:tt)+ $(,)?,
-
-        location: $location_name:expr, $owner:ident $(, $targets:expr)*,
-
-        cards: 
-            $card_location:expr,
-            $(
-                {
-                    $(
-                        $attribute_key:ident($($attribute_value:expr),* $(,)?)
-                    ),* $(,)?
-                }
-            ),* $(,)? ,
-
-        precedence: $precedence_name:expr, ($($precedence_value:expr),* $(,)?),
-
-        pointmap: 
-            $pmapname:expr,        
-            $(
-                nested: { 
-                    $($name1:expr,
-                        ($($key1:expr => [$($value1:expr),*] ),* $(,)?)
-                    ),* $(,)?
-                }
-            ),* $(,)?
-            $(
-                list: { 
-                    $(
-                        ($name2:expr, $key2:expr) => [$value2:expr]
-                    ),* $(,)? 
-                }
-            ),* $(,)?
-    ) => {
-        player!($($player_names),*);
-
-        team!($team_name, ($($p),*));
-
-        turn_order!($($player_order)+);
-
-        location!($location_name, $owner $(, $targets)*);
-
-        card_on!(
-            $card_location,
-            $(
-                {
-                    $(
-                        $attribute_key($($attribute_value),*)
-                    ),*
-                }
-            ),*
-        );
-
-        precedence!($precedence_name, ($($precedence_value),*));
-
-        pointmap!(
-            $pmapname,
-            $(
-                nested: {
-                    $($name1, ($($key1 => [$($value1),*]),*)),*
-                }
-            )*
-            $(
-                list: {
-                    $(($name2, $key2) => [$value2]),*
-                }
-            )*
-        );
-    }
 }

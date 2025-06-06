@@ -1,9 +1,9 @@
-#[macro_use]
-mod macros;
-mod ast;
 mod tests;
 mod exblackjack;
-mod expoker;
+// mod expoker;
+
+#[macro_use]
+mod model;
 
 fn main() {
    exblackjack::run();
