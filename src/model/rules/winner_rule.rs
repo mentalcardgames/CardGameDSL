@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use crate::model::card_game_model::CardGameModel;
-use crate::model::enums::game_flow_change::GameFlowChange;
 use crate::model::owners::player::Player;
 
 
@@ -24,11 +23,9 @@ impl Clone for WinnerRule {
     }
 }
 impl WinnerRule {
-    pub fn run(&self, cgm: &CardGameModel) -> GameFlowChange {
+    pub fn run(&self, cgm: &CardGameModel) {
         let winner = (self.winner)(cgm);
         println!("The Winner is: {}!", winner.name);
-
-        GameFlowChange::EndGame
     } 
 }
 

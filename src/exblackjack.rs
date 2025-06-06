@@ -3,7 +3,7 @@ use crate::*;
 
 pub fn run() {
     let mut cgm = CardGameModel::new("BlackJack");
-
+ 
     player!("P1", "P2")(&mut cgm.gamedata);
     turn_order!(("P1", "P2"))(&mut cgm.gamedata);
     location_on!("hand", players: "P1", "P2")(&mut cgm.gamedata);

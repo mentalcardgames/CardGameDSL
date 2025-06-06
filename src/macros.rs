@@ -2999,6 +2999,81 @@ macro_rules! winnerrule {
             str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
+}
 
+// TODO: only allowes one call pre type rigth now
+macro_rules! setup {
+    (
+        players: $($player_names:expr),*,
 
+        teams: $team_name:expr, ($($p:expr),*),
+
+        turnorder: $($player_order:tt)+ $(,)?,
+
+        location: $location_name:expr, $owner:ident $(, $targets:expr)*,
+
+        cards: 
+            $card_location:expr,
+            $(
+                {
+                    $(
+                        $attribute_key:ident($($attribute_value:expr),* $(,)?)
+                    ),* $(,)?
+                }
+            ),* $(,)? ,
+
+        precedence: $precedence_name:expr, ($($precedence_value:expr),* $(,)?),
+
+        pointmap: 
+            $pmapname:expr,        
+            $(
+                nested: { 
+                    $($name1:expr,
+                        ($($key1:expr => [$($value1:expr),*] ),* $(,)?)
+                    ),* $(,)?
+                }
+            ),* $(,)?
+            $(
+                list: { 
+                    $(
+                        ($name2:expr, $key2:expr) => [$value2:expr]
+                    ),* $(,)? 
+                }
+            ),* $(,)?
+    ) => {
+        player!($($player_names),*);
+
+        team!($team_name, ($($p),*));
+
+        turn_order!($($player_order)+);
+
+        location!($location_name, $owner $(, $targets)*);
+
+        card_on!(
+            $card_location,
+            $(
+                {
+                    $(
+                        $attribute_key($($attribute_value),*)
+                    ),*
+                }
+            ),*
+        );
+
+        precedence!($precedence_name, ($($precedence_value),*));
+
+        pointmap!(
+            $pmapname,
+            $(
+                nested: {
+                    $($name1, ($($key1 => [$($value1),*]),*)),*
+                }
+            )*
+            $(
+                list: {
+                    $(($name2, $key2) => [$value2]),*
+                }
+            )*
+        );
+    }
 }

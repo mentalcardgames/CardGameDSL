@@ -10,16 +10,16 @@ pub struct ChooseRule {
     pub str_repr: String,
 }
 impl ChooseRule {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> GameFlowChange {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match input {
             RuleInput::ChooseInput(i) => {
-                let gfc = self.rules[i].run(cgm);
-                if gfc != GameFlowChange::None {
-                    return gfc
-                }
+                let actype= self.rules[i].get_action_type();
+                let input = cgm.get_input(actype);
+                self.rules[i].run(cgm, input)
             },
-            _ => {},
+            _ => {
+                vec![GameFlowChange::None]
+            },
         }
-        return GameFlowChange::None
     }
 }

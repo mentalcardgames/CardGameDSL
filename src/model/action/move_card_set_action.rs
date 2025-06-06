@@ -10,15 +10,16 @@ pub struct MoveCSAction {
 }
 
 impl MoveCSAction {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> GameFlowChange {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
         match input {
             RuleInput::MoveCardSet => {
                 ((self.action)(cgm));
+                vec![GameFlowChange::None]
             },
-            // TODO: Error handling here
-            _ => {}
+            _ => {
+                vec![GameFlowChange::None]
+            }
         }
-        GameFlowChange::None
     }
 
     pub fn play<'a>(&self, cgm: &'a mut CardGameModel) -> PlayOutput<'a> {
