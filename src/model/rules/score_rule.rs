@@ -1,6 +1,7 @@
 use crate::model::base_types::g_int::GInt;
 use crate::model::base_types::ref_player::RefPlayer;
 use crate::model::card_game_model::CardGameModel;
+use crate::model::enums::game_flow_change::GameFlowChange;
 
 
 pub struct ScoreRule {
@@ -25,7 +26,7 @@ impl Clone for ScoreRule {
     }
 }
 impl ScoreRule {
-    pub fn run(&self, cgm: &mut CardGameModel) {
+    pub fn run(&self, cgm: &mut CardGameModel) -> GameFlowChange {
         let score = (self.score).get_value_i32(&cgm.gamedata);
         let name = (self.pref).get_ref(&cgm.gamedata).name;
 
@@ -35,5 +36,7 @@ impl ScoreRule {
         } else {
             player.score += score;
         }
+
+        GameFlowChange::None
     }
 }
