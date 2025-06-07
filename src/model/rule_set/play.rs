@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::model::rules::condition::Condition;
-use crate::model::stage::Stage;
+use crate::model::rule_set::stage::Stage;
 
 
 #[derive(Debug)]

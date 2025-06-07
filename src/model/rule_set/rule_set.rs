@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::model::setup::Setup;
-use crate::model::play::Play;
-use crate::model::scoring::Scoring;
+use crate::model::rule_set::setup::Setup;
+use crate::model::rule_set::play::Play;
+use crate::model::rule_set::scoring::Scoring;
 use crate::model::enums::out_of_game::OutOfGame;
 
 

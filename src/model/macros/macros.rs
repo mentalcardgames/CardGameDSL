@@ -2553,7 +2553,7 @@ macro_rules! endcondition {
 
     (once) => {{
         use crate::model::card_game_model::CardGameModel;
-        use crate::model::end_condition::EndCondition;
+        use crate::model::rule_set::end_condition::EndCondition;
 
         use std::sync::Arc;
         EndCondition {
@@ -2570,7 +2570,7 @@ macro_rules! endcondition {
     // all players are out of stage, winner is declared in Stage, etc...
     (untilend) => {{
         use crate::model::card_game_model::CardGameModel;
-        use crate::model::end_condition::EndCondition;
+        use crate::model::rule_set::end_condition::EndCondition;
 
         use std::sync::Arc;
 
@@ -2594,7 +2594,7 @@ macro_rules! stage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::model::stage::Stage;
+        use crate::model::rule_set::stage::Stage;
         use crate::model::card_game_model::CardGameModel;
 
         |cgm: &mut CardGameModel| {
@@ -2624,7 +2624,7 @@ macro_rules! substage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::model::stage::Stage;
+        use crate::model::rule_set::stage::Stage;
         use crate::model::card_game_model::CardGameModel;
         
         let mut stage = Stage::new($stage_name);
