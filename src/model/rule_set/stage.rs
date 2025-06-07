@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::model::rules::rule::Rule;
-use crate::model::end_condition::EndCondition;
+use crate::model::rule_set::end_condition::EndCondition;
 use crate::model::base_types::ref_player::RefPlayer;
 
 

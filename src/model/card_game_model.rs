@@ -1,9 +1,9 @@
 use crate::model::gamedata::game_data::GameData;
-use crate::model::rule_set::RuleSet;
-use crate::model::stage::Stage;
+use crate::model::rule_set::rule_set::RuleSet;
+use crate::model::rule_set::stage::Stage;
 use crate::model::enums::game_flow_change::GameFlowChange;
 use crate::model::rules::rule::Rule;
-use crate::model::end_condition::EndCondition;
+use crate::model::rule_set::end_condition::EndCondition;
 
 #[derive(Debug)]
 pub struct CardGameModel {
