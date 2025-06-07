@@ -9,20 +9,20 @@ pub struct OptionalRule {
     pub str_repr: String,
 }
 impl OptionalRule {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> Vec<GameFlowChange> {
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, input: RuleInput) -> GameFlowChange {
         match input {
             RuleInput::DoOp => {
-                let mut gfs = vec![];
                 for i in 0..self.rules.len() {
-                    let actype= self.rules[i].get_action_type();
-                    let rulein = cgm.get_input(actype);
-                    gfs = vec![gfs, self.rules[i].run(cgm, rulein).clone()].concat();
+                    let gfc = self.rules[i].run(cgm);
+                    if gfc != GameFlowChange::None {
+                        return gfc;
+                    }
                 }
 
-                gfs
+                GameFlowChange::None
             },
             _ => {
-                vec![GameFlowChange::None]
+                GameFlowChange::None
             },
         }
     }

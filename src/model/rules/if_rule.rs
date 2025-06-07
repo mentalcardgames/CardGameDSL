@@ -12,17 +12,16 @@ pub struct IfRule {
     pub str_repr: String,
 }
 impl IfRule {
-    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> Vec<GameFlowChange> {
-        let mut gfs = vec![GameFlowChange::None];
-
+    pub fn run<'a>(&self, cgm: &'a mut CardGameModel, _: RuleInput) -> GameFlowChange {
         if self.condition.evaluate(cgm) {
             for i in 0..self.rules.len() { 
-                let actype= self.rules[i].get_action_type();
-                let rulein = cgm.get_input(actype);
-                gfs = vec![gfs, self.rules[i].run(cgm, rulein).clone()].concat();
+                let gfc = self.rules[i].run(cgm);
+                if gfc != GameFlowChange::None {
+                    return gfc;
+                }
             }
         }
-    
-        gfs
+        
+        GameFlowChange::None
     }
 }
