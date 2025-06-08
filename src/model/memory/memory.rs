@@ -66,6 +66,16 @@ impl Memory {
             .downcast_mut::<V>()
     }
     
+    pub fn get_by_key<V: Any>(&mut self, key:String) -> Vec<(&V, Option<&Owner>)> {
+        self.value_map.keys()
+            .filter(|&mem_key| mem_key.name == key)
+            .map(|mem_key| {
+                let value = self.value_map.get(mem_key).unwrap().downcast_ref::<V>().unwrap();
+                (value, mem_key.owner.as_ref())
+            })
+            .collect()
+    }
+    
     /// Removes value from map for given key
     pub fn remove<V: Any>(&mut self, key: String, owner: Option<Owner>) -> Option<V> {
         let mem_key = MemoryKey { name: key.to_string(), owner};

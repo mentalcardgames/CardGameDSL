@@ -12,9 +12,7 @@ use crate::model::card::card_combination::{CardCombination};
 use crate::model::location::location::{Location};
 use crate::model::location::location_ref::{LocationRef};
 use crate::model::card::card::{Card};
-
-
-
+use crate::model::memory::memory::Memory;
 
 #[derive(Debug)]
 pub struct GameData {
@@ -26,6 +24,7 @@ pub struct GameData {
     pub precedences: HashMap<String, Precedence>,
     pub pointmaps: HashMap<String, PointMap>,
     pub cardcombinations: HashMap<String, CardCombination>,
+    pub memory: Memory,
     // current playerindex
     pub current: usize
 }
@@ -39,6 +38,7 @@ impl Default for GameData {
                     precedences: HashMap::new(),
                     pointmaps: HashMap::new(),
                     cardcombinations: HashMap::new(),
+                    memory: Memory::new(),
                     current: 0
                 }
     }

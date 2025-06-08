@@ -1,3 +1,5 @@
+use crate::model::base_types::g_int::GInt;
+
 // $gd = gamedata
 #[macro_export]
 macro_rules! player {
@@ -2405,11 +2407,56 @@ macro_rules! player_ref {
                 }),
             str_repr: format!("OWNER OF {}", $cardpos.str_repr)
         }
-    }}
-
-    // TODO:
-    // ’owner’ ’of’ (’highest’ | ’lowest’) [Memory]
+    }};
     
+    // ’owner’ ’of’ (’highest’ | ’lowest’) [Memory]
+    (owner of highest $memory:literal) => {{
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+        use std::sync::Arc;
+        RefPlayer {
+            player: Arc::new(|gd: &GameData| {
+                let highest: (String, Option<Owner>) = gd.memory.get_by_key::<GInt>($memory)
+                .iter()
+                .sorted_by(|a, b| Ord::cmp(&a.0.get_value_i32(gd), &b.0.get_value_i32(gd)))
+                .last(); // TODO Check for if multiple have the same value
+                
+                match highest.1 {  
+                    Some(Owner::PLAYERCOLLECTION(players)) if players.len() == 1 => gd.get_player_copy(players[0]),
+                    _ => {
+                        println!("No owner found!");
+                        // Placeholder for player return (return current if not found)
+                        gd.get_player_copy("")
+                    }  
+                }
+            })
+            str_repr: format!("OWNER OF HIGHEST MEMORY {}", $memory)
+        }
+    }};
+    
+    (owner of lowest $memory:literal) => {{
+        use crate::model::gamedata::game_data::GameData;
+        use crate::model::base_types::ref_player::RefPlayer;
+        use std::sync::Arc;
+        RefPlayer {
+            player: Arc::new(|gd: &GameData| {
+                let lowest: (String, Option<Owner>) = gd.memory.get_by_key::<GInt>($memory)
+                .iter()
+                .sorted_by(|a, b| Ord::cmp(&a.0.get_value_i32(gd), &b.0.get_value_i32(gd)))
+                .first(); // TODO Check for if multiple have the same value
+                
+                match lowest.1 {  
+                    Some(Owner::PLAYERCOLLECTION(players)) if players.len() == 1 => gd.get_player_copy(players[0]),
+                    _ => {
+                        println!("No owner found!");
+                        // Placeholder for player return (return current if not found)
+                        gd.get_player_copy("")
+                    }  
+                }
+            })
+            str_repr: format!("OWNER OF LOWEST MEMORY {}", $memory)
+        }
+    }};
 }
 
 // Team → TeamName | ’team’ ’of’ [Player]
@@ -3308,6 +3355,47 @@ macro_rules! winnerrule {
             str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
+}
 
-
+#[macro_export]
+macro_rules! memory {
+    ($name:literal is $value:expr) => {{
+        |gd: &GameData| {
+            gd.memory.insert($name, $value, None)    
+        }
+    }};   
+    
+    ($name:literal is $value:expr, on table) => {{
+        use crate::model::memory::memory::Owner;
+        |gd: &GameData| {
+            gd.memory.insert($name, $value, Some(Owner::TABLE))    
+        }
+    }};
+    
+    ($name:literal is $value:expr, on players: $($p:expr), *) => {{
+        use crate::model::memory::memory::Owner;
+        |gd: &GameData| {
+            gd.memory.insert($name, $value, Some(Owner::PLAYERCOLLECTION(vec![$($p),*])))    
+        }
+    }};
+    
+    (remove $name:literal) => {{
+       |gd: &GameData| {
+           gd.memory.remove($name, None)
+       } 
+    }};
+    
+    (remove $name:literal of table) => {{
+        use crate::model::memory::memory::Owner;
+        |gd: &GameData| {
+            gd.memory.remove($name, Some(Owner::TABLE))
+        }
+    }};
+    
+    (remove $name:literal of players: $($p:expr), *) => {{
+        use crate::model::memory::memory::Owner;
+        |gd: &GameData| {
+            gd.memory.remove($name, Some(Owner::PLAYERCOLLECTION(vec![$($p),*])))
+        }
+    }};
 }
