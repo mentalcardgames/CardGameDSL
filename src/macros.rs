@@ -3004,14 +3004,30 @@ macro_rules! winnerrule {
 // TODO: only allowes one call pre type rigth now
 macro_rules! setup {
     (
-        players: $($player_names:expr),*,
+        $ctx:expr,
 
-        teams: $team_name:expr, ($($p:expr),*),
+        $(
+        player: $($player_names:expr),* $(,)?
+        )*
 
-        turnorder: $($player_order:tt)+ $(,)?,
+        $(
+        teams: $team_name:expr, ($($p:expr),*) $(,)?
+        )*
 
-        location: $location_name:expr, $owner:ident $(, $targets:expr)*,
+        $(
+        turnorder: $($player_order:tt)+ $(,)?
+        )*
 
+        // at the moment owner as identifier, maybe later as token
+        $(
+        location: $location_name:expr, $owner:ident $(,)?
+        )*
+
+        $(
+        location: $location_name:expr, $owner:ident : $(, $targets:expr)+ $(,)?
+        )*
+
+        $(
         cards: 
             $card_location:expr,
             $(
@@ -3020,10 +3036,14 @@ macro_rules! setup {
                         $attribute_key:ident($($attribute_value:expr),* $(,)?)
                     ),* $(,)?
                 }
-            ),* $(,)? ,
+            ),* $(,)? $(,)?
+        )*
 
-        precedence: $precedence_name:expr, ($($precedence_value:expr),* $(,)?),
+        $(
+        precedence: $precedence_name:expr, ($($precedence_value:expr),* $(,)?) $(,)?
+        )*
 
+        $(
         pointmap: 
             $pmapname:expr,        
             $(
@@ -3040,15 +3060,29 @@ macro_rules! setup {
                     ),* $(,)? 
                 }
             ),* $(,)?
+        )*        
     ) => {
-        player!($($player_names),*);
+        $(
+        player!($($player_names),*)($ctx);
+        )*
 
-        team!($team_name, ($($p),*));
+        $(
+        team!($team_name, ($($p),*))($ctx);
+        )*
 
-        turn_order!($($player_order)+);
+        $(
+        turn_order!($($player_order)+)($ctx);
+        )*
 
-        location!($location_name, $owner $(, $targets)*);
+        $(
+        location!($location_name, $owner)($ctx);
+        )*
 
+        $(
+        location!($location_name, $owner $(, $targets)*)($ctx);
+        )*
+        
+        $(
         card_on!(
             $card_location,
             $(
@@ -3058,10 +3092,14 @@ macro_rules! setup {
                     ),*
                 }
             ),*
-        );
+        )($ctx);
+        )*
 
-        precedence!($precedence_name, ($($precedence_value),*));
+        $(
+        precedence!($precedence_name, ($($precedence_value),*))($ctx);
+        )*
 
+        $(
         pointmap!(
             $pmapname,
             $(
@@ -3074,6 +3112,7 @@ macro_rules! setup {
                     $(($name2, $key2) => [$value2]),*
                 }
             )*
-        );
-    }
+        )($ctx);
+        )*
+    };
 }

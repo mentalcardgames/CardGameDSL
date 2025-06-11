@@ -5,20 +5,35 @@ pub fn run() {
     let mut cgm = CardGameModel::new("BlackJack");
  
     setup!(
-        players: "P1", "P2",
-        : "P1", "P2",
-        location: "hand", players: "P1", "P2"
-        card: "stack",
+        &mut cgm.gamedata,
+
+        player: "P1", "P2",
+
+        teams: "Team1", ("P1", "P2"),
+
+        turnorder: "P1", "P2",
+        // turnorder : random,
+
+        location: "hand", players: "P1", "P2",
+        location: "stack", table,
+
+        // location: "test", team: "Team1",
+
+        cards: 
+            "stack",
             {
             Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
             Suite("Diamond", "Hearts"),
-            Color("Red")
+            Color("Red"),
             },
             {
             Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
             Suite("Spades", "Clubs"),
-            Color("Black")
+            Color("Black"),
             },
+
+        // precedence: "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+
         pointmap: "Rank",
             nested: {  
                 "Rank", (
@@ -36,8 +51,8 @@ pub fn run() {
                 "K" => [10],
                 "A" => [11, 1]
                 )
-            }
-    )(&mut cgm.gamedata);
+            },
+    );
 
     /*
     stage!(
