@@ -1,4 +1,4 @@
-use crate::model::filter::{Filter};
+use crate::model::rule_set::filter::{Filter};
 use std::fmt;
 
 

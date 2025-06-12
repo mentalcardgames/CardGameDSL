@@ -8,7 +8,7 @@ pub struct GInt {
     pub str_repr: String,
 }
 impl GInt {
-    pub fn get_value_i32(&self, gd: &GameData) -> i32 {
+    pub fn get_value_isize(&self, gd: &GameData) -> isize {
         (self.value)(gd)
     }
 

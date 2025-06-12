@@ -234,7 +234,7 @@ macro_rules! pointmap {
         Box::new(
             |gd: &mut GameData| {
             
-                let mut point_map: HashMap<String, Vec<i32>> = HashMap::new();
+                let mut point_map: HashMap<String, Vec<isize>> = HashMap::new();
                 // nested mapping
                 $(
                     $(
@@ -1101,7 +1101,7 @@ macro_rules! cardposition {
 
                         let pointmap = gd.get_pointmap($pmname);
                         // First, collect all cards with their location and score
-                        let mut scored_cards: Vec<(LocationRef, Card, i32)> = vec![];
+                        let mut scored_cards: Vec<(LocationRef, Card, isize)> = vec![];
 
                         for (loc, cards) in &$cardset.get_card_set(gd) {
                             for card in cards {
@@ -1147,7 +1147,7 @@ macro_rules! cardposition {
 
                         let pointmap = gd.get_pointmap($pmname);
                         // Step 1: Gather all cards with their location and score
-                        let mut scored_cards: Vec<(LocationRef, Card, i32)> = vec![];
+                        let mut scored_cards: Vec<(LocationRef, Card, isize)> = vec![];
 
                         for (loc, cards) in &$cardset.get_card_set(gd) {
                             for card in cards {
@@ -1584,7 +1584,7 @@ macro_rules! int {
         GInt {
             value: Arc::new(
                 |_: &GameData| {
-                    let i: i32 = $int;
+                    let i: isize = $int;
                     i
                 }
             ),
@@ -1601,8 +1601,8 @@ macro_rules! int {
         GInt {
             value: Arc::new(
                 |gd: &GameData| {
-                    let i1: i32 = $int1.get_value_i32(gd);
-                    let i2: i32 = $int2.get_value_i32(gd);
+                    let i1: isize = $int1.get_value_isize(gd);
+                    let i2: isize = $int2.get_value_isize(gd);
                     match $op {
                         "+"   => (i1 + i2),
                         "-"   => (i1 - i2),
@@ -1630,7 +1630,7 @@ macro_rules! int {
             value: Arc::new(
                 |gd: &GameData| {
                     let index: usize = $int.get_value_usize(gd);
-                    $intcol.get_i32_at(gd, index)
+                    $intcol.get_isize_at(gd, index)
                 }   
             ),
             // TODO:
@@ -1775,11 +1775,11 @@ macro_rules! int {
                     */
 
                     fn dfs(
-                        matrix: &Vec<Vec<i32>>,
+                        matrix: &Vec<Vec<isize>>,
                         row: usize,
-                        current_sum: i32,
-                        target: i32,
-                        min_sum: &mut i32,
+                        current_sum: isize,
+                        target: isize,
+                        min_sum: &mut isize,
                     ) {
                         if row == matrix.len() {
                             if current_sum >= target {
@@ -1797,10 +1797,10 @@ macro_rules! int {
                         }
                     }
                     
-                    fn min_sum_greater_equal(matrix: Vec<Vec<i32>>, target: i32) -> Option<i32> {
-                        let mut min_sum = i32::MAX;
+                    fn min_sum_greater_equal(matrix: Vec<Vec<isize>>, target: isize) -> Option<isize> {
+                        let mut min_sum = isize::MAX;
                         dfs(&matrix, 0, 0, target, &mut min_sum);
-                        if min_sum == i32::MAX {
+                        if min_sum == isize::MAX {
                             None
                         } else {
                             Some(min_sum)
@@ -1809,7 +1809,7 @@ macro_rules! int {
 
                     let pmap = &gd.get_pointmap($pmname);
 
-                    let target = $int.get_value_i32(gd);
+                    let target = $int.get_value_isize(gd);
                     
                     let mut matrix = vec![];
 
@@ -1855,11 +1855,11 @@ macro_rules! int {
                     */
                     
                     fn dfs(
-                        matrix: &Vec<Vec<i32>>,
+                        matrix: &Vec<Vec<isize>>,
                         row: usize,
-                        current_sum: i32,
-                        target: i32,
-                        min_sum: &mut i32,
+                        current_sum: isize,
+                        target: isize,
+                        min_sum: &mut isize,
                     ) {
                         if row == matrix.len() {
                             if current_sum >= target {
@@ -1877,24 +1877,24 @@ macro_rules! int {
                         }
                     }
                     
-                    fn min_sum_greater_equal(matrix: Vec<Vec<i32>>, target: i32) -> Option<i32> {
-                        let mut min_sum = i32::MAX;
+                    fn min_sum_greater_equal(matrix: Vec<Vec<isize>>, target: isize) -> Option<isize> {
+                        let mut min_sum = isize::MAX;
                         dfs(&matrix, 0, 0, target, &mut min_sum);
-                        if min_sum == i32::MAX {
+                        if min_sum == isize::MAX {
                             None
                         } else {
                             Some(min_sum)
                         }
                     }
 
-                    fn negate_vec(vec: Vec<i32>) -> Vec<i32> {
+                    fn negate_vec(vec: Vec<isize>) -> Vec<isize> {
                         vec.iter().map(|x| -x).collect()
                     }        
 
                     let pmap = &gd.get_pointmap($pmname);
 
                     // same problem just negate everything
-                    let target = - $int.get_value_i32(gd);
+                    let target = - $int.get_value_isize(gd);
                     
                     let cardset = $cardset.get_card_set(gd);
 
@@ -2094,7 +2094,7 @@ macro_rules! bool {
     }};
 
     (int: $int1:expr, $op:literal, $int2:expr) => {{
-        use crate::model::gamedata::game_data::GameData;
+        use crate::model::card_game_model::CardGameModel;
         use crate::model::base_types::g_bool::GBool;
 
         use std::sync::Arc;
@@ -2104,12 +2104,12 @@ macro_rules! bool {
                 Arc::new(
                     |cgm: &CardGameModel| {
                         match $op {
-                            "==" => $int1.get_value_i32(&cgm.gamedata) == $int2.get_value_i32(&cgm.gamedata),
-                            "!=" => $int1.get_value_i32(&cgm.gamedata) != $int2.get_value_i32(&cgm.gamedata),
-                            "<"  => $int1.get_value_i32(&cgm.gamedata) <  $int2.get_value_i32(&cgm.gamedata),
-                            ">"  => $int1.get_value_i32(&cgm.gamedata) >  $int2.get_value_i32(&cgm.gamedata),
-                            "<=" => $int1.get_value_i32(&cgm.gamedata) <= $int2.get_value_i32(&cgm.gamedata),
-                            ">=" => $int1.get_value_i32(&cgm.gamedata) >= $int2.get_value_i32(&cgm.gamedata),
+                            "==" => $int1.get_value_isize(&cgm.gamedata) == $int2.get_value_isize(&cgm.gamedata),
+                            "!=" => $int1.get_value_isize(&cgm.gamedata) != $int2.get_value_isize(&cgm.gamedata),
+                            "<"  => $int1.get_value_isize(&cgm.gamedata) <  $int2.get_value_isize(&cgm.gamedata),
+                            ">"  => $int1.get_value_isize(&cgm.gamedata) >  $int2.get_value_isize(&cgm.gamedata),
+                            "<=" => $int1.get_value_isize(&cgm.gamedata) <= $int2.get_value_isize(&cgm.gamedata),
+                            ">=" => $int1.get_value_isize(&cgm.gamedata) >= $int2.get_value_isize(&cgm.gamedata),
                             _    => {
                                         println!("Unknown Operator!");
                                         false
@@ -2325,8 +2325,8 @@ macro_rules! player_ref {
 
         RefPlayer {
             player: Arc::new(|gd: &GameData| {
-                    let current = gd.current as i32;
-                    let next    = ((current + 1) % (gd.turnorder.len() as i32)) as usize;
+                    let current = gd.current as isize;
+                    let next    = ((current + 1) % (gd.turnorder.len() as isize)) as usize;
                     let pname   = &gd.turnorder[next];
                     gd.get_player_copy(pname)
                 }),
@@ -2342,8 +2342,8 @@ macro_rules! player_ref {
 
         RefPlayer {
             player: Arc::new(|gd: &GameData| {
-                    let current = gd.current as i32;
-                    let len = gd.turnorder.len() as i32;
+                    let current = gd.current as isize;
+                    let len = gd.turnorder.len() as isize;
                     let previous    = ((current - 1 + len) % len) as usize;
                     let pname   = &gd.turnorder[previous];
                     gd.get_player_copy(pname)
@@ -2367,8 +2367,8 @@ macro_rules! player_ref {
 
         RefPlayer {
             player: Arc::new(|gd: &GameData| {
-                    let i       = $int.get_value_i32(gd) as i32;
-                    let len = gd.turnorder.len() as i32;
+                    let i       = $int.get_value_isize(gd) as isize;
+                    let len = gd.turnorder.len() as isize;
                     let index   = ((i - 1 + len) % len) as usize;
                     let pname   = &gd.turnorder[index];
                     gd.get_player_copy(pname)
@@ -2553,7 +2553,7 @@ macro_rules! endcondition {
 
     (once) => {{
         use crate::model::card_game_model::CardGameModel;
-        use crate::model::end_condition::EndCondition;
+        use crate::model::rule_set::end_condition::EndCondition;
 
         use std::sync::Arc;
         EndCondition {
@@ -2570,7 +2570,7 @@ macro_rules! endcondition {
     // all players are out of stage, winner is declared in Stage, etc...
     (untilend) => {{
         use crate::model::card_game_model::CardGameModel;
-        use crate::model::end_condition::EndCondition;
+        use crate::model::rule_set::end_condition::EndCondition;
 
         use std::sync::Arc;
 
@@ -2594,7 +2594,7 @@ macro_rules! stage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::model::stage::Stage;
+        use crate::model::rule_set::stage::Stage;
         use crate::model::card_game_model::CardGameModel;
 
         |cgm: &mut CardGameModel| {
@@ -2624,7 +2624,7 @@ macro_rules! substage {
         rules: ( $( $rule:expr ),* )
         $(,)?
     ) => {{
-        use crate::model::stage::Stage;
+        use crate::model::rule_set::stage::Stage;
         use crate::model::card_game_model::CardGameModel;
         
         let mut stage = Stage::new($stage_name);
@@ -3186,7 +3186,7 @@ macro_rules! winnerrule {
                 WinnerRule {
             winner: Arc::new(
                 |cgm: &CardGameModel| {
-                    let mut lowest_scoring_player: Option<(&String, i32)> = None;
+                    let mut lowest_scoring_player: Option<(&String, isize)> = None;
 
                     for p in cgm.gamedata.turnorder.iter() {
                         let player = cgm.gamedata.get_player(p);
@@ -3231,7 +3231,7 @@ macro_rules! winnerrule {
                 WinnerRule {
             winner: Arc::new(
                 |cgm: &CardGameModel| {
-                    let mut highest_scoring_player: Option<(&String, i32)> = None;
+                    let mut highest_scoring_player: Option<(&String, isize)> = None;
 
                     for p in cgm.gamedata.turnorder.iter() {
                         let player = cgm.gamedata.get_player(p);
@@ -3264,7 +3264,6 @@ macro_rules! winnerrule {
 
     (highest score lt $int:expr) => {{
         use crate::model::rules::scoring_rule::ScoringRule;
-        use crate::model::rules::score_rule::ScoreRule;
         use crate::model::rules::winner_rule::WinnerRule;
         use crate::model::rules::rule::Rule;
 
@@ -3275,9 +3274,9 @@ macro_rules! winnerrule {
                 WinnerRule {
             winner: Arc::new(
                 |cgm: &CardGameModel| {
-                    let mut highest_scoring_player: Option<(&String, i32)> = None;
+                    let mut highest_scoring_player: Option<(&String, isize)> = None;
 
-                    let boundary = $int.get_value_i32(&cgm.gamedata);
+                    let boundary = $int.get_value_isize(&cgm.gamedata);
 
                     for p in cgm.gamedata.turnorder.iter() {
                         let player = cgm.gamedata.get_player(p);

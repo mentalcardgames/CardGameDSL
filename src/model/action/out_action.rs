@@ -24,21 +24,21 @@ impl std::fmt::Debug for OutAction {
     }
 }
 impl OutAction {
-    pub fn evaluate(&self, cgm: &CardGameModel) -> Vec<GameFlowChange> {
+    pub fn run(&self, cgm: &CardGameModel) -> GameFlowChange {
         let pname = vec![(self.pref).get_ref(&cgm.gamedata).name];
 
         match self.outof {
             OutOf::Stage => {
-                vec![GameFlowChange::OutOfStage(pname)]
+                GameFlowChange::OutOfStage(pname)
             },
             OutOf::Play => {
-                vec![GameFlowChange::OutOfPlay(pname)]
+                GameFlowChange::OutOfPlay(pname)
             },
             OutOf::GameSuccessful => {
-                vec![GameFlowChange::OutOfGameSuccessful(pname)]
+                GameFlowChange::OutOfGameSuccessful(pname)
             },
             OutOf::GameFail => {
-                vec![GameFlowChange::OutOfGameFail(pname)]
+                GameFlowChange::OutOfGameFail(pname)
             },
         }
     } 
