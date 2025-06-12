@@ -10,7 +10,7 @@ use crate::model::location::location::{Location};
 #[derive(Debug, Clone)]
 pub struct Player {
     pub name: String,
-    pub score: i32,
+    pub score: isize,
     // Location needs to be a Rc<RefCell<Location>>
     // Because it needs to be mut borrowed with other Locations
     // And because they are all in a Model that means they need to be

@@ -27,7 +27,7 @@ impl Clone for ScoreRule {
 }
 impl ScoreRule {
     pub fn run(&self, cgm: &mut CardGameModel) -> GameFlowChange {
-        let score = (self.score).get_value_i32(&cgm.gamedata);
+        let score = (self.score).get_value_isize(&cgm.gamedata);
         let name = (self.pref).get_ref(&cgm.gamedata).name;
 
         let player = cgm.gamedata.get_mut_player(&name);
