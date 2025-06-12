@@ -7,12 +7,12 @@ pub struct IntCollection {
     pub str_repr: String,
 }
 impl IntCollection {
-    pub fn eval_ints(&self, gd: &GameData) -> Vec<i32> {
-        self.ints.iter().map(|tint| tint.get_value_i32(gd)).collect()
+    pub fn eval_ints(&self, gd: &GameData) -> Vec<isize> {
+        self.ints.iter().map(|tint| tint.get_value_isize(gd)).collect()
     }
 
-    pub fn get_i32_at(&self, gd: &GameData, index: usize) -> i32 {
-        self.ints[index].get_value_i32(gd)
+    pub fn get_isize_at(&self, gd: &GameData, index: usize) -> isize {
+        self.ints[index].get_value_isize(gd)
     }
 
     pub fn get_usize_at(&self, gd: &GameData, index: usize) -> usize {
@@ -23,18 +23,18 @@ impl IntCollection {
         self.ints[index].clone()
     }
 
-    pub fn get_min(&self, gd: &GameData) -> i32 {
+    pub fn get_min(&self, gd: &GameData) -> isize {
         let ints = self.eval_ints(gd);
         *ints.iter().min().expect(&format!("No Minimum found in {}!", self.str_repr))
     }
 
-    pub fn get_max(&self, gd: &GameData) -> i32 {
+    pub fn get_max(&self, gd: &GameData) -> isize {
         let ints = self.eval_ints(gd);
         *ints.iter().max().expect(&format!("No Minimum found in {}!", self.str_repr))
     }
 
-    pub fn get_sum(&self, gd: &GameData) -> i32 {
+    pub fn get_sum(&self, gd: &GameData) -> isize {
         let ints = self.eval_ints(gd);
-        ints.iter().sum::<i32>()
+        ints.iter().sum::<isize>()
     }    
 }
