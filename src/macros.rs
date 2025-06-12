@@ -3001,7 +3001,6 @@ macro_rules! winnerrule {
     }};
 }
 
-// TODO: only allowes one call pre type rigth now
 macro_rules! setup {
     (
         $ctx:expr,

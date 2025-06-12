@@ -125,74 +125,124 @@
             <pre><code class="language-rust">
         let mut cgm = CardGameModel::new("MyCardGame");
             </code></pre>
-            <h3> Player </h3>
+            <h3> Setup </h3>
             <p>
-                !!! TODO: If the Language-Design is done (edit this how it should look like) !!! <br>
-                To add Players to the Model (at the moment) you need to give the Model the Player-Names.<br>
-                It looks like this:<br>
+                At first you have to set up the preliminaries of the game. For that you can use the setup-macro as followed:
             </p>
             <pre><code class="language-rust">
-        // Initializing the Model
-        let mut cgm = CardGameModel::new("MyCardGame");
+                let mut cgm = CardGameModel::new("MyCardGame");
 
-        // Adding (and Initializing) Players to the Model
-        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+                setup!(
+                    &mut cgm.gamedata,
+                );
             </code></pre>
             <p>
-                The Macros players!(...) is a Closure which takes a &mut GameData and adds the Players to the GameData.<br>
-                (This structure with Clousres is used for 'almost' every Macros).<br>
+                setup!() takes a &mut GameData as a mandatory first argument. <br>
+                Now we can set the framework of the game with some predefined keywords. The syntax generally looks like this:
             </p>
-        
-            <h3> Team </h3>
-
+            <pre><code class="language-rust">
+                keyword: input1, input2,
+            </code></pre>
             <p>
-                Let's say we need Teams in our Game.<br>
+                The possible keywords are:
+            </p>
+            <h4> player </h4>
+            <p>
+                To add players you need to give the Model their names as Strings.<br>
+            </p>
+            <pre><code class="language-rust">
+        // Initializing the model
+        let mut cgm = CardGameModel::new("MyCardGame");
+
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
+
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
+        );
+            </code></pre>
+       
+            <h4> teams </h4>
+            <p>
+                Let's say we need teams in our game.<br>
                 And let's also say that nobody likes "Kimmy".<br>
                 This can be done like this:<br>
             </p>
             <pre><code class="language-rust">
-        // Initializing the Model
+        // Initializing the model
         let mut cgm = CardGameModel::new("MyCardGame");
 
-        // Adding (and Initializing) Players to the Model
-        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
 
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
-        
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
+
+            // Adding teams to the model
+            teams: "TheBestTeam", ("Jimmy", "Timmy"),
+            teams: "TheWorstTeam", ("Kimmy"),
+        );
             </code></pre>
+            <p>
+                First you give the team a name than in brakets you add players to that team, all as Strings.
+            </p>
 
-            <h3> Location </h3>
+            <h4> location </h4>
 
             <p>
-                Now we have our Players and Teams. BUT WHERE ARE THE CARDS?<br>
+                Now we have our players and teams. BUT WHERE ARE THE CARDS?<br>
                 Do we have a Card-Stack? Where are the Players-Cards located?<br>
-                We first should declare some Locations where Cards can be placed!<br>
+                We first should declare some locations where cards can be placed!<br>
             </p>
 
             <pre><code class="language-rust">
-        // Initializing the Model
+        // Initializing the model
         let mut cgm = CardGameModel::new("MyCardGame");
 
-        // Adding (and Initializing) Players to the Model
-        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
 
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
-        
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
 
-        // add Location 'hand' to each Player
-        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+            // Adding teams to the model
+            teams: "TheBestTeam", ("Jimmy", "Timmy"),
+            teams: "TheWorstTeam", ("Kimmy"),
 
-        // Add a Stack to the Table
-        location_on!("stack", table)(&mut cgm.gamedata);
+            // Add location 'hand' to each player
+            location: "hand", players: "Jimmy", "Timmy", "Kimmy",
+
+            // Add a stack to the table
+            location: "stack", table,
+
+        );
             </code></pre>
+            <p>
+                First we give the location a name. Now we specify the owner with 3 additional keywords: <br>
+                <i>table</i> when want an general location owned by no one. <br>
+                <i>players</i> for locations owned by a player. <br>
+                <i>team</i> for locations owned by a player. <br>
+                <br>
+                <b>Important:</b> The syntax differs for each keyword.
+            </p>
+            <pre><code class="language-rust">
+                // table
+                location: "loaction-name", table,
 
-            <h3> Card </h3>
+                // team
+                loaction: "location-name", team: "target-team",
+
+                // players
+                location: "location-name", players: "target-player1", "target-player2",     
+            </code></pre>
+            <p> 
+                table has no target, team one possible target and players can have multiple possible targets.
+            </p>
+
+            <h4> cards </h4>
 
             <p>
                 Now we have almost everything Set-Up for a Card Game!<br>
@@ -217,131 +267,167 @@
                 Let's say we have all our Cards in the Stack on the Table:<br>
             </p>
             <pre><code class="language-rust">
-        // Initializing the Model
+        // Initializing the model
         let mut cgm = CardGameModel::new("MyCardGame");
 
-        // Adding (and Initializing) Players to the Model
-        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
 
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
-        
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
 
-        // add Location 'hand' to each Player
-        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+            // Adding teams to the model
+            teams: "TheBestTeam", ("Jimmy", "Timmy"),
+            teams: "TheWorstTeam", ("Kimmy"),
 
-        // Add a Stack to the Table
-        location_on!("stack", table)(&mut cgm.gamedata);
+            // Add location 'hand' to each player
+            location: "hand", players: "Jimmy", "Timmy", "Kimmy",
 
-        // Create Cards on the Location 'stack'
-        card_on!(
-            "stack",
-            {
-                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
-                Suite("Diamond", "Hearts"),
-                Color("Red")
-            },
-            {
-                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
-                Suite("Spades", "Clubs"),
-                Color("Black")
-            }
-        )(&mut cgm.gamedata);
+            // Add a stack to the table
+            location: "stack", table,
+
+            // Create cards on the location 'stack'
+            cards:  
+                "stack",
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Diamond", "Hearts"),
+                    Color("Red")
+                },
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Spades", "Clubs"),
+                    Color("Black")
+                },
+        );
             </code></pre>
 
+            <pre><code class="language-rust">
+                cards: "target-location", { (key((value: String), *)), *},
+            </code></pre>
             <p>
-                card_on!(locname: String, { (key((value: String), *)), *}) computes the Cross-Product of the inside of '{''}'.<br>
+                cards computes the Cross-Product of the inside of '{''}'.<br>
                 In the Example we declare Cards with the Color 'Black' and 'Red' seperately, because of the Cross-Product!<br>
             </p>
 
-            <h3> Precedence </h3>
+            <h4> Precedence </h4>
 
             <p>
                 Now we have Cards!<br>
-                For lots Games (e.g. Trick-Taking-Games) the importance of a Card-Precedence is very important.<br>
-                What we mean with Card-Precedence is: Which Card is higher, lower or the same to another Card? <br>
+                For lots games (e.g. Trick-Taking-Games) the importance of a Card-Precedence is very important.<br>
+                What we mean with Card-Precedence is: Which Card is higher, lower or the same to another Card. <br>
             </p>
         
             <pre><code class="language-rust">
-        // Initializing the Model
+        // Initializing the model
         let mut cgm = CardGameModel::new("MyCardGame");
 
-        // Adding (and Initializing) Players to the Model
-        players!("Jimmy", "Timmy", "Kimmy")(&mut cgm.gamedata);
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
 
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheBestTeam", ("Jimmy", "Timmy"))(&mut cgm.gamedata);
-        
-        // Adding (and Initializing) 'a' Team to the Model
-        team!("TheWorstTeam", ("Kimmy"))(&mut cgm.gamedata);
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
 
-        // add Location 'hand' to each Player
-        location_on!("hand", ("Jimmy", "Timmy", "Kimmy"))(&mut cgm.gamedata);
+            // Adding teams to the model
+            teams: "TheBestTeam", ("Jimmy", "Timmy"),
+            teams: "TheWorstTeam", ("Kimmy"),
 
-        // Add a Stack to the Table
-        location_on!("stack", table)(&mut cgm.gamedata);
+            // Add location 'hand' to each player
+            location: "hand", players: "Jimmy", "Timmy", "Kimmy",
 
-        // Create Cards on the Location 'stack'
-        card_on!(
-            "stack",
-            {
-                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
-                Suite("Diamond", "Hearts"),
-                Color("Red")
-            },
-            {
-                Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
-                Suite("Spades", "Clubs"),
-                Color("Black")
-            }
-        )(&mut cgm.gamedata);
+            // Add a stack to the table
+            location: "stack", table,
 
-        // Creating a Precedence on the Attribute 'Rank'
-        precedence!("Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"))(&mut cgm.gamedata);
+            // Create cards on the location 'stack'
+            cards:  
+                "stack",
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Diamond", "Hearts"),
+                    Color("Red")
+                },
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Spades", "Clubs"),
+                    Color("Black")
+                },
+            
+            // Creating a precedence on the attribute 'Rank'
+            precedence: "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+        );
             </code></pre>
         
             <p>
                 The lowest Precedence is Rank=2 and the highest is Rank=A.
             </p>
 
-            <h3> PointMap </h3>
+            <h4> pointmap </h4>
 
             <p>
                 However, we might want to give arbitrary values and maybe multiple values!<br>
-                For this we use a PointMap!<br>
-                A PointMap assigns a Vector of Values to an Attribute.<br>
-                In 'Black Jack' the Ace can have 1 or 11 as a Value!<br> 
+                For this we use a PointMap<br>
+                A PointMap assigns a vector of values to an attribute.<br>
+                In 'Black Jack' the Ace can have 1 or 11 as a value!<br> 
             </p>
 
             <pre><code class="language-rust">
-        // Initializing the Model
+        // Initializing the model
         let mut cgm = CardGameModel::new("MyCardGame");
 
-        ...
+        // Initializing the setup
+        setup!(
+            &mut cgm.gamedata,
 
-        // We create a PointMap (for the Special case 'Black Jack')
-        pointmap!(
-            "BlackJackRank",
-            nested: {  
-                "Rank", (
-                "2" => [2],
-                "3" => [3],
-                "4" => [4],
-                "5" => [5],
-                "6" => [6],
-                "7" => [7],
-                "8" => [8],
-                "9" => [9],
-                "T" => [10],
-                "J" => [10],
-                "Q" => [10],
-                "K" => [10],
-                "A" => [11, 1]
-                )
-            },
-        )(&mut cgm.gamedata);
+            // Adding players to the model
+            player: "Jimmy", "Timmy", "Kimmy",
+
+            // Adding teams to the model
+            teams: "TheBestTeam", ("Jimmy", "Timmy"),
+            teams: "TheWorstTeam", ("Kimmy"),
+
+            // Add location 'hand' to each player
+            location: "hand", players: "Jimmy", "Timmy", "Kimmy",
+
+            // Add a stack to the table
+            location: "stack", table,
+
+            // Create cards on the location 'stack'
+            cards:  
+                "stack",
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Diamond", "Hearts"),
+                    Color("Red")
+                },
+                {
+                    Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
+                    Suite("Spades", "Clubs"),
+                    Color("Black")
+                },
+
+            // We create a PointMap (for the Special case 'Black Jack')
+            pointmap:  
+                "BlackJackRank",
+                nested: {  
+                    "Rank", (
+                    "2" => [2],
+                    "3" => [3],
+                    "4" => [4],
+                    "5" => [5],
+                    "6" => [6],
+                    "7" => [7],
+                    "8" => [8],
+                    "9" => [9],
+                    "T" => [10],
+                    "J" => [10],
+                    "Q" => [10],
+                    "K" => [10],
+                    "A" => [11, 1]
+                    )
+                },
+        );
             </code></pre>
 
             <p>
@@ -352,10 +438,13 @@
         // Initializing the Model
         let mut cgm = CardGameModel::new("MyCardGame");
 
+        // Initializing the setup
+        setup!(
+
         ...
 
         // We create a PointMap (for the Special case 'Black Jack')
-        pointmap!(
+        pointmap:
             "BlackJackRank",
             list: {  
                 ("Rank", "2") => [2],
@@ -372,7 +461,7 @@
                 ("Rank", "K") => [10],
                 ("Rank", "A") => [1, 11],
             },
-        )(&mut cgm.gamedata);
+        );
             </code></pre>
 
             <p>
@@ -383,10 +472,13 @@
         // Initializing the Model
         let mut cgm = CardGameModel::new("MyCardGame");
 
+        // Initializing the setup
+        setup!(
+
         ...
 
         // We create a PointMap (for the Special case 'Black Jack')
-        pointmap!(
+        pointmap:
             "BlackJackRank",
             nested: {  
                 "Rank", (
@@ -411,13 +503,13 @@
                 ("Suite", "Hearts")   => [1],
                 ("Suite", "Diamonds") => [1],
             },
-        )(&mut cgm.gamedata);
+        );
             </code></pre>
 
 
             <p>
-                Another use of PointMap would be to declare a Special Point-Distribution (e.g. in a Trick).<br>
-                In the German Game 'Skat', we have a distribution like this:<br>
+                Another use of PointMap would be to declare a special Point-Distribution (e.g. in a Trick).<br>
+                In the german game 'Skat', we have a distribution like this:<br>
                 7, 8, 9 => [0]<br>
                 J => [2]<br>
                 Q => [3]<br>
@@ -425,7 +517,7 @@
                 T => [10]<br>
                 A => [11]<br>
                 <br>
-                This assigning of Points is not Possible with Precedence!
+                <b>Important:</b> This assigning of points is not possible with precedence!
             </p>
 
             <h3> Card-Combination </h3>
