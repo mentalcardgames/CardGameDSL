@@ -3307,6 +3307,125 @@ macro_rules! winnerrule {
             str_repr: format!("WINNER IS THE PLAYER WITH THE HIGHEST SCORE SMALLER THAN {}", $int.str_repr)
         }))
     }};
+}
 
+#[macro_export]
+macro_rules! setup {
+    (
+        $cgm_gamedata:expr,
 
+        $(
+        player: $($player_names:expr),* ;
+        )*
+
+        $(
+        teams: $team_name:expr, ($($p:expr),*) ;
+        )*
+
+        
+        turn_order: $order:tt ;
+        
+        
+        $(
+        location_table: $location_name_table:literal ;
+        )*
+
+        $(
+        location_players: $location_name_players:literal, players : $($target_players:expr),* ;
+        )* 
+
+        $(
+        location_team: $location_name_team:literal, team : $target_team:expr ;
+        )*
+
+        $(
+        cards: 
+            $card_location:expr,
+            $(
+                {
+                    $(
+                        $attribute_key:ident($($attribute_value:expr),* $(,)?)
+                    ),* $(,)?
+                }
+            ),* $(,)? ;
+        )*
+
+        $(
+        precedence: $precedence_name:expr, ($($precedence_value:expr),* $(,)?) ;
+        )*
+
+        $(
+        pointmap: 
+            $pmapname:expr,        
+            $(
+                nested: { 
+                    $($name1:expr,
+                        ($($key1:expr => [$($value1:expr),*] ),* $(,)?)
+                    ),* $(,)?
+                }
+            ),* $(,)?
+            $(
+                list: { 
+                    $(
+                        ($name2:expr, $key2:expr) => [$value2:expr]
+                    ),* $(,)? 
+                }
+            ),* $(,)? ;
+        )*        
+    ) => {
+        $(
+        player!($($player_names),*)($cgm_gamedata);
+        )*
+
+        $(
+        team!($team_name, ($($p),*))($cgm_gamedata);
+        )*
+        
+        turn_order!($order)($cgm_gamedata);
+        
+        $(
+        location_on!($location_name_table, table)($cgm_gamedata);
+        )*
+
+        $(
+        location_on!($location_name_players, players: $($target_players),*)($cgm_gamedata);
+        )*
+
+        $(
+        location_on!($location_name_team, team: $target_team)($cgm_gamedata);
+        )*
+
+        $(
+        card_on!(
+            $card_location,
+            $(
+                {
+                    $(
+                        $attribute_key($($attribute_value),*)
+                    ),*
+                }
+            ),*
+        )($cgm_gamedata);
+        )*
+
+        $(
+        precedence!($precedence_name, ($($precedence_value),*))($cgm_gamedata);
+        )*
+
+        $(
+        pointmap!(
+            $pmapname,
+            $(
+                nested: {
+                    $($name1, ($($key1 => [$($value1),*]),*)),*
+                }
+            )*
+            $(
+                list: {
+                    $(($name2, $key2) => [$value2]),*
+                }
+            )*
+        )($cgm_gamedata);
+        )*
+    };
 }

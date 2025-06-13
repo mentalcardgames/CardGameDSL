@@ -7,17 +7,17 @@ pub fn run() {
     setup!(
         &mut cgm.gamedata,
 
-        player: "P1", "P2",
+        player: "P1", "P2";
 
-        teams: "Team1", ("P1", "P2"),
+        teams: "Team1", ("P1", "P2");
 
-        turnorder: "P1", "P2",
-        // turnorder : random,
+        turn_order: ("P1", "P2") ;
+        // turn_order: random;
 
-        location: "hand", players: "P1", "P2",
-        location: "stack", table,
+        location_table: "stack";
+        location_players: "hand", players: "P1", "P2";
 
-        // location: "test", team: "Team1",
+        // location_team: "test", team: "Team1";
 
         cards: 
             "stack",
@@ -30,7 +30,7 @@ pub fn run() {
             Rank("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
             Suite("Spades", "Clubs"),
             Color("Black"),
-            },
+            };
 
         // precedence: "Rank", ("2", "3", "4", "5", "6", "7", "8", "9", "T", "J", "Q", "K", "A"),
 
@@ -51,10 +51,10 @@ pub fn run() {
                 "K" => [10],
                 "A" => [11, 1]
                 )
-            },
+            };
     );
-
-    /*
+     
+     
     stage!(
         stage "get-card" player_ref!(current), endcondition!(
             once
@@ -93,5 +93,9 @@ pub fn run() {
         ))
     )(&mut cgm);
 
-    cgm.game_loop();  */
+    cgm.game_loop();  
+}
+
+#[test]
+fn test_setup() {
 }
